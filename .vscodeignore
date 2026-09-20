@@ -17,3 +17,4 @@ esbuild.mjs
 .npm-cache/**
 examples/**
 *.vsix
+.tmp-*/**

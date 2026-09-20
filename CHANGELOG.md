@@ -33,6 +33,11 @@ extension — plain VS Code providers, in-process, no language server.
   popup. A type or member list after `.` or `\` still appears immediately, and
   VS Code's word-based suggestions are off for PureBasic so they cannot open the
   popup early themselves. Set the setting to 0 for the previous behaviour.
+- **Enter finishes a block**: pressing Enter at the end of an opener line
+  re-cases it and puts its terminator on the next line, indented like the opener
+  (`procedure test()` + Enter gives `Procedure test()`, an indented body line and
+  `EndProcedure`). A line that opens nothing is left alone. Delivered through
+  on-type formatting, which is on for PureBasic by default.
 - **Hover** documentation for commands and for the user's own symbols.
 - **Signature help** while typing a call, marking optional parameters and
   highlighting the active one.

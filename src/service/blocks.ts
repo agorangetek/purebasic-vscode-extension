@@ -11,6 +11,7 @@
  * being spelled out, so the inserted text is always cased like the label the
  * completion list showed.
  */
+import { maskSource } from './parser.ts';
 import type { PbBlock } from './types.ts';
 
 /**
@@ -108,4 +109,33 @@ export function expectsName(before: string): boolean {
 	return /^\s*(?:runtime\s+)?(?:procedure|proceduredll|procedurec|procedurecdll|structure|interface|module|declaremodule|macro|enumeration|enumerationbinary)\s*$/i.test(
 		before,
 	);
+}
+
+/** Escape a literal for use in a RegExp. */
+function escapeRegExp(text: string): string {
+	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The block a finished line opens, if it opens one.
+ *
+ * This is what Enter uses: the terminator belongs on the following line.  A
+ * line that already terminates its block (`If a : x = 1 : EndIf`) opens
+ * nothing, and neither does a line whose "keyword" is really inside a comment
+ * or a string.
+ *
+ * There is no `Then` to worry about: PureBasic has no such keyword (a
+ * single-line If is written with an explicit EndIf).
+ */
+export function blockOpenerAt(lineText: string, blocks: readonly PbBlock[]): PbBlock | undefined {
+	const masked = maskSource(lineText)[0] ?? '';
+	if (masked.trim() === '') return undefined;
+
+	for (const block of blocks) {
+		if (!new RegExp(`^\\s*${escapeRegExp(block.opener)}\\b`, 'i').test(masked)) continue;
+		// all on one line and already terminated
+		if (new RegExp(`\\b${escapeRegExp(block.closers[0])}\\b`, 'i').test(masked)) return undefined;
+		return block;
+	}
+	return undefined;
 }

@@ -220,6 +220,7 @@ const registrations: Record<string, { selector: string; provider: any }[]> = {
 	symbols: [],
 	formatting: [],
 	rangeFormatting: [],
+	onType: [],
 };
 const commands = new Map<string, (...args: unknown[]) => unknown>();
 const statusMessages: string[] = [];
@@ -247,7 +248,10 @@ const vscodeMock = {
 	SignatureInformation,
 	ParameterInformation,
 	DocumentSymbol,
-	TextEdit: { replace: (range: unknown, newText: string) => ({ range, newText }) },
+	TextEdit: {
+		replace: (range: unknown, newText: string) => ({ range, newText }),
+		insert: (position: Position, newText: string) => ({ range: new Range(position, position), newText }),
+	},
 	CompletionItemKind: {
 		Function: 2,
 		Method: 1,
@@ -319,6 +323,10 @@ const vscodeMock = {
 		},
 		registerDocumentRangeFormattingEditProvider: (selector: string, provider: unknown) => {
 			registrations.rangeFormatting!.push({ selector, provider });
+			return disposable;
+		},
+		registerOnTypeFormattingEditProvider: (selector: string, provider: unknown) => {
+			registrations.onType!.push({ selector, provider });
 			return disposable;
 		},
 	},
@@ -403,6 +411,7 @@ test('integration: extension host wiring', { skip }, async (t) => {
 			'symbols',
 			'formatting',
 			'rangeFormatting',
+			'onType',
 		] as const) {
 			assert.equal(registrations[group]!.length, 1, `${group} provider`);
 			assert.equal(registrations[group]![0]!.selector, 'purebasic');
@@ -484,6 +493,47 @@ test('integration: extension host wiring', { skip }, async (t) => {
 		assert.ok(names.includes('Point'));
 		assert.ok(names.includes('#MAX'));
 		assert.ok(!names.includes('result'), 'locals stay out of the outline');
+	});
+
+	await t.test('Enter finishes a block opener: re-cased, with its terminator', () => {
+		const provider = registrations.onType[0]!.provider;
+		assert.equal(registrations.onType[0]!.selector, 'purebasic');
+
+		// what the editor looks like just after Enter: the opener above, and an
+		// auto-indented empty line with the cursor on it
+		const doc = new TextDocument(
+			'/ws/enter.pb',
+			['Procedure Outer()', '\tprocedure test()', '\t\t', ''].join('\n'),
+		);
+		const edits = provider.provideOnTypeFormattingEdits(doc, new Position(2, 2), '\n') as {
+			newText: string;
+		}[];
+
+		assert.ok(edits, 'expected edits when Enter finishes the line');
+		assert.equal(edits.length, 2, 'a re-case and a terminator');
+		assert.equal(edits[0]!.newText, '\tProcedure test()', 'the opener is re-cased');
+		assert.equal(edits[1]!.newText, '\n\tEndProcedure', 'the terminator is indented like the opener');
+	});
+
+	await t.test('a line that opens nothing gets no terminator', () => {
+		const provider = registrations.onType[0]!.provider;
+		const doc = new TextDocument('/ws/if.pb', ['if x > 1 : y = 2 : EndIf', '\t', ''].join('\n'));
+		const edits = provider.provideOnTypeFormattingEdits(doc, new Position(1, 1), '\n') as {
+			newText: string;
+		}[];
+
+		assert.equal(edits?.length, 1, 'only the re-case');
+		assert.equal(edits![0]!.newText, 'If x > 1 : y = 2 : EndIf');
+	});
+
+	await t.test('a closing paren re-cases the line it finishes', () => {
+		const provider = registrations.onType[0]!.provider;
+		const doc = new TextDocument('/ws/paren.pb', ['procedure test()', ''].join('\n'));
+		const edits = provider.provideOnTypeFormattingEdits(doc, new Position(0, 16), ')') as {
+			newText: string;
+		}[];
+
+		assert.equal(edits?.[0]?.newText, 'Procedure test()');
 	});
 
 	await t.test('Format Text restores the canonical spelling', async () => {

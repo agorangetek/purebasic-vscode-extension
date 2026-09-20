@@ -5,7 +5,8 @@
  * this file only translates between those plain objects and the vscode API.
  */
 import * as vscode from 'vscode';
-import { builtinCount, builtinSource } from './service/builtins.ts';
+import { allBlocks, builtinCount, builtinSource } from './service/builtins.ts';
+import { blockOpenerAt } from './service/blocks.ts';
 import { canonicalizeIdentifiers } from './service/casing.ts';
 import { parseDocument } from './service/parser.ts';
 import { buildCompletions } from './service/completion.ts';
@@ -303,6 +304,58 @@ export function activate(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.languages.registerDocumentFormattingEditProvider(LANGUAGE, formattingProvider),
 		vscode.languages.registerDocumentRangeFormattingEditProvider(LANGUAGE, formattingProvider),
+	);
+
+	/*
+	 * Enter after a block opener puts the terminator on the next line, and the
+	 * line that was just finished is re-cased in the same keystroke -- the two
+	 * halves of what the PureBasic IDE calls a smart newline.
+	 *
+	 * On-type formatting is the only way an extension can act on a keystroke
+	 * without taking over typing itself, so this rides on editor.formatOnType
+	 * (on for PureBasic by default).  The edits are all after the cursor, so the
+	 * cursor stays where the user put it, in the body.
+	 */
+	context.subscriptions.push(
+		vscode.languages.registerOnTypeFormattingEditProvider(
+			LANGUAGE,
+			{
+				provideOnTypeFormattingEdits(document, position, ch) {
+					if (!config().canonicalCase) return undefined;
+					const edits: vscode.TextEdit[] = [];
+					const parsed = indexOf(document);
+
+					// the line the user just finished: this one for ')', the one
+					// above for Enter, which has already opened a new line
+					const finished = position.line - (ch === '\n' ? 1 : 0);
+					if (finished < 0) return undefined;
+					const line = document.lineAt(finished);
+
+					const recased = canonicalizeIdentifiers(line.text, parsed.symbols);
+					if (recased.changes > 0) {
+						edits.push(vscode.TextEdit.replace(line.range, recased.text));
+					}
+
+					// a block opener gets its terminator, indented like the opener
+					if (ch === '\n' && document.lineAt(position.line).text.trim() === '') {
+						const block = blockOpenerAt(line.text, allBlocks());
+						if (block) {
+							const indent = /^\s*/.exec(line.text)?.[0] ?? '';
+							edits.push(
+								vscode.TextEdit.insert(
+									document.lineAt(position.line).range.end,
+									`\n${indent}${block.closers[0]}`,
+								),
+							);
+						}
+					}
+
+					return edits.length > 0 ? edits : undefined;
+				},
+			},
+			'\n',
+			')',
+		),
 	);
 
 	/* ---------------------------------------------------------- completion */

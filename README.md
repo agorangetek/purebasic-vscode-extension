@@ -97,6 +97,20 @@ another keyword.
   by the character itself, so those appear straight away. VS Code's own
   word-based suggestions are turned off for PureBasic, because otherwise they
   would open the popup on the first keystroke regardless.
+* **Enter closes what you opened** — pressing Enter at the end of an opener line
+  re-cases that line and puts its terminator on the next one, indented like the
+  opener, leaving the cursor in the body:
+
+  ```text
+  procedure test()          Procedure test()
+                            |
+                            EndProcedure
+  ```
+
+  A line that opens nothing — `If x : y = 2 : EndIf`, a comment, a plain
+  assignment — is left alone, as is a `Declare` or `Prototype`. This rides on
+  `editor.formatOnType`, which is on for PureBasic by default: it is how an
+  extension can act on a keystroke without taking typing over.
 
 ### Hover and signature help
 
@@ -137,7 +151,8 @@ files.
 | `purebasic.completion.minChars` | `3` | Characters to type before the popup appears (`0` = as soon as you type). |
 | `purebasic.index.workspace` | `true` | Index `.pb`/`.pbi` files across the workspace. |
 | `purebasic.index.maxFiles` | `400` | Cap on indexed workspace files. |
-| `purebasic.format.canonicalCase` | `true` | Restore canonical spelling when formatting. |
+| `purebasic.format.canonicalCase` | `true` | Restore canonical spelling when formatting and on Enter. |
+| `editor.formatOnType` (per language) | `true` | On for PureBasic by default; the switch for the Enter behaviour above. |
 | `purebasic.trace.server` | `"off"` | Log language service activity to the *PureBasic* output channel. |
 
 ## Commands

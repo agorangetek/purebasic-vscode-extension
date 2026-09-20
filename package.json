@@ -109,7 +109,8 @@
 		},
 		"configurationDefaults": {
 			"[purebasic]": {
-				"editor.wordBasedSuggestions": "off"
+				"editor.wordBasedSuggestions": "off",
+				"editor.formatOnType": true
 			}
 		},
 		"commands": [
