@@ -260,9 +260,19 @@
 				},
 				{
 					"command": "purebasic.toggleDebugger",
-					"when": "editorLangId == purebasic",
+					"when": "editorLangId == purebasic && !purebasic.debuggerEnabled",
 					"group": "navigation@11",
-					"toggled": "purebasic.debuggerEnabled"
+					"icon": "$(bug)"
+				},
+				{
+					"//": "The same button in green while the debugger is on. A file icon keeps its own colours, which a codicon cannot: `toggled` only tints the background.",
+					"command": "purebasic.toggleDebugger",
+					"when": "editorLangId == purebasic && purebasic.debuggerEnabled",
+					"group": "navigation@11",
+					"icon": {
+						"light": "resources/debugger-on-light.svg",
+						"dark": "resources/debugger-on-dark.svg"
+					}
 				},
 				{
 					"command": "purebasic.compilerSettings",
