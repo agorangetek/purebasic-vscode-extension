@@ -4,6 +4,22 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.14] - 2026-09-20
+
+### Added
+
+- **Symbolic operators are scoped**, as `keyword.operator.symbol.purebasic`: `=`, `+`, `-`, `*`, `/`,
+  `%`, `<`, `>`, `&`, `|` and the two-character forms. The PureBasic IDE's Monokai scheme gives them
+  the keyword colour (its OperatorColor), and no selector could reach them while they were
+  unscoped. The rule sits after the sigil rules, so the `*` of `*p` is still a pointer and only a
+  lone `*` -- a multiplication -- is an operator.
+
+### Changed
+
+- A `*`-prefixed field declaration (`*Entry` inside a `Structure`) is a pointer, not a member: the
+  IDE gives it the pointer colour and it has to match `*buffer`. A plain field is still scoped like
+  its `\field` reader.
+
 ## [0.1.13] - 2026-09-20
 
 ### Changed

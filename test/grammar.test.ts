@@ -323,9 +323,13 @@ test('a reference carries its sigil, even before the name is typed', { skip }, a
 	const beforePointer = lines[3]!.find((t) => t.text === '@');
 	assert.ok(beforePointer?.scopes.includes('variable.other.reference.purebasic'));
 
-	// and the multiplication sign is not a reference
+	// the multiplication sign is an operator, never a pointer or a reference
 	const multiply = lines[4]!.filter((t) => t.text === '*' || t.text === '@');
-	assert.deepEqual(multiply, [], 'neither @ nor * appears in a multiplication');
+	assert.equal(multiply.length, 1, 'the `*` of `a * b` tokenizes');
+	assert.ok(
+		multiply[0]!.scopes.includes('keyword.operator.symbol.purebasic'),
+		`a multiplication is an operator, got ${multiply[0]!.scopes.join(' ') || 'no scope'}`,
+	);
 });
 
 /*
@@ -361,9 +365,11 @@ test('a structure member is scoped the same where it is declared and read', { sk
 	// the declaration and the read share one scope
 	assert.equal(innermost(2, 'Function'), 'variable.other.member.purebasic');
 	assert.equal(innermost(8, '\\Function'), innermost(2, 'Function'));
-	assert.equal(innermost(6, '*Entry'), 'variable.other.member.purebasic');
-	assert.equal(innermost(9, '\\Entry'), innermost(6, '*Entry'));
 	assert.equal(innermost(5, 'Items'), 'variable.other.member.purebasic');
+
+	// a `*` field is a pointer, as the PureBasic IDE colours it -- the same as a
+	// `*` variable, which is what a pointer has to match
+	assert.equal(innermost(6, '*Entry'), 'variable.other.pointer.purebasic');
 
 	// the block markers stay structure keywords, nested or not
 	for (const [line, text] of [
@@ -433,4 +439,30 @@ test('a multiplication sign is not a pointer', { skip }, async () => {
 	assert.ok(pointer?.scopes.includes('variable.other.pointer.purebasic'), 'a real pointer keeps its scope');
 	const declared = lines[4]!.find((t) => t.text.includes('*Buffer'));
 	assert.ok(declared?.scopes.includes('variable.other.pointer.purebasic'));
+});
+
+test('symbolic operators are scoped, the sigils are not', { skip }, async () => {
+	// the PB IDE's Monokai scheme gives operators the keyword colour, which a
+	// selector can only reach once they have a scope
+	const lines = await tokenize(['x = a + b * 2', 'If a <= b And c <> d', '*p = 0', 'a % 2'].join('\n'));
+
+	const operator = (line: number, text: string) => {
+		const token = lines[line]!.find((t) => t.text === text);
+		assert.ok(token, `line ${line + 1}: ${text} did not tokenize`);
+		return token.scopes;
+	};
+
+	for (const text of ['=', '+', '*']) {
+		assert.ok(
+			operator(0, text).includes('keyword.operator.symbol.purebasic'),
+			`${text} should be an operator`,
+		);
+	}
+	assert.ok(operator(1, '<=').includes('keyword.operator.symbol.purebasic'));
+	assert.ok(operator(1, '<>').includes('keyword.operator.symbol.purebasic'));
+	assert.ok(operator(3, '%').includes('keyword.operator.symbol.purebasic'), 'modulo, not a binary literal');
+
+	// a `*` glued to a name is still a pointer, not an operator
+	const pointer = lines[2]!.find((t) => t.text === '*p');
+	assert.ok(pointer?.scopes.includes('variable.other.pointer.purebasic'));
 });

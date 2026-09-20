@@ -42,6 +42,9 @@
 			"include": "#specials"
 		},
 		{
+			"include": "#operators"
+		},
+		{
 			"include": "#constants"
 		},
 		{
@@ -142,13 +145,25 @@
 			]
 		},
 		"field": {
-			"comment": "A member declaration -- `x.i`, `*Entry`, `List Items.Inner()` -- scoped like the `\\x` reading it, so both ends of a member look the same.",
-			"match": "(?i)^(\\s*)(?!(?:StructureUnion|Structure|Interface|EndStructureUnion|EndStructure|EndInterface|Extends|Align|Static|Compiler[A-Za-z]*|ImportC?|Data)\\b)(?!(?:List|Array|Map)\\s*$)(?:(?:List|Array|Map)\\s+)?(\\*?[A-Za-z_]\\w*\\$?)(?=\\s*(?:\\.|\\[|\\(|$))",
-			"captures": {
-				"2": {
-					"name": "variable.other.member.purebasic"
+			"comment": "A member declaration -- `x.i` or `List Items.Inner()` -- scoped like the `\\x` reading it, so both ends of a member look the same.  A `*Entry` field is a pointer like any other, and the PureBasic IDE colours it as one, so the second pattern leaves it to the pointer rule.",
+			"patterns": [
+				{
+					"match": "(?i)^(\\s*)(\\*[A-Za-z_]\\w*)(?=\\s*(?:\\.|\\[|\\(|$))",
+					"captures": {
+						"2": {
+							"name": "variable.other.pointer.purebasic"
+						}
+					}
+				},
+				{
+					"match": "(?i)^(\\s*)(?!(?:StructureUnion|Structure|Interface|EndStructureUnion|EndStructure|EndInterface|Extends|Align|Static|Compiler[A-Za-z]*|ImportC?|Data)\\b)(?!(?:List|Array|Map)\\s*$)(?:(?:List|Array|Map)\\s+)?([A-Za-z_]\\w*\\$?)(?=\\s*(?:\\.|\\[|\\(|$))",
+					"captures": {
+						"2": {
+							"name": "variable.other.member.purebasic"
+						}
+					}
 				}
-			}
+			]
 		},
 		"declarations": {
 			"patterns": [
@@ -599,6 +614,10 @@
 					"match": "\\?[A-Za-z_]\\w*"
 				}
 			]
+		},
+		"operators": {
+			"match": "<<|>>|<=|>=|<>|[=+*/%&|<>^-]",
+			"name": "keyword.operator.symbol.purebasic"
 		},
 		"constants": {
 			"patterns": [

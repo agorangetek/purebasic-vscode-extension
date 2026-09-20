@@ -43,6 +43,7 @@ scope below is specific to PureBasic:
 | a procedure address (`@MyProc`) | `variable.other.reference.purebasic` (bare `@` too) |
 | a data label (`?data`) | `variable.other.label-reference.purebasic` |
 | labels (`top:`) | `entity.name.label.purebasic` |
+| symbolic operators (`=`, `+`, `<=`, `<>`) | `keyword.operator.symbol.purebasic` |
 | inline assembly (`! mov …`) | `meta.embedded.asm.purebasic` |
 
 A library's name is used as-is, except the String library, whose segment is `stringlib`.
