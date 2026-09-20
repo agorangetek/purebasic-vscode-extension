@@ -23,6 +23,55 @@ a string stays a string.
 Folding, bracket matching and indentation come from the IDE's folding-pair
 table — all 25 blocks, including `Repeat … Until` **or** `Forever`.
 
+#### Scopes, and re-colouring anything
+
+The scopes are the conventional TextMate ones, so a theme colours PureBasic the
+way it colours anything else — no per-language configuration needed. Every
+scope below is specific to PureBasic:
+
+| what | scope |
+| --- | --- |
+| keywords (`Procedure`, `EndProcedure`, `ReDim`, `If`, …) | `keyword.control\|other\|operator.*.purebasic` |
+| procedures, declared and called | `entity.name.function.purebasic` |
+| structures, interfaces, modules | `entity.name.type.purebasic` |
+| a type suffix or return type (`.d`, `.i`) | `storage.type.purebasic` |
+| library commands (`MessageRequester`, …) | `support.function.<library>.purebasic` |
+| library constants (`#PB_Event_CloseWindow`) | `support.constant.purebasic` |
+| your constants (`#MaxPoints`) | `constant.other.purebasic` |
+| pointers (`*pBuffer`) | `variable.other.pointer.purebasic` |
+| structure members (`pt\x`) | `variable.other.member.purebasic` |
+| a procedure address (`@MyProc`) | `variable.other.reference.purebasic` |
+| a data label (`?data`) | `variable.other.label-reference.purebasic` |
+| labels (`top:`) | `entity.name.label.purebasic` |
+| inline assembly (`! mov …`) | `meta.embedded.asm.purebasic` |
+
+To colour one of them differently, target it from your settings:
+
+```jsonc
+"editor.tokenColorCustomizations": {
+    "textMateRules": [
+        {
+            "scope": [
+                "source.purebasic storage.type.purebasic",
+                "source.purebasic entity.name.type.purebasic"
+            ],
+            "settings": { "foreground": "#9CDCFE" }
+        }
+    ]
+}
+```
+
+Note the `source.purebasic` prefix — it keeps the rule to this language.
+Wrapping the setting in a `"[purebasic]"` block does **not** work for token
+colours; it is silently ignored.
+
+The type scopes are worth singling out, because the default dark theme is
+inconsistent about them: `storage.type` falls through to the base theme's
+classic blue (`#569CD6`, the same colour as a keyword), while
+`entity.name.type` is dark_plus's teal (`#4EC9B0`). The example above makes
+both a lighter blue (`#9CDCFE`) so a type reads as a type rather than as
+another keyword.
+
 ### Code completion
 
 * **1888 library commands** with the manual's signature and library, generated
