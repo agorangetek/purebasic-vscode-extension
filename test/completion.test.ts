@@ -339,3 +339,40 @@ test('members are the fields of the structure the variable is declared as', () =
 	}).map((i) => i.label);
 	assert.deepEqual(looseItems, ['x', 'y', 'width', 'height'], 'no owner, every field');
 });
+
+test('members follow a chain of structures, through a List, a Map and a pointer', () => {
+	const source = [
+		'Structure Inner',
+		'\tvalue.i',
+		'EndStructure',
+		'Structure Other',
+		'\tflag.i',
+		'EndStructure',
+		'Structure Outer',
+		'\tList Items.Inner()',
+		'\tMap Lookup.Inner()',
+		'\t*Raw',
+		'EndStructure',
+		'o.Outer',
+		'\to\\Items()\\',
+		'\to\\Lookup("k")\\',
+		'\to\\Raw\\',
+	].join('\n');
+	const document = parseDocument('file:///chain.pb', source);
+	const lines = source.split('\n');
+	const at = (line: number) =>
+		buildCompletions({
+			document,
+			position: { line, character: lines[line]!.length },
+			word: '',
+			options: OPTIONS,
+		}).map((i) => i.label);
+
+	assert.deepEqual(at(12), ['value'], 'a List element resolves to its element structure');
+	assert.deepEqual(at(13), ['value'], 'and so does a Map element');
+	assert.deepEqual(
+		at(14),
+		['value', 'flag', 'Items', 'Lookup', '*Raw'],
+		'an untyped pointer leaves every known field on offer',
+	);
+});

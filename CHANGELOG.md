@@ -4,6 +4,17 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.6] - 2026-09-20
+
+### Changed
+
+- Members follow a chain of structures, not just one step: `m\ImportedList()\` now offers the
+  members of the structure a `List` or `Map` field holds, and `pt\inner\x` walks a nested
+  structure. A quoted key (`Lookup("k")`) is handled too, even though the masked text has
+  already blanked the string. An untyped pointer (`*EntryPoint`) still leaves every known
+  field on offer, because nothing better can be told. Checked against `MemDll.pb`, where the
+  `List ImportedList.MEMDLL_IMPORTED_LIBRARY()` field of `MEMDLL_MODULE` needs exactly this.
+
 ## [0.1.5] - 2026-09-20
 
 ### Fixed

@@ -171,8 +171,10 @@ file. Completion, hover and signature help follow the same rule with
   relative to the file that declares it);
 * the members offered after a `\` are the fields of the structure the variable
   was declared as (`Define p.Point`, `p.Point` or `*p.Point`), including a
-  structure from an included file, and each member names its file; when the type
-  cannot be told, every known field is offered rather than nothing;
+  structure from an included file, and each member names its file. A chain is
+  followed too, so `m\ImportedList()\` reaches the element structure of a `List`
+  or `Map` field and `pt\inner\x` walks a nested structure; when a type cannot be
+  told, every known field is offered rather than nothing;
 * symbols from another file carry that file's name after the label
   (`LoadConfig   config.pbi`), and the defining file is the sort key that keeps
   one file's symbols together. The popup has no row of its own for a heading, so

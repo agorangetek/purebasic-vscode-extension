@@ -171,37 +171,59 @@ function allFields(document: PbDocument, workspaceSymbols: readonly PbSymbol[]):
 	return [...document.symbols, ...workspaceSymbols].filter((s) => s.kind === 'field');
 }
 
-/** The variable before a trailing `\`, whose members are being typed. */
-function memberOwner(before: string): string | undefined {
-	return /([*@?]?[A-Za-z_]\w*)\\\s*$/.exec(before)?.[1];
+/** A name with its sigils off, so `*p`, `p$` and `p` are the same variable. */
+function plainName(name: string): string {
+	return name.replace(/^[*@?]/, '').replace(/\$$/, '');
 }
 
 /**
- * The structure a variable is declared with, when that can be told.  The
- * nearest declaration in the enclosing procedure wins over a module-level one,
- * and only a name that really is a structure or interface counts: an unresolved
- * or native type leaves the member list open instead of empty.
+ * The structure the member expression before a `\` is standing on.  The first
+ * step is a declared variable; every further `\name` step moves to the
+ * structure that field is declared as, so `m\list()\` reaches the element
+ * structure of a List field and `pt\inner\x` walks a nested structure.
+ * Undefined the moment a step cannot be told, which leaves every known field on
+ * offer rather than none.
  */
-function declaredStructureOf(
+function structureOfExpression(
 	document: PbDocument,
 	workspaceSymbols: readonly PbSymbol[],
-	name: string,
+	before: string,
 	position: PbPosition,
 ): string | undefined {
+	// a step may carry an index or a key -- `list(0)`, `map("key")` -- and the
+	// masked text turns a quoted key into spaces, so whitespace is allowed here
+	const chain = /((?:[*@?]?[A-Za-z_]\w*)(?:\\[^\\]*)*)\\s*$/.exec(before)?.[1];
+	if (chain === undefined) return undefined;
+
+	const steps = chain.split('\\').map((step) => /^[*@?]?([A-Za-z_]\w*)/.exec(step.trim())?.[1]);
+	if (steps.length === 0 || steps.some((step) => step === undefined)) return undefined;
+
 	const known = new Set(
 		[...document.symbols, ...workspaceSymbols]
 			.filter((symbol) => symbol.kind === 'structure' || symbol.kind === 'interface')
 			.map((symbol) => symbol.name),
 	);
-	const bare = name.replace(/^[*@?]/, '');
+	const fields = allFields(document, workspaceSymbols);
 	const declared = document.symbols.filter(
-		(symbol) => symbol.name === bare && symbol.type !== undefined && known.has(symbol.type),
+		(symbol) =>
+			plainName(symbol.name) === plainName(steps[0]!) &&
+			symbol.type !== undefined &&
+			known.has(symbol.type),
 	);
 	const scope = enclosingProcedure(document, position)?.name;
-	return (
+	let type =
 		declared.find((symbol) => symbol.scope === scope)?.type ??
-		declared.find((symbol) => symbol.scope === '')?.type
-	);
+		declared.find((symbol) => symbol.scope === '')?.type;
+
+	for (const step of steps.slice(1)) {
+		if (type === undefined) return undefined;
+		const field = fields.find(
+			(candidate) => candidate.scope === type && plainName(candidate.name) === plainName(step!),
+		);
+		if (field?.type === undefined || !known.has(field.type)) return undefined;
+		type = field.type;
+	}
+	return type;
 }
 
 /**
@@ -217,8 +239,7 @@ function memberItems(
 	position: PbPosition,
 ): PbSymbol[] {
 	const fields = allFields(document, workspaceSymbols);
-	const owner = memberOwner(before);
-	const type = owner ? declaredStructureOf(document, workspaceSymbols, owner, position) : undefined;
+	const type = structureOfExpression(document, workspaceSymbols, before, position);
 	const own = type === undefined ? [] : fields.filter((field) => field.scope === type);
 	return own.length > 0 ? own : fields;
 }
