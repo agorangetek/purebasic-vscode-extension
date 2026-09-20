@@ -1,3 +1,6 @@
+/*
+ * Hover text for built-in commands and for the user's own symbols.
+ */
 import { builtinMarkdown, lookupBuiltin } from './builtins.ts';
 import { wordAt } from './parser.ts';
 import type { PbDocument, PbHover, PbPosition, PbSymbol } from './types.ts';

@@ -1,7 +1,29 @@
 #!/usr/bin/env node
-
+/*
+ * Generates src/data/pb-builtins.json for the PureBasic extension.
+ *
+ * Two sources, both from the PureBasic IDE checkout that sits next to this
+ * repository (pass its path, or set PB_IDE):
+ *
+ *   scripts/commands/pb_commands_full.json   every library command, with the
+ *                                            manual's signature and its library
+ *   scripts/PureBasicKeywords.gd             the reserved words, their canonical
+ *                                            spelling, the code-folding pairs and
+ *                                            the built-in type suffixes
+ *
+ * Commands keep the manual's own spelling (`MessageRequester`, `ReDim`), which
+ * is the canonical case for PureBasic, and every command's signature is taken
+ * apart into a call label and a parameter list so completion and signature help
+ * have something to show.  The generated JSON is committed, so building the
+ * extension does not need a PureBasic checkout; re-run this only to refresh it.
+ *
+ * Usage:
+ *   node tools/gen-data.mjs ["/path/to/PB IDE"]
+ *   PB_IDE="/path/to/PB IDE" node tools/gen-data.mjs
+ */
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-
+// the .ts is a pure function of the .json, so both files are written by one
+// emitter and a hand-edited .json can be re-derived without a second writer
 import { serialiseBuiltinsTs } from './gen-builtins-ts.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +36,18 @@ const commandsFile = join(pbIde, 'scripts', 'commands', 'pb_commands_full.json')
 const namesFile = join(pbIde, 'scripts', 'commands', 'pb_commands.json');
 const keywordsFile = join(pbIde, 'scripts', 'PureBasicKeywords.gd');
 
+/* ------------------------------------------------------------------ helpers */
+
+/**
+ * Split a manual parameter list on its commas.
+ *
+ * The manual marks optional parameters with brackets, and nests them:
+ * "Title$, Text$ [, Flags [, ParentID]]".  A bracket is therefore not a
+ * grouping -- the comma inside it is still a separator -- while parentheses
+ * are (".f(.d)", "List()").  A '[' makes every parameter after the next comma
+ * optional, which is how "Title$" and "Text$" stay required and "Flags" and
+ * "ParentID" do not.
+ */
 function splitParams(text) {
 	const out = [];
 	let depth = 0;
@@ -40,10 +74,18 @@ function splitParams(text) {
 	return out;
 }
 
+/**
+ * One parameter as the manual writes it:
+ *   "Title.s"        -> { name: "Title",        type: "s" }
+ *   "*Input"         -> { name: "*Input",       type: "" }
+ *   "Flags.i"        -> { name: "Flags",        type: "i", mode: "optional" }
+ *   "Flags.i = 0"    -> { name: "Flags",        type: "i = 0" }
+ */
 function parseParam(raw) {
 	let text = raw.text.trim();
 	const mode = raw.optional ? 'optional' : '';
 
+	// a default value belongs to the parameter, not to the type
 	let type = '';
 	const eq = text.search(/\s=\s/);
 	let body = text;
@@ -52,6 +94,7 @@ function parseParam(raw) {
 		body = text.slice(0, eq).trim();
 	}
 
+	// an explicit ".suffix" / ".StructName" / ".s{10}"
 	const dot = body.match(/^(.*?)(?:\.([A-Za-z_][A-Za-z0-9_-]*(?:\{[^}]*\})?))$/);
 	let name = body;
 	if (dot) {
@@ -59,11 +102,13 @@ function parseParam(raw) {
 		type = [dot[2], type].filter(Boolean).join(' ');
 	}
 
+	// a lone type with no name ("Result.f") is not a parameter
 	name = name.replace(/[,\s]+$/, '').trim();
 	if (!/^[*@?]?[A-Za-z_#][A-Za-z0-9_]*\$?$/.test(name)) return undefined;
 	return { mode, name, type };
 }
 
+/** "Result.f(.d) = Abs(Number.f(.d))" -> the call, its label and its parameters. */
 function parseSignature(signature, name) {
 	const entry = { text: signature.trim(), label: name, params: [], callIndex: -1 };
 	const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -93,6 +138,7 @@ function parseSignature(signature, name) {
 	return entry;
 }
 
+/** Pull a plain GDScript string array out of the keyword table. */
 function readArray(source, name) {
 	const m = new RegExp(`const ${name} := \\[([\\s\\S]*?)\\]`).exec(source);
 	if (!m) return [];
@@ -208,6 +254,7 @@ function readIdeKeywords(file) {
 	return names;
 }
 
+/** Where those keywords belong, using the categories the script table uses. */
 const CATEGORY_OF_IDE_KEYWORD = {
 	list: 'Containers',
 	map: 'Containers',
@@ -242,17 +289,21 @@ if (ideKeywordsFile) {
 	}
 }
 
+/* ----------------------------------------------------------------- commands */
+
 const commandItems = [];
 const seenCommand = new Set();
 for (const command of commands) {
 	const lower = String(command.name).toLowerCase();
-
+	// a few commands are listed under more than one library (AddPathLine joins
+	// both the 2D and the 3D drawing set): keep the first entry only, so every
+	// name has one id and one completion entry
 	if (seenCommand.has(lower)) continue;
 	seenCommand.add(lower);
 	const name = canonicalNames.find((n) => n.toLowerCase() === lower) ?? command.name;
 	const text = String(command.signature ?? name);
 	const signature = parseSignature(text, name);
-
+	// "Result.f(.d) = Abs(...)" returns a value; a bare "AbortFTPFile(#Ftp)" does not
 	const returns = signature.callIndex > 0 && text.slice(0, signature.callIndex).includes('=');
 	commandItems.push({
 		id: `${lower}|command`,
@@ -264,6 +315,8 @@ for (const command of commands) {
 		signatures: [signature],
 	});
 }
+
+/* ------------------------------------------------------------------- blocks */
 
 const foldingBlock = /static var FOLDING_PAIRS := \[([\s\S]*?)\n\]/.exec(keywordsSource)?.[1] ?? '';
 const keywordCategory = new Map(keywordItems.map((k) => [k.lower, k.category]));
@@ -282,19 +335,23 @@ for (const m of foldingBlock.matchAll(
 	});
 }
 
+// commands first: a few names are both a keyword and a library command
+// (AddElement, ClearList, ...) and the command entry carries the signature
 const items = [...commandItems, ...keywordItems];
 
 const out = {
 	source: `PureBasic ${commandItems.length} library commands and ${keywordItems.length} keywords`,
 	generatedFrom: pbIde,
 	count: items.length,
-
+	/** Canonical spelling of every reserved word, lower case keyed. */
 	keywords: [...canonical.values()],
 	keywordCanonical: Object.fromEntries(canonical),
 	typeSuffixes,
 	blocks,
 	items,
 };
+
+/* ------------------------------------------------------------------- output */
 
 mkdirSync(join(root, 'src', 'data'), { recursive: true });
 const outFile = join(root, 'src', 'data', 'pb-builtins.json');

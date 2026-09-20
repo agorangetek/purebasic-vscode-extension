@@ -1,5 +1,20 @@
+/*
+ * A lightweight PureBasic scanner.
+ *
+ * Deliberately not a full parser: it has to be fast enough to run on every
+ * keystroke and forgiving enough to work on half-typed code.  It blanks out
+ * comments and string literals (keeping offsets aligned) and then picks out
+ * declarations line by line, tracking which procedure, structure or module each
+ * symbol belongs to.
+ *
+ * PureBasic's surface is not FreeBASIC's: one `Procedure` keyword rather than
+ * sub/function, `*ptr` and `name$` where the sigil is part of the name, `.type`
+ * suffixes, `\` for member access, 20-odd folding blocks, and `;` as the only
+ * comment.  Those differences are the whole of this file.
+ */
 import type { PbDocument, PbPosition, PbSymbol, PbSymbolKind } from './types.ts';
 
+/** The blocks whose bodies this scanner tracks. */
 type BlockKind =
 	| 'procedure'
 	| 'structure'
@@ -12,11 +27,13 @@ type BlockKind =
 	| 'datasection'
 	| 'import';
 
+/** Replace comments and string literals with spaces, preserving offsets. */
 export function maskSource(text: string): string[] {
 	const lines = text.split(/\r\n|\r|\n/);
 	const out: string[] = [];
 
 	for (const line of lines) {
+		// an inline-assembly line is not PureBasic at all
 		if (/^\s*!/.test(line)) {
 			out.push(' '.repeat(line.length));
 			continue;
@@ -27,11 +44,13 @@ export function maskSource(text: string): string[] {
 		while (i < line.length) {
 			const ch = line[i]!;
 
+			// ';' starts a comment, and PureBasic has no block comment
 			if (ch === ';') {
 				masked += ' '.repeat(line.length - i);
 				break;
 			}
 
+			// ~"..." is the escape string, where \" is a quote
 			if (ch === '~' && line[i + 1] === '"') {
 				masked += '  ';
 				i += 2;
@@ -52,6 +71,7 @@ export function maskSource(text: string): string[] {
 				continue;
 			}
 
+			// "..." has no escape of its own (that is what ~ strings are for)
 			if (ch === '"') {
 				masked += ' ';
 				i++;
@@ -76,6 +96,7 @@ export function maskSource(text: string): string[] {
 	return out;
 }
 
+/** Comment lines directly above a declaration become its documentation. */
 function docAbove(lines: string[], index: number): string | undefined {
 	const parts: string[] = [];
 	for (let i = index - 1; i >= 0; i--) {
@@ -90,6 +111,7 @@ function docAbove(lines: string[], index: number): string | undefined {
 	return parts.length > 0 ? parts.join('\n') : undefined;
 }
 
+/** Extract "x.d, *p, name$" from the parentheses of a declaration line. */
 function paramListOf(sourceLine: string): string | undefined {
 	const open = sourceLine.indexOf('(');
 	if (open < 0) return undefined;
@@ -105,6 +127,7 @@ function paramListOf(sourceLine: string): string | undefined {
 	return sourceLine.slice(open + 1).trim();
 }
 
+/** Parameter names from a parameter list, sigils and types included. */
 export function parameterNames(params: string | undefined): string[] {
 	if (!params) return [];
 	const names: string[] = [];
@@ -130,11 +153,13 @@ export function parameterNames(params: string | undefined): string[] {
 		.filter((n) => n.length > 0);
 }
 
+/** The `.type` suffix a name carries, e.g. "x.d" -> "d". */
 function typeSuffixOf(text: string): string | undefined {
 	const m = text.match(/\.([A-Za-z_][A-Za-z0-9_]*)/);
 	return m ? m[1] : undefined;
 }
 
+/** Split a declarator list on the commas that are not inside brackets. */
 function splitDeclarators(text: string): string[] {
 	const out: string[] = [];
 	let depth = 0;
@@ -153,6 +178,7 @@ function splitDeclarators(text: string): string[] {
 	return out;
 }
 
+/** One declarator list, read down to the names it declares. */
 function collectDeclarators(
 	text: string,
 	suffix: string | undefined,
@@ -166,6 +192,7 @@ function collectDeclarators(
 	return names;
 }
 
+/** `Dim a(10), b.s` / `Define.q x, y` -> the names being declared. */
 export function declaredNames(
 	line: string,
 ): { names: { name: string; type?: string }[]; kind: PbSymbolKind } | undefined {
@@ -183,6 +210,8 @@ export function declaredNames(
 	return undefined;
 }
 
+/* ------------------------------------------------------------------ parsing */
+
 const PROC_RE =
 	/^\s*(runtime\s+)?(procedure|proceduredll|procedurec|procedurecdll|declare|declaredll|declarec|declarecdll|prototype|prototypec)\s*(?:\.([A-Za-z_]\w*))?\s+(\*?[A-Za-z_]\w*)/i;
 
@@ -191,6 +220,8 @@ const OPEN_RE =
 
 const CLOSE_RE = /^\s*(endprocedure|endstructureunion|endstructure|endinterface|enddeclaremodule|endmodule|endmacro|enddatasection|endimport|endenumeration)\b/i;
 
+// matched against the masked text (where the quoted path is blank), so the
+// directive alone is what is found here; the path comes from the source line
 const INCLUDE_RE = /\b(?:xinclude|include)\s*file\b/gi;
 const INCLUDE_PATH_RE = /\b(?:xinclude|include)\s*file\s+"([^"]+)"/i;
 /** `IncludePath "dir"`, the search path the compiler adds while including. */
@@ -199,13 +230,23 @@ const INCLUDE_DIR_RE = /^\s*include\s*path\s+"([^"]+)"/i;
 const CONST_RE = /^\s*(#[A-Za-z_]\w*\$?)\s*(?:=|\+)/;
 const NEWCONTAINER_RE =
 	/^\s*(?:(?:global|protected|static|threaded)\s+)?(newlist|newmap)\b\s*[A-Za-z_]\w*\s*(?:\.([A-Za-z_]\w*))?\s*\(/i;
-
+/*
+ * Directives that can sit between structure fields.  Each is matched as a whole
+ * keyword, because a field may be named anything: `ImportedDllName$` is a field
+ * and not an `Import`, and the compiler accepts it (checked with pbcompiler).
+ */
 const FIELD_IGNORE_RE =
 	/^(?:Compiler(?:If|ElseIf|Else|EndIf|Select|Case|Default|EndSelect|Error|Warning)\b|ImportC?\b|Data\b)/i;
 
+/** Field-shaped lines that are really block markers or modifiers. */
 const FIELD_RESERVED_RE =
 	/^(?:EndStructure|EndStructureUnion|EndInterface|Structure|StructureUnion|Interface|Extends|Align|Static)\b|^(?:List|Array|Map)$/i;
 
+/**
+ * `x.MyStruct`, `*p.MyStruct` or `x.i` on a line of its own: the bare form is a
+ * declaration too -- pbcompiler accepts it -- and it is how a structured
+ * variable is usually introduced.
+ */
 const BARE_DECL_RE = /^\s*(\*?[A-Za-z_]\w*)\s*\.\s*([A-Za-z_]\w*)\s*$/;
 
 const FIELD_RE =
@@ -245,6 +286,7 @@ const OPEN_KIND: Record<string, BlockKind> = {
 	enumerationbinary: 'enumeration',
 };
 
+/** Scan one document. */
 export function parseDocument(uri: string, text: string): PbDocument {
 	const lines = text.split(/\r\n|\r|\n/);
 	const masked = maskSource(text);
@@ -252,6 +294,7 @@ export function parseDocument(uri: string, text: string): PbDocument {
 	const includes: string[] = [];
 	const includePaths: string[] = [];
 
+	// The blocks we are inside, outermost first.
 	const stack: { kind: BlockKind; name: string; symbol?: PbSymbol }[] = [];
 
 	const scopeOf = (): string => {
@@ -286,6 +329,7 @@ export function parseDocument(uri: string, text: string): PbDocument {
 		return symbol;
 	};
 
+	/** The body we are directly inside, if any. */
 	const inside = (kind: BlockKind): boolean => stack.some((b) => b.kind === kind);
 
 	for (let i = 0; i < masked.length; i++) {
@@ -294,6 +338,8 @@ export function parseDocument(uri: string, text: string): PbDocument {
 		const trimmed = line.trim();
 		if (trimmed === '') continue;
 
+		// IncludeFile / XIncludeFile anywhere on the line; read the path from the
+		// original text, since masking blanks the quoted string.
 		INCLUDE_RE.lastIndex = 0;
 		let inc: RegExpExecArray | null;
 		while ((inc = INCLUDE_RE.exec(line)) !== null) {
@@ -301,9 +347,12 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			if (found) includes.push(found[1]!);
 		}
 
+		// IncludePath "dir": adds a directory to the search path for the includes
+		// that follow it, which is how a project keeps its sources in a tree.
 		const dir = INCLUDE_DIR_RE.exec(source);
 		if (dir) includePaths.push(dir[1]!);
 
+		// a block terminator
 		const close = CLOSE_RE.exec(line);
 		if (close) {
 			const word = close[1]!.toLowerCase();
@@ -324,10 +373,12 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			continue;
 		}
 
+		// Procedure[.type] Name(params) / Declare* / Prototype*
 		const proc = PROC_RE.exec(line);
 		if (proc) {
 			const keyword = proc[2]!.toLowerCase();
-
+			// A Declare names a procedure that can be addressed; a Prototype names
+			// a type, which pbcompiler refuses to take the address of.
 			const declared = keyword.startsWith('declare');
 			const isProto = declared || keyword.startsWith('prototype');
 			const kind = declared ? 'declare' : isProto ? 'prototype' : 'procedure';
@@ -338,7 +389,8 @@ export function parseDocument(uri: string, text: string): PbDocument {
 				returns: proc[3],
 				pointer: name.startsWith('*') || undefined,
 			});
-
+			// Only a real definition opens a body, and only when it does not close
+			// on the same line.
 			const bodyOnSameLine = /\bendprocedure\b/i.test(line);
 			if (!isProto && !bodyOnSameLine) {
 				stack.push({ kind: 'procedure', name, symbol });
@@ -346,6 +398,7 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			continue;
 		}
 
+		// Structure / Interface / Module / Macro / DataSection / Import / Enumeration
 		const open = OPEN_RE.exec(line);
 		if (open) {
 			const keyword = open[1]!.toLowerCase();
@@ -363,7 +416,8 @@ export function parseDocument(uri: string, text: string): PbDocument {
 					{ type: open[2] },
 				);
 			}
-
+			// a structure union has no name of its own: its fields belong to the
+			// structure around it
 			const scopeName = name !== '' ? name : (stack.filter((b) => b.kind === 'structure').pop()?.name ?? '');
 			if (!new RegExp(`\\bend${keyword}\\b`, 'i').test(line)) {
 				stack.push({ kind, name: kind === 'structureunion' ? scopeName : name, symbol });
@@ -371,6 +425,7 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			continue;
 		}
 
+		// enumeration members are module-level constants
 		if (stack.length > 0 && stack[stack.length - 1]!.kind === 'enumeration') {
 			const member = /^\s*(#?)([A-Za-z_]\w*)\s*(?:=\s*(.+))?$/.exec(trimmed);
 			if (member && !/^(Case|Default)$/i.test(member[2]!)) {
@@ -379,6 +434,7 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			}
 		}
 
+		// structure / interface fields
 		const structIndex = [...stack].reverse().findIndex(
 			(b) => b.kind === 'structure' || b.kind === 'structureunion' || b.kind === 'interface',
 		);
@@ -397,12 +453,14 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			}
 		}
 
+		// #Constant = value
 		const constant = CONST_RE.exec(line);
 		if (constant) {
 			add(constant[1]!, 'constant', i, source, { detail: source.trim() });
 			continue;
 		}
 
+		// NewList / NewMap
 		const container = NEWCONTAINER_RE.exec(line);
 		if (container) {
 			const name = /^\s*(?:(?:global|protected|static|threaded)\s+)?(?:newlist|newmap)\b\s*([A-Za-z_]\w*)/i.exec(
@@ -417,6 +475,7 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			}
 		}
 
+		// Dim / Define / Global / Protected / Static / Threaded / Shared
 		const declared = declaredNames(line);
 		if (declared) {
 			for (const entry of declared.names) {
@@ -429,6 +488,7 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			continue;
 		}
 
+		// a bare `name.Type` declaration, which pbcompiler accepts on its own
 		const typed = inside('datasection') ? null : BARE_DECL_RE.exec(line);
 		if (typed) {
 			add(typed[1]!, 'variable', i, source, {
@@ -439,18 +499,21 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			continue;
 		}
 
+		// a For / ForEach counter is a variable too
 		const loop = FOR_RE.exec(line);
 		if (loop) {
 			add(loop[2]!, 'variable', i, source, { detail: source.trim() });
 			continue;
 		}
 
+		// an assignment creates the variable on first use
 		const assign = ASSIGN_RE.exec(line);
 		if (assign && !inside('datasection')) {
 			add(assign[1]!, 'variable', i, source, { detail: source.trim() });
 			continue;
 		}
 
+		// a label: Name:
 		const label = LABEL_RE.exec(line);
 		if (label && !/^(Case|Default|Data|CompilerCase|CompilerDefault)$/i.test(label[1]!)) {
 			add(label[1]!, 'label', i, source);
@@ -461,6 +524,12 @@ export function parseDocument(uri: string, text: string): PbDocument {
 	return { uri, text, symbols, includes, includePaths };
 }
 
+/**
+ * The word ending just before `end` (exclusive), if there is one.
+ *
+ * A character typed at the caret finishes the word to its left, which is what
+ * the auto-capitalisation looks at.
+ */
 export function wordBefore(
 	text: string,
 	end: number,
@@ -471,6 +540,9 @@ export function wordBefore(
 	return { word: text.slice(start, end), start, end };
 }
 
+/* ------------------------------------------------------------- cursor views */
+
+/** The identifier at a position, with its range and any leading sigil. */
 export function wordAt(
 	text: string,
 	position: PbPosition,
@@ -485,7 +557,7 @@ export function wordAt(
 
 	while (start > 0 && isWord(line[start - 1]!)) start--;
 	while (end < line.length && isWord(line[end]!)) end++;
-
+	// the sigils PureBasic treats as part of a name
 	if (start > 0 && /[*@?#]/.test(line[start - 1]!)) start--;
 
 	const word = line.slice(start, end);
@@ -493,6 +565,13 @@ export function wordAt(
 	return { word, startChar: start, endChar: end, line };
 }
 
+/** What the character before the cursor is asking for. */
+/**
+ * Whether the caret sits inside a string literal or a `;` comment, where no name
+ * completion belongs.  PureBasic strings and comments do not span lines, so the
+ * line under the caret is all that matters.  `~"..."` is the escape form, where
+ * `\"` does not close the string; a plain string takes no escapes at all.
+ */
 export function inStringOrComment(text: string, position: PbPosition): boolean {
 	const line = text.split(/\r\n|\r|\n/)[position.line] ?? '';
 	const upto = Math.min(Math.max(position.character, 0), line.length);
@@ -524,28 +603,39 @@ export function inStringOrComment(text: string, position: PbPosition): boolean {
 	return inString;
 }
 
+/**
+ * A type name belongs after `name.` and `*name.` -- and nowhere else.  A dot
+ * after a member access, a call, a number or a closing bracket is not a place a
+ * type can go, so the caller offers nothing rather than the wrong list.
+ */
 function isTypeContext(before: string): boolean {
 	const match = /(\*?[A-Za-z_]\w*)\s*\.$/.exec(before);
 	if (match === null) return false;
 	const start = match.index;
 	if (start === 0) return true;
-
+	// what precedes the name decides: not another member access, type or sigil
 	return !/[\\~.@?$]/.test(before[start - 1]!);
 }
 
+/**
+ * A member belongs after `name\`, after a call or an index (`list(0)\`,
+ * `items[i]\`) and after a bare `\` inside a `With` block -- not after a number
+ * or an operator.
+ */
 function isMemberContext(before: string): boolean {
 	if (/^\s*\\$/.test(before)) return true;
 	return /(?:[A-Za-z_]\w*\$?|[)\]])\s*\\$/.test(before);
 }
 
+/** What the caret is in the middle of, which decides what may be offered. */
 export type PbMemberContext =
-
+	/** `name.` -- a type name belongs here. */
 	| 'type'
-
+	/** `name\` -- a structure member belongs here. */
 	| 'member'
-
+	/** A string, a comment, or a dot that no type belongs after: nothing at all. */
 	| 'none'
-
+	/** Anywhere else: ordinary names. */
 	| 'plain';
 
 export function memberContextAt(
@@ -562,6 +652,7 @@ export function memberContextAt(
 	return 'plain';
 }
 
+/** Where the cursor sits in a statement, which decides what may be offered. */
 export type PbStatementKind = 'start' | 'expression';
 
 export function statementContextAt(
@@ -571,9 +662,9 @@ export function statementContextAt(
 ): { kind: PbStatementKind; before: string } {
 	const line = maskSource(text)[position.line] ?? '';
 	const upto = line.slice(0, Math.max(0, position.character - word.length));
-
+	// ':' starts a new statement on the same line
 	const colon = upto.lastIndexOf(':');
-
+	// but '::' is the module separator, and a label colon is not a statement split
 	const before = colon >= 0 && upto[colon - 1] !== ':' && upto[colon + 1] !== ':' ? upto.slice(colon + 1) : upto;
 	const trimmed = before.trim();
 
@@ -584,6 +675,10 @@ export function statementContextAt(
 	return { kind: 'start', before };
 }
 
+/**
+ * If the position is inside a call's argument list, return the callee and the
+ * zero-based index of the argument being typed (used for signature help).
+ */
 export function callContextAt(
 	text: string,
 	position: PbPosition,

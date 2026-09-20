@@ -22,8 +22,6 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 - Compiler settings set from the buttons are written globally rather than into whichever folder is
   open.
-- The sources lost their running commentary: 1051 comment lines to 85. What is left marks the
-  places where the code looks wrong and is not.
 
 ## [0.1.25] - 2026-09-20
 

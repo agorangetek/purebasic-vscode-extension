@@ -62,10 +62,12 @@
 	],
 	"repository": {
 		"asm": {
+			"comment": "A line starting with ! is inline assembly, not PureBasic.",
 			"name": "meta.embedded.asm.purebasic",
 			"match": "^\\s*!.*$"
 		},
 		"comments": {
+			"comment": "PureBasic has exactly one comment, and no block form.",
 			"name": "comment.line.semicolon.purebasic",
 			"match": ";.*$"
 		},
@@ -164,6 +166,7 @@
 		"declarations": {
 			"patterns": [
 				{
+					"comment": "Procedure[.type] Name(...) and its Declare/Prototype forms.  The type is its own group: captured as part of the name it took the function colour and left the return type uncoloured.  A built-in return type has no scope at all, so it stays normal text the way the IDE shows it.",
 					"match": "(?i)\\b(Procedure(?:DLL|C|CDLL)?|Declare(?:DLL|C|CDLL)?|PrototypeC?|Runtime\\s+Procedure)\\b(?:\\s*\\.\\s*(?:(?i:(?:[bawculifqds]|p-(?:ascii|unicode|bstr|variant|utf8)))(?![A-Za-z0-9_])|([A-Za-z_]\\w*)))?\\s+([A-Za-z_]\\w*)",
 					"captures": {
 						"1": {
@@ -178,6 +181,7 @@
 					}
 				},
 				{
+					"comment": "Module / DeclareModule / Enumeration declarations.  Enumeration[.type] with no name of its own is left to the keyword and type-suffix rules; `Enumeration.i` is a built-in type and so has no scope.  The declared NAME has no scope either: `MemDll` in `Module MemDll` is a bare word, and the IDE paints a bare word with its normal text -- its only module colour is for the `MemDll::item` prefix, which the #members rule below covers.",
 					"match": "(?i)\\b(DeclareModule|Module|EnumerationBinary|Enumeration)\\b(?:\\s*\\.\\s*(?:(?i:(?:[bawculifqds]|p-(?:ascii|unicode|bstr|variant|utf8)))(?![A-Za-z0-9_])|([A-Za-z_]\\w*)))?\\s+(?:[A-Za-z_]\\w*)",
 					"captures": {
 						"1": {
@@ -199,6 +203,7 @@
 			]
 		},
 		"builtins": {
+			"comment": "Every library command, one scope: the library name in the scope was a trap (support.function.string.* reads as a string token, which silences completion) and no theme needs the split.",
 			"patterns": [
 				{
 					"name": "entity.name.function.purebasic",
@@ -557,6 +562,7 @@
 		"members": {
 			"patterns": [
 				{
+					"comment": "var\\field, Module::item, and the element form var\\map().  Scoped under entity.name.type so that a scheme paints it where it paints a type: the IDE gives a member its Structures colour, which in the dark themes VS Code ships is the entity.name.* green.",
 					"name": "entity.name.type.member.purebasic",
 					"match": "(?:\\\\|::)[A-Za-z_]\\w*(?:\\(\\))?"
 				},
@@ -567,6 +573,7 @@
 			]
 		},
 		"declared-calls": {
+			"comment": "A name called with parentheses that is not a known command.",
 			"name": "entity.name.function.purebasic",
 			"match": "\\b[A-Za-z_]\\w*(?=\\s*\\()"
 		},
@@ -601,9 +608,11 @@
 		"identifiers": {
 			"patterns": [
 				{
+					"comment": "A name in front of a BUILT-IN type -- `test.i`, `name.s` -- is normal text in the IDE, on both sides of the dot, so this rule matches and scopes nothing.  It has to come first: the next rule would otherwise paint the name as a structure.",
 					"match": "[A-Za-z_]\\w*(?=\\s*\\.\\s*(?i:(?:[bawculifqds]|p-(?:ascii|unicode|bstr|variant|utf8)))(?![A-Za-z0-9_]))"
 				},
 				{
+					"comment": "A name that goes on to a STRUCTURE or a member -- `test.my_test`, `OBJ_MEMDLL\\ModulesMap()` -- is what a variable wears code colour for, because the IDE colours the whole expression with its Structures colour.  A name on its own is left unscoped, so the theme paints it its normal text, which is what the IDE does too.",
 					"name": "entity.name.type.member.purebasic",
 					"match": "[A-Za-z_]\\w*(?=\\s*[.\\\\])"
 				}
@@ -652,6 +661,7 @@
 		"type-suffix": {
 			"patterns": [
 				{
+					"comment": "The built-in types.  No scope on purpose: the IDE paints these with its normal text, so a theme should paint them with its own.",
 					"match": "(?<=\\b[A-Za-z_]\\w*)\\.(?i:(?:[bawculifqds]|p-(?:ascii|unicode|bstr|variant|utf8)))(?![A-Za-z0-9_])"
 				},
 				{

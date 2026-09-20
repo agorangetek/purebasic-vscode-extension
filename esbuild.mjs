@@ -1,3 +1,9 @@
+/*
+ * Bundles the extension into a single dist/extension.js.
+ *
+ *   node esbuild.mjs            one-off build
+ *   node esbuild.mjs --watch    rebuild on change
+ */
 import { build, context } from 'esbuild';
 
 const options = {

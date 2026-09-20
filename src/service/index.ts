@@ -1,3 +1,7 @@
+/*
+ * A small in-memory symbol index over the open document plus (optionally) the
+ * rest of the workspace.
+ */
 import { parseDocument } from './parser.ts';
 import type { PbDocument } from './types.ts';
 
@@ -9,6 +13,7 @@ export class PbIndex {
 		this.limit = limit;
 	}
 
+	/** Parse and store a document. Returns the parsed document. */
 	index(uri: string, text: string): PbDocument {
 		const document = parseDocument(uri, text);
 		this.documents.delete(uri);
@@ -39,6 +44,7 @@ export class PbIndex {
 		return { files: this.documents.size, symbols, limit: this.limit };
 	}
 
+	/** Keep the index bounded: drop the least recently indexed documents. */
 	private trim(): void {
 		while (this.documents.size > this.limit) {
 			const oldest = this.documents.keys().next();

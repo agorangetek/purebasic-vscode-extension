@@ -1,5 +1,22 @@
 #!/usr/bin/env node
-
+/*
+ * Writes src/data/pb-builtins.ts from src/data/pb-builtins.json.
+ *
+ * tools/gen-data.mjs produces both files in one run, but it needs a checkout of
+ * the PureBasic IDE, and the JSON is also what the grammar is generated from.
+ * The two halves can therefore be edited apart -- and they were: nine reserved
+ * words added to the JSON reached the syntax highlighter and NOT the completion
+ * list, because the extension imports the .ts and esbuild bundles it.  The
+ * grammar guard added in 0.1.20 did not cover it, so it shipped in 0.1.22.
+ *
+ * Making the .ts a pure function of the .json removes the possibility: the JSON
+ * is the single source, `npm run build` regenerates the .ts from it, and
+ * --check fails a build whose halves disagree.
+ *
+ * Usage:
+ *   node tools/gen-builtins-ts.mjs           write the .ts from the .json
+ *   node tools/gen-builtins-ts.mjs --check   fail if the two disagree
+ */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,8 +26,15 @@ export const root = join(here, '..');
 export const jsonFile = join(root, 'src', 'data', 'pb-builtins.json');
 export const tsFile = join(root, 'src', 'data', 'pb-builtins.ts');
 
+/*
+ * The item list runs to a couple of thousand entries.  Emitted as one literal,
+ * TypeScript gives up on the inferred type ("expression produces a union type
+ * that is too complex to represent"), so it is written in chunks and spread
+ * back together -- each chunk stays small enough to check.
+ */
 const CHUNK = 250;
 
+/** The one true text of src/data/pb-builtins.ts, for a given data object. */
 export function serialiseBuiltinsTs(data) {
 	const items = data.items ?? [];
 	const meta = { ...data };
@@ -20,7 +44,9 @@ export function serialiseBuiltinsTs(data) {
 	for (let i = 0; i < items.length; i += CHUNK) chunks.push(items.slice(i, i + CHUNK));
 
 	const lines = [
-		'/* Generated from src/data/pb-builtins.json -- do not edit; run npm run gen-builtins-ts.',
+		'/* Generated from src/data/pb-builtins.json -- do not edit by hand.',
+		` * Source: ${data.source}`,
+		' * Regenerate with: npm run gen-builtins-ts (or npm run gen-data)',
 		' */',
 		"import type { PbBuiltin, PbBuiltinData } from '../service/types.ts';",
 		'',

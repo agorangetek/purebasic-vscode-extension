@@ -1,7 +1,16 @@
+/*
+ * Signature help for built-in commands and user procedures.
+ *
+ * The label is the compact call form ("MessageRequester(Title, Text, Flags)")
+ * and parameters are reported as offsets into it, so the editor can highlight
+ * the active parameter without having to guess which occurrence of a name is
+ * the parameter.
+ */
 import { builtinMarkdown, declarationBlock, lookupBuiltin } from './builtins.ts';
 import { callContextAt, parameterNames } from './parser.ts';
 import type { PbDocument, PbParameterLabel, PbPosition, PbSignatureInfo, PbSymbol } from './types.ts';
 
+/** Locate each name inside `label` as a whole word, in order. */
 function labelOffsets(label: string, names: readonly string[]): PbParameterLabel[] {
 	const labels: PbParameterLabel[] = [];
 	let from = 0;
@@ -58,6 +67,7 @@ export function getSignatureHelp(
 
 	const { callee, activeParameter } = context;
 
+	// user procedures take precedence
 	const user = userProcSignatures(document, callee, customSymbols);
 	if (user.length > 0) return { ...user[0]!, activeParameter };
 

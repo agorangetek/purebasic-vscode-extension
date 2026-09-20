@@ -1,3 +1,9 @@
+/*
+ * VS Code entry point.
+ *
+ * All the language logic lives in ./service (editor-agnostic, plain objects);
+ * this file only translates between those plain objects and the vscode API.
+ */
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import * as vscode from 'vscode';
@@ -67,14 +73,28 @@ function trace(message: string): void {
 	output.appendLine(`[${new Date().toISOString()}] ${message}`);
 }
 
+/**
+ * The name being typed at the caret, with its sigil, read from the line itself.
+ * A sigil on its own counts -- `@` already asks for a reference, and the editor
+ * needs to be told that rather than be handed an empty word.
+ */
 function typedWord(line: string, character: number): string {
 	return /(?:[*@?]?[A-Za-z_]\w*\$?|[*@?])$/.exec(line.slice(0, character))?.[0] ?? '';
 }
 
+/** Parse a document and add it to the index. */
 function indexOf(document: vscode.TextDocument): PbDocument {
 	return index.index(document.uri.toString(), document.getText());
 }
 
+/**
+ * The module-level symbols this document may use from other files.
+ *
+ * PureBasic only sees another file's procedures when an IncludeFile or
+ * XIncludeFile chain reaches it, so the workspace index is filtered down to the
+ * files that share the document's translation unit -- in both directions, so a
+ * file deeper in the chain still sees the symbols of the file that includes it.
+ */
 function usableSymbols(document: PbDocument): PbSymbol[] {
 	if (!config().workspace) return [];
 	const group = includeGroup(document.uri, index, config().maxFiles);
@@ -106,6 +126,17 @@ function toCompletionKind(kind: PbCompletionKind): vscode.CompletionItemKind {
 	}
 }
 
+/**
+ * `label`, but with the first characters re-cased to exactly what was typed.
+ *
+ * The editor filters the list itself after the provider has returned it, and
+ * that filter is fuzzy: it also matches at a word boundary inside a name, and
+ * it is the editor's business whether a case mismatch counts. An item's
+ * filterText is what it matches against, so spelling the typed prefix the way
+ * the user typed it makes the item match in any case -- `Mess`, `mess` and
+ * `MESS` all keep `MessageRequester` -- without changing the label that is
+ * displayed or inserted.
+ */
 function withTypedCase(label: string, typed: string): string {
 	if (typed.length === 0 || label.length < typed.length) return label;
 	if (!label.toLowerCase().startsWith(typed.toLowerCase())) return label;
@@ -113,6 +144,9 @@ function withTypedCase(label: string, typed: string): string {
 }
 
 function toCompletionItem(item: PbCompletionItem, typed = ''): vscode.CompletionItem {
+	// The object form of the label is what renders the trailing file name: VS Code
+	// shows `description` dimmed right after the label, with no way to draw a row
+	// of its own for a group heading.
 	const label = item.labelDescription
 		? { label: item.label, description: item.labelDescription }
 		: item.label;
@@ -161,6 +195,7 @@ function toSymbolKind(kind: PbSymbol['kind']): vscode.SymbolKind {
 	}
 }
 
+/** Index every .pb/.pbi file in the workspace, in the background. */
 async function indexWorkspace(): Promise<void> {
 	const cfg = config();
 	if (!cfg.workspace) return;
@@ -182,12 +217,19 @@ async function indexWorkspace(): Promise<void> {
 	}
 	trace(`index: ${JSON.stringify(index.stats())}`);
 
+	/*
+	 * An IncludeFile may name a file the glob never saw: outside the folder, or
+	 * reachable only from an open document.  A suggestion is only correct when an
+	 * include chain leads to the file, so walk the chain from the open documents
+	 * and read whatever is still missing.
+	 */
 	const seeds = vscode.workspace.textDocuments
 		.filter((doc) => doc.languageId === LANGUAGE)
 		.map((doc) => doc.uri.toString());
 	await indexIncludedFiles(seeds);
 }
 
+/** Read and index the files the given documents include, transitively. */
 async function indexIncludedFiles(seeds: readonly string[]): Promise<void> {
 	const limit = config().maxFiles;
 	const searchPaths = includeSearchPaths(index);
@@ -219,6 +261,7 @@ async function indexIncludedFiles(seeds: readonly string[]): Promise<void> {
 					queue.push(added);
 					trace(`indexed included file ${candidate}`);
 				} catch {
+					// not there (or not readable): the compiler would not find it either
 				}
 				break;
 			}
@@ -226,6 +269,26 @@ async function indexIncludedFiles(seeds: readonly string[]): Promise<void> {
 	}
 }
 
+/*
+ * Keywords from the user's own KeywordsData.pbi.
+ *
+ * The generated keyword list is only as new as this extension's last build, so
+ * a reader can point `purebasic.keywords.path` at the IDE's table and have a new
+ * PureBasic's reserved words appear without waiting for a release here.
+ *
+ * Two halves, and they differ in when they take effect:
+ *
+ *   - COMPLETION, hover and canonical case read the overlay in ./service/builtins,
+ *     which is applied in memory and is effective immediately;
+ *   - HIGHLIGHTING reads the TextMate grammar file the editor loads, and there is
+ *     no API to register one at runtime, so the new words are merged into that
+ *     file and only take effect after a window reload.  The merge is strictly
+ *     additive: it appends to one keyword alternation and touches nothing else,
+ *     so it can never drop a rule the generator wrote.
+ *
+ * The .pbi file does not ship with a PureBasic installation -- it belongs to the
+ * IDE source -- so a path that is not set simply means "do nothing".
+ */
 async function refreshKeywords(context: vscode.ExtensionContext, announce: boolean): Promise<void> {
 	const path = config().keywordsPath.trim();
 	if (!path) {
@@ -244,6 +307,8 @@ async function refreshKeywords(context: vscode.ExtensionContext, announce: boole
 		return;
 	}
 
+	// measured against the generated list AND the current overlay, so running
+	// this again -- on a config change, or by hand -- cannot double-add
 	const current = extraKeywords();
 	const known = [...Object.keys(generatedKeywordCanonical()), ...current.map((i) => i.lower)];
 	const added = newKeywordNames(known, parseKeywordsData(text));
@@ -260,6 +325,7 @@ async function refreshKeywords(context: vscode.ExtensionContext, announce: boole
 
 	output.appendLine(`keywords: ${added.length} new from ${path}: ${added.join(', ')}`);
 
+	// completion is live already; the colours need the grammar file and a reload
 	const grammarFile = vscode.Uri.joinPath(context.extensionUri, 'syntaxes', 'purebasic.tmLanguage.json');
 	let reloadNeeded = false;
 	try {
@@ -271,6 +337,7 @@ async function refreshKeywords(context: vscode.ExtensionContext, announce: boole
 			trace(`keywords: added ${merged.added.join(', ')} to the grammar`);
 		}
 	} catch (error) {
+		// a read-only install costs the colours and not the completion
 		trace(`keywords: cannot update the grammar file: ${String(error)}`);
 	}
 
@@ -284,6 +351,15 @@ async function refreshKeywords(context: vscode.ExtensionContext, announce: boole
 		});
 }
 
+/*
+ * Running the compiler.
+ *
+ * The settings mirror the IDE's Compiler Options dialog and the switches are the
+ * ones `pbcompiler -h` documents (see ./service/compiler.ts).  Everything runs in
+ * a terminal, so the compiler's progress, its errors and the program's own output
+ * all land in the same place -- which is also where an interactive program can be
+ * answered.
+ */
 function compilerSettings(): CompilerSettings {
 	const c = vscode.workspace.getConfiguration('purebasic.compiler');
 	return {
@@ -301,8 +377,17 @@ function compilerSettings(): CompilerSettings {
 	};
 }
 
-// Two terminals: the compiler's messages are the build log, the program's
-// output gets a terminal -- or a window -- of its own.
+/*
+ * Two terminals, each reused until the directory changes.
+ *
+ * The compiler has to run in the file's own directory so that its relative
+ * Includes resolve, so a terminal is replaced when that directory changes rather
+ * than left pointing at the wrong place.  There are two because the two kinds of
+ * output want different places: the compiler's messages belong in a build log
+ * you can read without the program's chatter in it, and the program -- whose
+ * `Debug` output is only there when the debugger is on -- gets a terminal of its
+ * own.
+ */
 const terminals = new Map<string, { terminal: vscode.Terminal; cwd: string }>();
 
 function terminalFor(name: string, cwd: string): vscode.Terminal {
@@ -316,23 +401,35 @@ function terminalFor(name: string, cwd: string): vscode.Terminal {
 	return terminal;
 }
 
+/*
+ * Where the compiler commands write, always: the user's own settings.
+ *
+ * The IDE keeps these in its global [CompilerDefaults] and lets a project
+ * override them in its .pbsp, and this follows that: what you set from the
+ * buttons is your default everywhere, not a property of whichever folder
+ * happened to be open.  A project's own .vscode/settings.json still wins for
+ * the keys it names, which is the point of it -- but nothing here writes there.
+ */
 function configurationTarget(): vscode.ConfigurationTarget {
 	return vscode.ConfigurationTarget.Global;
 }
 
+/** Turn the debugger on or off, and say so. */
 async function setDebugger(enabled: boolean): Promise<void> {
 	const c = vscode.workspace.getConfiguration('purebasic.compiler');
 	await c.update('debugger', enabled, configurationTarget());
 	void vscode.window.setStatusBarMessage(`PureBasic: debugger ${enabled ? 'on' : 'off'}`, 3000);
 }
 
+/** The active PureBasic file, saved, or undefined with a word about why. */
 async function compilableDocument(): Promise<vscode.TextDocument | undefined> {
 	const editor = vscode.window.activeTextEditor;
 	if (!editor || editor.document.languageId !== LANGUAGE) {
 		void vscode.window.showInformationMessage('PureBasic: open a .pb file first.');
 		return undefined;
 	}
-
+	// the compiler reads the file from disk, so an unsaved buffer would compile
+	// the previous version of the code
 	if (editor.document.isDirty && !(await editor.document.save())) {
 		void vscode.window.showWarningMessage('PureBasic: the file could not be saved, so nothing was compiled.');
 		return undefined;
@@ -340,6 +437,16 @@ async function compilableDocument(): Promise<vscode.TextDocument | undefined> {
 	return editor.document;
 }
 
+/**
+ * Build the file, and run it in a terminal of its own.
+ *
+ * A build always happens first, even for Run: that is what keeps the compiler's
+ * messages in the build terminal, where they can be read, and gives the program
+ * a terminal where its own output -- and the debugger's, when the debugger is on
+ * -- is the only thing in it.  The two are sequenced through a file, because a
+ * command sent to a terminal reports nothing back and the program must not start
+ * before the build that produces it has finished.
+ */
 async function runOrCompile(compileOnly: boolean): Promise<void> {
 	const document = await compilableDocument();
 	if (!document) return;
@@ -348,9 +455,12 @@ async function runOrCompile(compileOnly: boolean): Promise<void> {
 	const compiler = resolveCompiler(settings.path);
 	const source = document.uri.fsPath;
 	const cwd = dirname(source);
-
+	// Run builds a temporary executable; Compile writes where it was told
 	const target = compileOnly ? outputPathFor(source, settings) : temporaryOutputFor(source);
 
+	// the compiler writes its output with the system linker, which will not
+	// create the directory for it -- and a configured output path may name one
+	// that does not exist either
 	try {
 		await vscode.workspace.fs.createDirectory(vscode.Uri.file(dirname(target)));
 	} catch (error) {
@@ -380,12 +490,17 @@ async function runOrCompile(compileOnly: boolean): Promise<void> {
 		return;
 	}
 	if (code !== 0) {
+		// the build terminal is on screen and holds the compiler's own message
 		void vscode.window.showErrorMessage('PureBasic: the build failed. See the PureBasic terminal.');
 		return;
 	}
 
 	const args = splitCommandLine(settings.commandLine);
 
+	// The program gets a window of its own where that is possible, so that its
+	// output -- the debugger's above all -- is somewhere it can be read without
+	// the compiler's log beside it.  Where it is not, the editor's terminal
+	// stands in rather than nothing running.
 	if (hasTerminalWindow()) {
 		try {
 			await openTerminalWindow(writeLaunchScript(target, args, cwd));
@@ -402,6 +517,13 @@ async function runOrCompile(compileOnly: boolean): Promise<void> {
 	trace(`program: ${target}`);
 }
 
+/**
+ * `PureBasic: Compiler Settings` -- the IDE's dialog as a list.
+ *
+ * Each entry shows what it is set to and changes one thing, so the common
+ * choices are two clicks rather than a trip through the settings editor.  The
+ * last entry opens that editor for everything else.
+ */
 async function chooseCompilerSettings(): Promise<void> {
 	const c = vscode.workspace.getConfiguration('purebasic.compiler');
 	const onOff = (value: boolean) => (value ? 'on' : 'off');
@@ -467,6 +589,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	index = new PbIndex(config().maxFiles);
 	context.subscriptions.push(output);
 
+	// Awaited, so activation is not "done" with the grammar half-written.  A
+	// keyword file that cannot be read must never fail activation, hence the
+	// catch: it costs the refresh, not the extension.
 	try {
 		await refreshKeywords(context, false);
 	} catch (error) {
@@ -476,7 +601,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('purebasic.run', () => runOrCompile(false)),
 		vscode.commands.registerCommand('purebasic.compile', () => runOrCompile(true)),
-
+		// Two commands, not one toggle: the title-bar button's icon belongs to
+		// the command, so turning it on and turning it off have to be separate
+		// to be drawn differently.  Which one is offered follows the setting
+		// itself, which the menu's `when` reads directly.
 		vscode.commands.registerCommand('purebasic.debuggerOn', () => setDebugger(true)),
 		vscode.commands.registerCommand('purebasic.debuggerOff', () => setDebugger(false)),
 		vscode.commands.registerCommand('purebasic.compilerSettings', () => chooseCompilerSettings()),
@@ -538,6 +666,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}),
 	);
 
+	// keep the index in sync with edits
 	context.subscriptions.push(
 		vscode.workspace.onDidOpenTextDocument((doc) => {
 			if (doc.languageId === LANGUAGE) indexOf(doc);
@@ -556,6 +685,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}),
 	);
 
+	/* ------------------------------------------------ format / canonical case */
+
+	/**
+	 * Every symbol visible in `document`: its own, plus those of the files it
+	 * includes, which are the same program.  Without following the includes, a
+	 * procedure declared in a .pbi could not be recognised as the author's.
+	 */
 	async function translationUnitSymbols(document: vscode.TextDocument): Promise<PbSymbol[]> {
 		const symbols: PbSymbol[] = [];
 		const seen = new Set<string>();
@@ -587,12 +723,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 						depth: current.depth + 1,
 					});
 				} catch {
+					// somewhere we cannot read: nothing to add
 				}
 			}
 		}
 		return symbols;
 	}
 
+	/** Restore canonical spellings inside `range`, as a single replacement. */
 	async function casingEdits(
 		document: vscode.TextDocument,
 		range: vscode.Range,
@@ -630,6 +768,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}),
 	);
 
+	// also reachable through Format Document / Format Selection
 	const formattingProvider: vscode.DocumentFormattingEditProvider &
 		vscode.DocumentRangeFormattingEditProvider = {
 		async provideDocumentFormattingEdits(document) {
@@ -652,6 +791,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		vscode.languages.registerDocumentRangeFormattingEditProvider(LANGUAGE, formattingProvider),
 	);
 
+	/*
+	 * Enter is bound to a command of ours for PureBasic, because the caret is
+	 * the point: finishing a block opener has to leave the caret on the body
+	 * line, and an edit that lands on the caret takes the caret with it -- a
+	 * formatting provider has no way to put it back.  A command can.
+	 *
+	 * Everything else, and every case this has no business in, falls through to
+	 * the editor's own Enter, so auto-indent, multi-cursor and the suggest
+	 * widget are untouched.
+	 */
 	context.subscriptions.push(
 		vscode.commands.registerCommand('purebasic.newline', async () => {
 			const editor = vscode.window.activeTextEditor;
@@ -662,12 +811,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}),
 	);
 
+	/**
+	 * The two halves of a smart newline: the line the caret is on is re-cased,
+	 * and a line that opens a block gets its terminator, with the caret left on
+	 * the body line.  Returns true when the newline has been dealt with here,
+	 * and false when the editor's own Enter should finish the job.
+	 */
 	async function finishBlockLine(editor: vscode.TextEditor): Promise<boolean> {
 		if (!editor.selection.isEmpty) return false;
 		const caret = editor.selection.active;
 		const document = editor.document;
 		const line = document.lineAt(caret.line);
 
+		// only the end of the line: in the middle, Enter just splits it
 		if (caret.character !== line.text.length) return false;
 
 		const lineText = config().canonicalCase
@@ -675,13 +831,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			: line.text;
 
 		const block = blockOpenerAt(lineText, allBlocks());
-
+		// a declaration that is not finished yet -- `Procedure test`, with no
+		// parentheses -- is not the head of a block until its signature closes
 		const unfinished =
 			block !== undefined &&
 			/^(?:procedure|declare|prototype)/i.test(block.opener) &&
 			!lineText.includes('(');
 
 		if (!block || unfinished) {
+			// no block to close, but the line is still re-cased
 			if (lineText !== line.text) await editor.edit((b) => b.replace(line.range, lineText));
 			return false;
 		}
@@ -695,11 +853,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			b.replace(line.range, `${lineText}\n${body}\n${base}${block.closers[0]}`),
 		);
 
+		// TextLine.lineNumber is the line's own index (zero-based, despite the
+		// name), so the body line is the caret's line plus one
 		const after = new vscode.Position(caret.line + 1, body.length);
 		editor.selections = [new vscode.Selection(after, after)];
 		return true;
 	}
 
+	/*
+	 * A space re-cases the word it finishes -- `procedure ` becomes `Procedure `
+	 * as it is typed -- and ')' re-cases the whole line it closes, so a
+	 * signature is fixed the moment the parenthesis ends it.
+	 *
+	 * Both edits end before the caret, which is why they can be formatting edits
+	 * where Enter needed a command: nothing here can move the caret.
+	 *
+	 * A space only touches reserved words.  A library command can also be a
+	 * variable name (`left`, `open`, `print`), so re-casing one as you type
+	 * could rewrite a name the author chose, and with implicit variables the
+	 * name may not even have been declared yet.  Commands are still re-cased
+	 * when the call closes on ')', on Enter, and by Format Text, where the
+	 * declared names are known.
+	 */
 	context.subscriptions.push(
 		vscode.languages.registerOnTypeFormattingEditProvider(
 			LANGUAGE,
@@ -713,7 +888,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 						if (!finished) return undefined;
 						const canonical = canonicalKeyword(finished.word);
 						if (!canonical || canonical === finished.word) return undefined;
-
+						// a keyword written in a comment or a string stays as written
 						const masked = maskSource(line.text)[0] ?? '';
 						if (masked.slice(finished.start, finished.end) !== finished.word) return undefined;
 						return [
@@ -734,6 +909,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		),
 	);
 
+	/* ---------------------------------------------------------- completion */
 	context.subscriptions.push(
 		vscode.languages.registerCompletionItemProvider(
 			LANGUAGE,
@@ -743,10 +919,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 					if (!cfg.enable) return undefined;
 
 					const parsed = indexOf(document);
-
+					// What has actually been typed, read straight from the line.  The
+					// editor's own word range answers a different question -- it spans
+					// the whole word, which may extend past the cursor when editing
+					// inside one -- and how it treats a pattern like this one is the
+					// editor's business, so the text is taken directly instead.
 					const line = document.lineAt(position.line).text;
 					const word = typedWord(line, position.character);
 
+					// a type or member list is asked for by the '.' or '\' itself, so the
+					// minimum length does not apply to it
 					const asked =
 						context?.triggerCharacter === '.' || context?.triggerCharacter === '\\';
 
@@ -771,11 +953,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			},
 			'.',
 			'\\',
-
+			// `@` starts a procedure address or a variable reference; `*` is
+			// also the multiplication sign and `?` needs a label, so neither is
+			// a trigger.
 			'@',
 		),
 	);
 
+	/* --------------------------------------------------------------- hover */
 	context.subscriptions.push(
 		vscode.languages.registerHoverProvider(LANGUAGE, {
 			provideHover(document, position) {
@@ -800,6 +985,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}),
 	);
 
+	/* ------------------------------------------------------ signature help */
 	context.subscriptions.push(
 		vscode.languages.registerSignatureHelpProvider(
 			LANGUAGE,
@@ -837,6 +1023,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		),
 	);
 
+	/* ----------------------------------------------------- document outline */
 	context.subscriptions.push(
 		vscode.languages.registerDocumentSymbolProvider(LANGUAGE, {
 			provideDocumentSymbols(document) {
@@ -857,6 +1044,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}),
 	);
 
+	// index the open documents immediately, the rest in the background
 	for (const doc of vscode.workspace.textDocuments) {
 		if (doc.languageId === LANGUAGE) indexOf(doc);
 	}

@@ -1,6 +1,24 @@
+/*
+ * Editor-side sugar for PureBasic's compound statement blocks.
+ *
+ * The language facts -- which word opens a block and which terminator(s) close
+ * it -- come from the IDE's folding-pair table and are generated into
+ * src/data/pb-builtins.ts (tools/gen-data.mjs).  What lives here is only the
+ * part that table cannot supply: the shape of the snippet a user gets when they
+ * accept an opener, and which statement heads to offer inside a block.
+ *
+ * Snippet bodies are composed from the generated opener and closer instead of
+ * being spelled out, so the inserted text is always cased like the label the
+ * completion list showed.
+ */
 import { maskSource } from './parser.ts';
 import type { PbBlock } from './types.ts';
 
+/**
+ * Statement heads that continue a block without opening one.  Spelled out
+ * because they are not folding pairs: they belong to a block that is already
+ * open.
+ */
 const EXTRA_CONTINUATIONS: readonly { label: string; detail: string }[] = [
 	{ label: 'Case', detail: 'Select branch' },
 	{ label: 'Default', detail: 'default Select branch' },
@@ -14,6 +32,11 @@ const EXTRA_CONTINUATIONS: readonly { label: string; detail: string }[] = [
 	{ label: 'Continue', detail: 'next iteration of the loop' },
 ];
 
+/**
+ * Snippet bodies keyed by lower-cased opener.  `$1`-style tab stops are filled
+ * in order and `$0` is where the cursor ends up.  An opener with no entry here
+ * is inserted as plain text.
+ */
 const BLOCK_BODIES = new Map<string, (b: PbBlock) => string>([
 	['procedure', (b) => `${b.opener} \${1:name}(\${2})\n\t$0\n${b.closers[0]}`],
 	['proceduredll', (b) => `${b.opener} \${1:name}(\${2})\n\t$0\n${b.closers[0]}`],
@@ -45,10 +68,15 @@ const BLOCK_BODIES = new Map<string, (b: PbBlock) => string>([
 	['with', (b) => `${b.opener} \${1:expression}\n\t$0\n${b.closers[0]}`],
 ]);
 
+/** The snippet that expands `block` into a whole skeleton, if there is one. */
 export function blockBody(block: PbBlock): string | undefined {
 	return BLOCK_BODIES.get(block.opener.toLowerCase())?.(block);
 }
 
+/**
+ * Statement heads to offer at the start of a statement: every terminator, plus
+ * the branch and loop-control statements used inside a block.
+ */
 export function blockContinuations(blocks: readonly PbBlock[]): { label: string; detail: string }[] {
 	const out: { label: string; detail: string }[] = [];
 	const seen = new Set<string>();
@@ -68,27 +96,44 @@ export function blockContinuations(blocks: readonly PbBlock[]): { label: string;
 	return out;
 }
 
+/** Whether a statement is a prototype prefix, where the bare keyword is wanted. */
 export function isDeclarationPrefix(before: string): boolean {
 	return /^\s*(?:declare|prototype|import)\s*$/i.test(before);
 }
 
+/**
+ * Whether the cursor is right after a word that expects a name (rather than a
+ * fresh statement) -- `Procedure`, `Structure`, `Module`, ... .
+ */
 export function expectsName(before: string): boolean {
 	return /^\s*(?:runtime\s+)?(?:procedure|proceduredll|procedurec|procedurecdll|structure|interface|module|declaremodule|macro|enumeration|enumerationbinary)\s*$/i.test(
 		before,
 	);
 }
 
+/** Escape a literal for use in a RegExp. */
 function escapeRegExp(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * The block a finished line opens, if it opens one.
+ *
+ * This is what Enter uses: the terminator belongs on the following line.  A
+ * line that already terminates its block (`If a : x = 1 : EndIf`) opens
+ * nothing, and neither does a line whose "keyword" is really inside a comment
+ * or a string.
+ *
+ * There is no `Then` to worry about: PureBasic has no such keyword (a
+ * single-line If is written with an explicit EndIf).
+ */
 export function blockOpenerAt(lineText: string, blocks: readonly PbBlock[]): PbBlock | undefined {
 	const masked = maskSource(lineText)[0] ?? '';
 	if (masked.trim() === '') return undefined;
 
 	for (const block of blocks) {
 		if (!new RegExp(`^\\s*${escapeRegExp(block.opener)}\\b`, 'i').test(masked)) continue;
-
+		// all on one line and already terminated
 		if (new RegExp(`\\b${escapeRegExp(block.closers[0])}\\b`, 'i').test(masked)) return undefined;
 		return block;
 	}
