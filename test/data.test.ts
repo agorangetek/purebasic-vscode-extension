@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { PB_BUILTINS } from '../src/data/pb-builtins.ts';
 import {
 	allBlocks,
@@ -161,4 +164,66 @@ test('a reserved word has a canonical spelling, a library command does not', () 
 	// and no false positive from the prototype chain
 	assert.equal(canonicalKeyword('constructor'), undefined);
 	assert.equal(canonicalKeyword('toString'), undefined);
+});
+
+/*
+ * src/data/pb-builtins.json and src/data/pb-builtins.ts are two halves of one
+ * generated dataset: the grammar is generated from the .json, and the extension
+ * -- so completion, hover and canonical case -- imports the .ts.  Editing one
+ * used to leave the other behind, and nothing noticed: nine reserved words
+ * reached the syntax highlighter and never reached the completion list in
+ * 0.1.22.  0.1.20's grammar guard could not see it, because the grammar was
+ * right.  These tests pin the halves to each other from the side that matters --
+ * what the extension actually offers.
+ */
+const dataFile = JSON.parse(
+	readFileSync(
+		join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'data', 'pb-builtins.json'),
+		'utf8',
+	),
+) as {
+	items: { id: string; name: string; lower: string; kind: string; category: string }[];
+	keywords: string[];
+	keywordCanonical: Record<string, string>;
+	count: number;
+};
+
+test('the bundled data is not stale against the data file it is generated from', () => {
+	const bundled = new Set(PB_BUILTINS.items.map((i) => i.id));
+	const missing = dataFile.items.filter((i) => !bundled.has(i.id)).map((i) => i.name);
+	assert.deepEqual(
+		missing.slice(0, 20),
+		[],
+		`src/data/pb-builtins.ts is stale -- run npm run gen-builtins-ts (${missing.length} missing)`,
+	);
+	assert.equal(PB_BUILTINS.items.length, dataFile.items.length);
+	assert.equal(PB_BUILTINS.count, dataFile.count);
+});
+
+test('every keyword the data file lists is offered, with its canonical spelling', () => {
+	const bundled = new Set(PB_BUILTINS.keywords.map((k) => k.toLowerCase()));
+	const missing = dataFile.keywords.filter((k) => !bundled.has(k.toLowerCase()));
+	assert.deepEqual(
+		missing,
+		[],
+		`the .ts is stale: ${missing.join(', ')} is in the .json and not in the bundled data`,
+	);
+	// and the ones the IDE's own table has, which the script table was missing
+	for (const word of [
+		'List',
+		'Map',
+		'Array',
+		'As',
+		'CallDebugger',
+		'DebugLevel',
+		'DisableDebugger',
+		'EnableDebugger',
+		'IncludePath',
+	]) {
+		assert.equal(canonicalKeyword(word), word, `${word} should be a keyword`);
+	}
+	// SpiderBasic's own keywords are not PureBasic's
+	for (const word of ['DisableJS', 'EnableJS']) {
+		assert.equal(canonicalKeyword(word), undefined, `${word} is SpiderBasic-only`);
+	}
 });

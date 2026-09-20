@@ -4,6 +4,31 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.23] - 2026-09-20
+
+### Fixed
+
+- **0.1.22's nine keywords reached the syntax highlighter but not the completion list.**
+  `tools/gen-data.mjs` writes two files from one run -- `src/data/pb-builtins.json`, which the
+  grammar is generated from, and `src/data/pb-builtins.ts`, which the extension imports for
+  completion, hover and canonical case. Only the `.json` was updated, so `List`, `Map`, `Array`,
+  `As`, `CallDebugger`, `DebugLevel`, `DisableDebugger`, `EnableDebugger` and `IncludePath` were
+  coloured and not offered. 0.1.20's guard could not see it: the grammar was correct.
+- The `.ts` is now a pure function of the `.json`, written by `tools/gen-builtins-ts.mjs` and used
+  by `gen-data` too, so there is one emitter and no second writer to fall behind:
+  - `npm run build` regenerates it from the JSON before bundling, and `vsce package` runs `build`;
+  - `node tools/gen-builtins-ts.mjs --check` fails when the two disagree, and `npm run check` runs
+    it next to the grammar check;
+  - two tests pin them together from the side that matters -- every item and every keyword in the
+    `.json` must be present in the data the extension actually offers. Restoring the stale `.ts`
+    makes them fail with `src/data/pb-builtins.ts is stale -- run npm run gen-builtins-ts`.
+
+### Verified
+
+- Each of the nine is now offered by completion, checked by running the provider:
+  `Lis` -> `List`, `Arr` -> `Array`, `Call` -> `CallDebugger`, `Incl` -> `IncludePath`,
+  `Deb` -> `DebugLevel`, and the two debugger directives by their full names.
+
 ## [0.1.22] - 2026-09-20
 
 ### Fixed
