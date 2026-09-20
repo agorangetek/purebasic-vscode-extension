@@ -299,3 +299,31 @@ test('string and comment literals are still classified as such', { skip }, async
 	assert.equal(quickSuggestionsCategory(literal), 'string');
 	assert.equal(quickSuggestionsCategory(comment), 'comment');
 });
+
+test('a reference carries its sigil, even before the name is typed', { skip }, async () => {
+	const lines = await tokenize(
+		['@ThreadProcedure1()', 'CreateThread(@ThreadProcedure1(), 0)', '@', '@*p', 'x = a * b'].join('\n'),
+	);
+
+	// the whole reference is one token, sigil included
+	const reference = occurrences(lines, '@ThreadProcedure1');
+	assert.ok(reference.length >= 2, 'the references should tokenize');
+	for (const { token } of reference) {
+		assert.equal(token.text, '@ThreadProcedure1', 'the @ belongs to the token');
+		assert.ok(token.scopes.includes('variable.other.reference.purebasic'), 'and to the scope');
+	}
+
+	// a sigil on its own is not left uncoloured
+	const bare = lines[2]!.find((t) => t.text === '@');
+	assert.ok(bare, 'the bare @ should tokenize');
+	assert.ok(
+		bare.scopes.includes('variable.other.reference.purebasic'),
+		`a bare @ should be scoped, got ${bare.scopes.join(' ') || 'no scope'}`,
+	);
+	const beforePointer = lines[3]!.find((t) => t.text === '@');
+	assert.ok(beforePointer?.scopes.includes('variable.other.reference.purebasic'));
+
+	// and the multiplication sign is not a reference
+	const multiply = lines[4]!.filter((t) => t.text === '*' || t.text === '@');
+	assert.deepEqual(multiply, [], 'neither @ nor * appears in a multiplication');
+});

@@ -40,7 +40,7 @@ scope below is specific to PureBasic:
 | your constants (`#MaxPoints`) | `constant.other.purebasic` |
 | pointers (`*pBuffer`) | `variable.other.pointer.purebasic` |
 | structure members (`pt\x`) | `variable.other.member.purebasic` |
-| a procedure address (`@MyProc`) | `variable.other.reference.purebasic` |
+| a procedure address (`@MyProc`) | `variable.other.reference.purebasic` (bare `@` too) |
 | a data label (`?data`) | `variable.other.label-reference.purebasic` |
 | labels (`top:`) | `entity.name.label.purebasic` |
 | inline assembly (`! mov …`) | `meta.embedded.asm.purebasic` |

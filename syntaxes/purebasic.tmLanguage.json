@@ -524,6 +524,10 @@
 					"match": "@[A-Za-z_]\\w*"
 				},
 				{
+					"name": "variable.other.reference.purebasic",
+					"match": "@(?![A-Za-z_])"
+				},
+				{
 					"name": "variable.other.label-reference.purebasic",
 					"match": "\\?[A-Za-z_]\\w*"
 				}

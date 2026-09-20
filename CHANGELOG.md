@@ -4,6 +4,18 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.10] - 2026-09-20
+
+### Fixed
+
+- **A `@` with no name after it was left unscoped.** `@ThreadProcedure1` carried
+  `variable.other.reference.purebasic`, but a bare `@` (while typing one, or before something
+  that is not a name) matched no rule at all, so it fell back to the editor's default colour and
+  a reference could look half-coloured. Every `@` now takes the reference scope, and the sigil is
+  part of the token, so one selector colours the whole thing. `@` has no other meaning in
+  PureBasic, which is why this is safe; a bare `*` is the multiplication operator and cannot be
+  told apart from a pointer sigil, so it is deliberately left alone.
+
 ## [0.1.9] - 2026-09-20
 
 ### Changed

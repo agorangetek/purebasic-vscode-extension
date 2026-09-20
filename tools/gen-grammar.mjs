@@ -213,6 +213,12 @@ const grammar = {
 			patterns: [
 				{ name: 'variable.other.pointer.purebasic', match: '\\*[A-Za-z_]\\w*' },
 				{ name: 'variable.other.reference.purebasic', match: '@[A-Za-z_]\\w*' },
+				// a `@` with no name yet -- `@` on its own, or `@` before
+				// something other than a name -- still wears the sigil's colour,
+				// so a reference never looks half-coloured.  `@` has no other
+				// meaning in PureBasic, which is why it is safe here (a bare `*`
+				// is the multiplication operator and cannot be told apart).
+				{ name: 'variable.other.reference.purebasic', match: '@(?![A-Za-z_])' },
 				{ name: 'variable.other.label-reference.purebasic', match: '\\?[A-Za-z_]\\w*' },
 			],
 		},
