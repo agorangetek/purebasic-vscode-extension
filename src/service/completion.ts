@@ -13,6 +13,7 @@ import type {
 	PbCompletionOptions,
 	PbDocument,
 	PbPosition,
+	PbSymbolKind,
 	PbSymbol,
 } from './types.ts';
 
@@ -80,13 +81,27 @@ export function fileNameOf(uri: string): string {
 	return baseNameOf(pathOfUri(path)) || uri;
 }
 
+export interface SymbolItemOptions {
+	/** Insert a call snippet with parameter placeholders, where a call fits. */
+	snippet?: boolean;
+	/** Sort key inside the rank; the file name, to keep one file together. */
+	group?: string;
+	/** Dimmed text after the label, e.g. the file the symbol comes from. */
+	labelDescription?: string;
+	/**
+	 * The symbol is used as an address (`@Proc`, `@variable`).  pbcompiler accepts
+	 * `@Proc()` but rejects `@Proc(1)` as a syntax error, so a callable is
+	 * inserted with empty parentheses and no parameters.
+	 */
+	address?: boolean;
+}
+
 export function symbolToCompletionItem(
 	symbol: PbSymbol,
 	rank: string,
-	allowSnippet = true,
-	group = '',
-	labelDescription?: string,
+	options: SymbolItemOptions = {},
 ): PbCompletionItem {
+	const { snippet = false, group = '', labelDescription, address = false } = options;
 	const isCallable =
 		symbol.kind === 'procedure' || symbol.kind === 'declare' || symbol.kind === 'prototype';
 	const params = parameterNames(symbol.params);
@@ -110,7 +125,10 @@ export function symbolToCompletionItem(
 		const emptyForm = symbol.container === 'list' || symbol.kind === 'list';
 		insertText = emptyForm ? `${symbol.name}()` : `${symbol.name}(\${1})`;
 		isSnippet = !emptyForm;
-	} else if (isCallable && params.length > 0 && allowSnippet) {
+	} else if (isCallable && address) {
+		// `@Proc()` is the address; `@Proc(1)` is a syntax error
+		insertText = `${symbol.name}()`;
+	} else if (isCallable && params.length > 0 && snippet) {
 		const placeholders = params.map((p, i) => `\${${i + 1}:${p}}`).join(', ');
 		insertText = `${symbol.name}(${placeholders})`;
 		isSnippet = true;
@@ -307,10 +325,34 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 	// asked for deliberately -- the editor only triggers it on the character
 	// itself -- so it is never held back, and neither is a sigil: `@` already
 	// says a procedure address or a variable is wanted, so `@` alone lists them.
-	const sigil = /^[*@?]/.test(word);
-	if (members === 'plain' && !sigil && (options.minChars ?? 0) > 0) {
+	const sigil = /^[*@?]/.test(word) ? word[0] : undefined;
+	const address = sigil !== undefined;
+	if (members === 'plain' && !address && (options.minChars ?? 0) > 0) {
 		if (word.length < (options.minChars ?? 0)) return [];
 	}
+
+	/*
+	 * What each sigil can point at, checked against pbcompiler 6.41:
+	 *
+	 * - `@` and `*` take the address of a procedure or a variable, including a
+	 *   parameter, a Static, a pointer and a field; a container is reached
+	 *   through its element (`@list()`, `@array(0)`, `@map(key)`), never bare.
+	 * - `?` takes a data label.
+	 *
+	 * Rejected by the compiler, so never offered: a library command
+	 * (`@Sin(1.0)` is "not declared"), a compile-time pseudo function
+	 * (`@SizeOf(x)`), a type -- structure, prototype or module -- a constant, an
+	 * enum member, a macro, and a code label.  Library commands are dropped for
+	 * every sigil; a keyword cannot be addressed either.  A variable declared
+	 * *with* a prototype type is still a variable, and is offered.
+	 */
+	const SIGIL_TARGETS: Record<string, readonly PbSymbolKind[]> = {
+		'@': ['procedure', 'declare', 'variable', 'list', 'map', 'array'],
+		'*': ['procedure', 'declare', 'variable', 'list', 'map', 'array'],
+		'?': ['label'],
+	};
+	const targets = sigil === undefined ? undefined : SIGIL_TARGETS[sigil];
+	const wants = (kind: PbSymbolKind) => targets === undefined || targets.includes(kind);
 
 	const push = (item: PbCompletionItem) => {
 		const key = item.label.toLowerCase();
@@ -339,12 +381,12 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 			for (const symbol of [...document.symbols, ...workspaceSymbols]) {
 				if (symbol.kind !== 'structure' && symbol.kind !== 'interface') continue;
 				const from = symbol.file === document.uri ? undefined : fileNameOf(symbol.file);
-				push(symbolToCompletionItem(symbol, RANK.document, false, '', from));
+				push(symbolToCompletionItem(symbol, RANK.document, { labelDescription: from }));
 			}
 		} else {
 			for (const field of memberItems(document, workspaceSymbols, context.before, position)) {
 				const from = field.file === document.uri ? undefined : fileNameOf(field.file);
-				const item = symbolToCompletionItem(field, RANK.local, false, '', from);
+				const item = symbolToCompletionItem(field, RANK.local, { labelDescription: from });
 				item.documentation = field.scope ? `member of ${field.scope}` : undefined;
 				push(item);
 			}
@@ -359,7 +401,7 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 
 	// 1. locals and parameters of the enclosing procedure
 	const proc = enclosingProcedure(document, position);
-	if (proc) {
+	if (proc && wants('variable')) {
 		for (const name of parameterNames(proc.params)) {
 			const label = name.replace(/^[*@?]/, '');
 			push({
@@ -373,14 +415,16 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 		}
 		for (const symbol of document.symbols) {
 			if (symbol.scope === proc.name && symbol.name !== proc.name) {
-				push(symbolToCompletionItem(symbol, RANK.local, false));
+				push(symbolToCompletionItem(symbol, RANK.local, { address }));
 			}
 		}
 	}
 
 	// 2. module-level symbols of this document
 	for (const symbol of document.symbols) {
-		if (symbol.scope === '') push(symbolToCompletionItem(symbol, RANK.document, false));
+		if (symbol.scope === '' && wants(symbol.kind)) {
+			push(symbolToCompletionItem(symbol, RANK.document, { address }));
+		}
 	}
 
 	/*
@@ -393,9 +437,13 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 	for (const symbol of workspaceSymbols) {
 		if (symbol.file === document.uri) continue;
 		// a member is only valid after a `\`, which the branch above handles
-		if (symbol.kind === 'field') continue;
+		if (symbol.kind === 'field' || !wants(symbol.kind)) continue;
 		const file = fileNameOf(symbol.file);
-		const item = symbolToCompletionItem(symbol, RANK.workspace, false, file, file);
+		const item = symbolToCompletionItem(symbol, RANK.workspace, {
+			group: file,
+			labelDescription: file,
+			address,
+		});
 		item.documentation = item.documentation
 			? `${item.documentation}\n\n---\n\nFrom \`${file}\``
 			: `From \`${file}\``;
@@ -406,8 +454,9 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 	// A sigil has already started the expression, so `@` alone is not one.
 	const freshStatement = !sigil && /^\s*$/.test(context.before);
 
-	// 4. library commands are valid in any expression
-	if (options.builtins) {
+	// 4. library commands are valid in any expression -- but no library command
+	// can be addressed, so none of them belongs after a sigil
+	if (options.builtins && !address) {
 		for (const item of allBuiltins()) {
 			if (item.kind === 'keyword') continue;
 			if (!isCompletableName(item.name)) continue;

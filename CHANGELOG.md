@@ -4,6 +4,23 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.12] - 2026-09-20
+
+### Changed
+
+- **What a sigil offers is now what `pbcompiler` actually accepts**, checked form by form against
+  6.41. After `@` (and `*`) it offers a procedure, a `Declare`, a variable of any scope -- a
+  parameter, a `Static`, a `Global`, a pointer -- and a container *element* (`@list()`,
+  `@array(0)`, `@map(key)`), and nothing else. Refused by the compiler, so no longer offered: a
+  library command (`@Sin(1.0)` is "not declared"), a compile-time pseudo function
+  (`@SizeOf(x)`), a type (structure, prototype or module), a constant, an enum member, a macro,
+  a code label, and a bare container (`@glist`).
+- A procedure is inserted as `Name()` after a sigil, because `@Proc()` is the address while
+  `@Proc(1)` is a syntax error.
+- `?` offers data labels only.
+- A `Prototype` declaration now has its own symbol kind. It is a type, unlike a `Declare`, and
+  only that difference lets a completion tell the two apart.
+
 ## [0.1.11] - 2026-09-20
 
 ### Fixed

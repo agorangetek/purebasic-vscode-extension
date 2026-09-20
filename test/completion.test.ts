@@ -457,11 +457,64 @@ test('a sigil opens the list on its own, and only offers names it can point at',
 	// `@` alone is a deliberate request, so the minimum does not hold it back
 	const bare = at('@');
 	assert.ok(bare.includes('ThreadProcedure1'), `expected the procedure, got ${bare.length} items`);
-	assert.ok(bare.includes('MessageRequester'), 'a library procedure can be addressed too');
 	assert.ok(!bare.includes('Procedure'), 'a keyword cannot be addressed');
 	assert.ok(!bare.includes('If'), 'and neither can a block keyword');
+	// verified with pbcompiler: none of these can be addressed
+	assert.ok(!bare.includes('MessageRequester'), 'a library command cannot');
+	assert.ok(!bare.includes('Sin'), 'nor a compile-time pseudo function');
+	assert.deepEqual(at('@ThreadProc'), ['ThreadProcedure1']);
 
 	// whatever follows the sigil filters as usual
-	assert.deepEqual(at('@ThreadProc'), ['ThreadProcedure1']);
 	assert.deepEqual(at('@ThreadPro'), ['ThreadProcedure1']);
+});
+
+test('each sigil offers only what pbcompiler lets it point at', () => {
+	const source = [
+		'Structure MyStruct',
+		'\tfield.i',
+		'EndStructure',
+		'Prototype.i Proto(x.i)',
+		'Global gvar.i',
+		'Global NewList glist.i()',
+		'#MyConst = 3',
+		'Macro MyMacro',
+		'EndMacro',
+		'Declare.i Declared(x.i)',
+		'DataSection',
+		'\tmydata:',
+		'\tData.i 1, 2',
+		'EndDataSection',
+		'Procedure.i Proc(x.i)',
+		'\tStatic stat.i',
+		'\tSIGIL',
+		'EndProcedure',
+	].join('\n');
+
+	const at = (sigil: string) => {
+		const document = parseDocument('file:///s.pb', source.replace('SIGIL', sigil));
+		return buildCompletions({
+			document,
+			position: { line: 16, character: sigil.length },
+			word: sigil,
+			options: OPTIONS,
+		});
+	};
+	const labels = (sigil: string) => at(sigil).map((i) => i.label);
+
+	const address = labels('@');
+	for (const wanted of ['Proc', 'Declared', 'stat', 'x', 'gvar', 'glist', 'mydata']) {
+		const expected = wanted !== 'mydata'; // a code/data label is not addressable with @
+		assert.equal(address.includes(wanted), expected, `@${wanted} (pbcompiler says ${expected ? 'ok' : 'no'})`);
+	}
+	for (const refused of ['Proto', 'MyStruct', 'MyConst', 'MyMacro', 'MessageRequester', 'Sin']) {
+		assert.ok(!address.includes(refused), `@ cannot point at ${refused}`);
+	}
+
+	// a container is reached through its element, never bare
+	assert.equal(at('@').find((i) => i.label === 'glist')?.insertText, 'glist()');
+	// `@Proc()` is the address; `@Proc(1)` is a syntax error
+	assert.equal(at('@').find((i) => i.label === 'Proc')?.insertText, 'Proc()');
+
+	// `?` takes a data label and nothing else
+	assert.deepEqual(labels('?'), ['mydata']);
 });

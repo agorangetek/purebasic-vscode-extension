@@ -290,3 +290,15 @@ test('inStringOrComment knows where code stops being code', () => {
 	// an escape string does
 	assert.equal(inStringOrComment('x = ~"a\\"b', { line: 0, character: 10 }), true);
 });
+
+test('a Prototype is a type, a Declare is a procedure', () => {
+	// pbcompiler takes the address of a Declare but not of a Prototype
+	const doc = parseDocument(
+		'file:///p.pb',
+		['Declare.i Declared(x.i)', 'Prototype.i Proto(x.i)', 'PrototypeC ProtoC(x.i)'].join('\n'),
+	);
+	assert.deepEqual(
+		doc.symbols.map((s) => `${s.name}:${s.kind}`),
+		['Declared:declare', 'Proto:prototype', 'ProtoC:prototype'],
+	);
+});

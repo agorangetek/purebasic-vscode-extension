@@ -904,7 +904,10 @@ test('integration: only files joined by IncludeFile share symbols', { skip }, as
 
 		const labels = items.map(shownLabel);
 		assert.ok(labels.includes('ThreadProcedure1'), `expected the procedure among ${labels.length} items`);
-		assert.ok(labels.includes('MessageRequester'), 'a library procedure is addressable');
+		assert.ok(
+			!labels.includes('MessageRequester'),
+			'a library command is not addressable (pbcompiler: "is not declared")',
+		);
 		assert.ok(!labels.includes('Procedure'), 'a keyword is not');
 		assert.ok(!labels.includes('If'), 'nor a block opener');
 	});

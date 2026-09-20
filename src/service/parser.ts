@@ -377,10 +377,14 @@ export function parseDocument(uri: string, text: string): PbDocument {
 		const proc = PROC_RE.exec(line);
 		if (proc) {
 			const keyword = proc[2]!.toLowerCase();
-			const isProto = keyword.startsWith('declare') || keyword.startsWith('prototype');
+			// A Declare names a procedure that can be addressed; a Prototype names
+			// a type, which pbcompiler refuses to take the address of.
+			const declared = keyword.startsWith('declare');
+			const isProto = declared || keyword.startsWith('prototype');
+			const kind = declared ? 'declare' : isProto ? 'prototype' : 'procedure';
 			const name = proc[4]!;
 			const params = paramListOf(source);
-			const symbol = add(name, isProto ? 'declare' : 'procedure', i, source, {
+			const symbol = add(name, kind, i, source, {
 				params,
 				returns: proc[3],
 				pointer: name.startsWith('*') || undefined,
