@@ -28,6 +28,11 @@ extension — plain VS Code providers, in-process, no language server.
   inserts the whole block with its terminator.
 - **Type awareness**: the built-in type suffixes after a `.` (with what each
   means) and structure/interface names, plus structure members after a `\`.
+- **Completion waits for three characters** (`purebasic.completion.minChars`,
+  default 3) before the list appears, so a single keystroke no longer opens a
+  popup. A type or member list after `.` or `\` still appears immediately, and
+  VS Code's word-based suggestions are off for PureBasic so they cannot open the
+  popup early themselves. Set the setting to 0 for the previous behaviour.
 - **Hover** documentation for commands and for the user's own symbols.
 - **Signature help** while typing a call, marking optional parameters and
   highlighting the active one.

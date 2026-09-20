@@ -159,3 +159,34 @@ test('signature help resolves built-ins and user procedures', () => {
 	assert.equal(user.activeParameter, 1);
 	assert.equal(user.parameters.length, 2);
 });
+
+test('nothing is offered until enough of the name has been typed', () => {
+	const doc = parseDocument('file:///m.pb', MODULE);
+	const count = (word: string, minChars: number) =>
+		buildCompletions({
+			document: doc,
+			position: { line: 7, character: 2 },
+			word,
+			options: { ...OPTIONS, minChars },
+		}).length;
+
+	assert.equal(count('', 3), 0, 'nothing typed, nothing offered');
+	assert.equal(count('Me', 3), 0, 'two characters is too few');
+	assert.ok(count('Mes', 3) > 0, 'three characters offers the list');
+	assert.ok(count('M', 0) > 0, 'minChars 0 offers the list as soon as you type');
+	assert.ok(count('Me', 2) > 0, 'the minimum is whatever it is set to');
+
+	// a member list after a dot is asked for by the dot itself, so it is never
+	// held back
+	const memberDoc = parseDocument(
+		'file:///p.pb',
+		['Structure Point', '\tx.i', 'EndStructure', 'Procedure p()', '\tpt.', 'EndProcedure'].join('\n'),
+	);
+	const members = buildCompletions({
+		document: memberDoc,
+		position: { line: 4, character: 4 },
+		word: '',
+		options: { ...OPTIONS, minChars: 3 },
+	});
+	assert.ok(members.length > 0, 'the type list after a dot is offered straight away');
+});

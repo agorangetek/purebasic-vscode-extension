@@ -74,6 +74,12 @@
 					"default": true,
 					"description": "Insert a call snippet with parameter placeholders for commands that have parameters."
 				},
+				"purebasic.completion.minChars": {
+					"type": "number",
+					"default": 3,
+					"minimum": 0,
+					"description": "How many characters to type before the completion list appears. 0 offers it as soon as you type. A type or member list after '.' or '\\' is never held back, and Ctrl+Space follows the same minimum."
+				},
 				"purebasic.index.workspace": {
 					"type": "boolean",
 					"default": true,
@@ -99,6 +105,11 @@
 					"default": "off",
 					"description": "Trace language service activity to the PureBasic output channel (for troubleshooting)."
 				}
+			}
+		},
+		"configurationDefaults": {
+			"[purebasic]": {
+				"editor.wordBasedSuggestions": "off"
 			}
 		},
 		"commands": [

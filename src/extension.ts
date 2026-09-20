@@ -26,6 +26,7 @@ function config() {
 		keywords: c.get<boolean>('completion.keywords', true),
 		builtins: c.get<boolean>('completion.builtins', true),
 		snippets: c.get<boolean>('completion.snippets', true),
+		minChars: c.get<number>('completion.minChars', 3),
 		workspace: c.get<boolean>('index.workspace', true),
 		maxFiles: c.get<number>('index.maxFiles', 400),
 		canonicalCase: c.get<boolean>('format.canonicalCase', true),
@@ -309,7 +310,7 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.languages.registerCompletionItemProvider(
 			LANGUAGE,
 			{
-				provideCompletionItems(document, position) {
+				provideCompletionItems(document, position, _token, context) {
 					const cfg = config();
 					if (!cfg.enable) return undefined;
 
@@ -321,12 +322,22 @@ export function activate(context: vscode.ExtensionContext): void {
 						? document.getText(new vscode.Range(wordRange.start, position))
 						: '';
 
+					// a type or member list is asked for by the '.' or '\' itself, so the
+					// minimum length does not apply to it
+					const asked =
+						context?.triggerCharacter === '.' || context?.triggerCharacter === '\\';
+
 					const items = buildCompletions({
 						document: parsed,
 						workspaceSymbols: cfg.workspace ? index.symbols(parsed.uri) : [],
 						position: { line: position.line, character: position.character },
 						word,
-						options: { keywords: cfg.keywords, builtins: cfg.builtins, snippets: cfg.snippets },
+						options: {
+							keywords: cfg.keywords,
+							builtins: cfg.builtins,
+							snippets: cfg.snippets,
+							minChars: asked ? 0 : cfg.minChars,
+						},
 					});
 
 					trace(`completion at ${position.line}:${position.character} -> ${items.length} items`);
@@ -335,8 +346,6 @@ export function activate(context: vscode.ExtensionContext): void {
 			},
 			'.',
 			'\\',
-			'(',
-			',',
 		),
 	);
 

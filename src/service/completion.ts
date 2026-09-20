@@ -171,6 +171,15 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 	const context = statementContextAt(document.text, position, word);
 	const members = memberContextAt(document.text, position, word);
 
+	// Editor-side pacing: while a name is being typed, wait until enough of it
+	// is there before offering anything.  A member list after '.' or '\' is
+	// asked for deliberately -- the editor only triggers it on the character
+	// itself -- so it is never held back.
+	if (members === 'plain' && (options.minChars ?? 0) > 0) {
+		const typed = word.replace(/^[*@?]/, '');
+		if (typed.length < (options.minChars ?? 0)) return [];
+	}
+
 	const push = (item: PbCompletionItem) => {
 		const key = item.label.toLowerCase();
 		if (seen.has(key)) return;

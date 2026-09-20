@@ -172,6 +172,13 @@ export interface PbCompletionOptions {
 	keywords: boolean;
 	builtins: boolean;
 	snippets: boolean;
+	/**
+	 * How many characters to type before the completion list is offered.
+	 * 0 (the default here) offers it immediately; the extension passes the
+	 * user's `purebasic.completion.minChars`.  A member list, asked for by `.`
+	 * or `\`, is never held back.
+	 */
+	minChars?: number;
 }
 
 /** A parsed token position: zero-based line and character. */

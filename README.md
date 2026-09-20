@@ -92,6 +92,11 @@ another keyword.
   the workspace; after a `\` you get structure members.
 * **Prefix filtering, in any case** — typing a character offers only the names
   that *start* with it, whatever case you type.
+* **It waits for you** — nothing pops up until three characters of the name are
+  there (`purebasic.completion.minChars`). A list after `.` or `\` is asked for
+  by the character itself, so those appear straight away. VS Code's own
+  word-based suggestions are turned off for PureBasic, because otherwise they
+  would open the popup on the first keystroke regardless.
 
 ### Hover and signature help
 
@@ -129,6 +134,7 @@ files.
 | `purebasic.completion.keywords` | `true` | Offer language keywords. |
 | `purebasic.completion.builtins` | `true` | Offer built-in library commands. |
 | `purebasic.completion.snippets` | `true` | Insert call snippets with parameter placeholders. |
+| `purebasic.completion.minChars` | `3` | Characters to type before the popup appears (`0` = as soon as you type). |
 | `purebasic.index.workspace` | `true` | Index `.pb`/`.pbi` files across the workspace. |
 | `purebasic.index.maxFiles` | `400` | Cap on indexed workspace files. |
 | `purebasic.format.canonicalCase` | `true` | Restore canonical spelling when formatting. |

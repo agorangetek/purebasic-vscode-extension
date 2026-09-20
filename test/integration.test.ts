@@ -343,6 +343,8 @@ const SAMPLE = [
 	'',
 	'messagerequester("title", "text")',
 	'',
+	'Pro',
+	'Poi',
 ].join('\n');
 
 const document = new TextDocument('/ws/main.pb', SAMPLE);
@@ -410,15 +412,44 @@ test('integration: extension host wiring', { skip }, async (t) => {
 		assert.ok(commands.has('purebasic.formatText'));
 	});
 
-	await t.test('completes library commands, keywords and user symbols', () => {
+	await t.test('completes commands, keywords and symbols once the name is long enough', () => {
 		const provider = registrations.completion[0]!.provider;
-		const items = provider.provideCompletionItems(document, new Position(8, 1)) as CompletionItem[];
-		const found = new Set(items.map((i) => i.label));
-		assert.ok(found.has('result'), `expected the local among ${items.length} items`);
-		assert.ok(found.has('Add'));
-		assert.ok(found.has('Point'));
-		assert.ok(found.has('MessageRequester'));
-		assert.ok(found.has('Procedure'));
+		const labelsAt = (line: number, character: number) =>
+			(provider.provideCompletionItems(document, new Position(line, character)) as CompletionItem[]).map(
+				(i) => i.label,
+			);
+
+		assert.ok(labelsAt(8, 4).includes('result'), 'a local, typed "res"');
+		assert.ok(labelsAt(14, 3).includes('MessageRequester'), 'a library command, typed "mes"');
+		assert.ok(labelsAt(16, 3).includes('Procedure'), 'a keyword, typed "Pro"');
+		assert.ok(labelsAt(17, 3).includes('Point'), 'a structure, typed "Poi"');
+	});
+
+	await t.test('waits for three characters before opening the list', () => {
+		const provider = registrations.completion[0]!.provider;
+		const at = (line: number, character: number) =>
+			provider.provideCompletionItems(document, new Position(line, character)) as CompletionItem[];
+
+		assert.equal(at(14, 2).length, 0, 'two characters offers nothing');
+		assert.ok(at(14, 3).length > 0, 'three characters opens the list');
+
+		// a type list after a dot is asked for by the dot, so the minimum does
+		// not apply to it -- with or without the editor saying so
+		const dotDoc = new TextDocument(
+			'/ws/dot.pb',
+			['Structure Point', '\tx.i', 'EndStructure', 'Procedure p()', '\tpt.', 'EndProcedure'].join('\n'),
+		);
+		assert.ok(
+			provider.provideCompletionItems(dotDoc, new Position(4, 4)).length > 0,
+			'the list after a dot appears straight away',
+		);
+		assert.ok(
+			provider.provideCompletionItems(dotDoc, new Position(4, 4), undefined, {
+				triggerKind: 1,
+				triggerCharacter: '.',
+			}).length > 0,
+			'and when the editor reports the trigger character',
+		);
 	});
 
 	await t.test('offers a call snippet for a command with parameters', () => {
