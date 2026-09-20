@@ -368,7 +368,9 @@ export function activate(context: vscode.ExtensionContext): void {
 			b.replace(line.range, `${lineText}\n${body}\n${base}${block.closers[0]}`),
 		);
 
-		const after = new vscode.Position(line.lineNumber, body.length);
+		// TextLine.lineNumber is the line's own index (zero-based, despite the
+		// name), so the body line is the caret's line plus one
+		const after = new vscode.Position(caret.line + 1, body.length);
 		editor.selections = [new vscode.Selection(after, after)];
 		return true;
 	}

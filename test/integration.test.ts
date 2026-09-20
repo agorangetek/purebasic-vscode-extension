@@ -112,8 +112,10 @@ class TextDocument {
 	lineAt(line: number) {
 		const text = this.lines()[line] ?? '';
 		return {
-			// vscode's TextLine.number is 1-based, like this
-			lineNumber: line + 1,
+			// TextLine.lineNumber is the line's own index: zero-based, despite
+			// the name.  Getting this wrong in the mock once hid a real
+			// off-by-one in the caret, so it mirrors the API exactly.
+			lineNumber: line,
 			text,
 			range: new Range(new Position(line, 0), new Position(line, text.length)),
 		};
