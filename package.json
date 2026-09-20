@@ -95,6 +95,71 @@
 					"default": "",
 					"description": "Path to a KeywordsData.pbi from the PureBasic IDE source. Set it and any reserved word it has that this extension does not is picked up at startup, so a new PureBasic's keywords do not wait for a new release here. The file does not ship with a PureBasic installation (it belongs to the IDE source); the words are offered in completion straight away, and added to the grammar so they are coloured after a window reload. Leave empty to use only the keywords built in."
 				},
+				"purebasic.compiler.path": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "The `pbcompiler` to run. Empty uses the one in the PureBasic installation, then `pbcompiler` on the PATH."
+				},
+				"purebasic.compiler.debugger": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Compile with the debugger (`-d`). This is what makes `Debug` print and runtime errors report a line; without it they are compiled out."
+				},
+				"purebasic.compiler.optimizer": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Optimize generated code (`-z`)."
+				},
+				"purebasic.compiler.threadsafe": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Create a threadsafe executable (`-t`)."
+				},
+				"purebasic.compiler.purifier": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Enable the purifier (`-pf`)."
+				},
+				"purebasic.compiler.onErrorLines": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Enable OnError lines support (`-l`)."
+				},
+				"purebasic.compiler.executableFormat": {
+					"type": "string",
+					"enum": [
+						"macos",
+						"console",
+						"dylib"
+					],
+					"enumDescriptions": [
+						"An ordinary application.",
+						"A console application (`-cl`), which keeps its output attached to the terminal.",
+						"A shared library (`-dl`)."
+					],
+					"default": "macos",
+					"description": "The format Compile writes. The IDE's three choices on macOS: MacOS, Console, Shared .dylib."
+				},
+				"purebasic.compiler.subsystem": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Library subsystem to use (`-s`). Empty uses the default one."
+				},
+				"purebasic.compiler.outputPath": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Where Compile writes the executable. Empty writes it beside the source, named after it."
+				},
+				"purebasic.compiler.commandLine": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Arguments to start the program with. Empty runs it straight from the compiler; set, the program is built first and then started with these."
+				},
+				"purebasic.compiler.quiet": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Pass `-q`, so the terminal shows only errors rather than the compiler's progress."
+				},
 				"purebasic.format.canonicalCase": {
 					"type": "boolean",
 					"default": true,
@@ -146,6 +211,30 @@
 				"command": "purebasic.refreshKeywords",
 				"title": "PureBasic: Refresh Keywords from KeywordsData.pbi",
 				"category": "PureBasic"
+			},
+			{
+				"command": "purebasic.run",
+				"title": "PureBasic: Run",
+				"category": "PureBasic",
+				"icon": "$(play)"
+			},
+			{
+				"command": "purebasic.compile",
+				"title": "PureBasic: Compile to Executable",
+				"category": "PureBasic",
+				"icon": "$(package)"
+			},
+			{
+				"command": "purebasic.toggleDebugger",
+				"title": "PureBasic: Toggle Debugger",
+				"category": "PureBasic",
+				"icon": "$(bug)"
+			},
+			{
+				"command": "purebasic.compilerSettings",
+				"title": "PureBasic: Compiler Settings",
+				"category": "PureBasic",
+				"icon": "$(settings-gear)"
 			}
 		],
 		"keybindings": [
@@ -156,6 +245,31 @@
 			}
 		],
 		"menus": {
+			"editor/title/run": [
+				{
+					"command": "purebasic.run",
+					"when": "editorLangId == purebasic",
+					"group": "1_run@10"
+				}
+			],
+			"editor/title": [
+				{
+					"command": "purebasic.compile",
+					"when": "editorLangId == purebasic",
+					"group": "navigation@10"
+				},
+				{
+					"command": "purebasic.toggleDebugger",
+					"when": "editorLangId == purebasic",
+					"group": "navigation@11",
+					"toggled": "purebasic.debuggerEnabled"
+				},
+				{
+					"command": "purebasic.compilerSettings",
+					"when": "editorLangId == purebasic",
+					"group": "navigation@12"
+				}
+			],
 			"editor/context": [
 				{
 					"command": "purebasic.formatText",

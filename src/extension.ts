@@ -1,9 +1,11 @@
 /*
  * VS Code entry point.
  *
- * All the language logic lives in ./service (editor-agnostic, unit-tested);
+ * All the language logic lives in ./service (editor-agnostic, plain objects);
  * this file only translates between those plain objects and the vscode API.
  */
+import { tmpdir } from 'node:os';
+import { basename, dirname, join } from 'node:path';
 import * as vscode from 'vscode';
 import {
 	allBlocks,
@@ -29,6 +31,14 @@ import {
 } from './service/includes.ts';
 import { PbIndex } from './service/index.ts';
 import { addKeywordsToGrammar, keywordEntry, newKeywordNames, parseKeywordsData } from './service/keywords.ts';
+import {
+	compilerArguments,
+	outputPathFor,
+	resolveCompiler,
+	shellCommand,
+	splitCommandLine,
+	type CompilerSettings,
+} from './service/compiler.ts';
 import { getSignatureHelp } from './service/signature.ts';
 import type { PbCompletionItem, PbCompletionKind, PbDocument, PbSymbol } from './service/types.ts';
 
@@ -336,10 +346,188 @@ async function refreshKeywords(context: vscode.ExtensionContext, announce: boole
 		});
 }
 
+/*
+ * Running the compiler.
+ *
+ * The settings mirror the IDE's Compiler Options dialog and the switches are the
+ * ones `pbcompiler -h` documents (see ./service/compiler.ts).  Everything runs in
+ * a terminal, so the compiler's progress, its errors and the program's own output
+ * all land in the same place -- which is also where an interactive program can be
+ * answered.
+ */
+function compilerSettings(): CompilerSettings {
+	const c = vscode.workspace.getConfiguration('purebasic.compiler');
+	return {
+		path: c.get<string>('path', ''),
+		debugger: c.get<boolean>('debugger', false),
+		optimizer: c.get<boolean>('optimizer', true),
+		threadsafe: c.get<boolean>('threadsafe', true),
+		purifier: c.get<boolean>('purifier', false),
+		onErrorLines: c.get<boolean>('onErrorLines', false),
+		executableFormat: c.get<'macos' | 'console' | 'dylib'>('executableFormat', 'macos'),
+		subsystem: c.get<string>('subsystem', ''),
+		outputPath: c.get<string>('outputPath', ''),
+		commandLine: c.get<string>('commandLine', ''),
+		quiet: c.get<boolean>('quiet', false),
+	};
+}
+
+/**
+ * One terminal, reused.  The compiler has to be started in the file's own
+ * directory so that its relative Includes resolve, so the terminal is replaced
+ * when that directory changes rather than left pointing at the wrong place.
+ */
+let compilerTerminal: vscode.Terminal | undefined;
+let compilerTerminalCwd = '';
+
+function terminalFor(cwd: string): vscode.Terminal {
+	const usable = compilerTerminal && compilerTerminal.exitStatus === undefined;
+	if (!usable || compilerTerminalCwd !== cwd) {
+		compilerTerminal?.dispose();
+		compilerTerminal = vscode.window.createTerminal({ name: 'PureBasic', cwd });
+		compilerTerminalCwd = cwd;
+	}
+	return compilerTerminal!;
+}
+
+/** Workspace settings when there is a workspace, global ones otherwise. */
+function configurationTarget(): vscode.ConfigurationTarget {
+	return vscode.workspace.workspaceFolders?.length
+		? vscode.ConfigurationTarget.Workspace
+		: vscode.ConfigurationTarget.Global;
+}
+
+/** The toggle's state, for the title-bar button's `toggled` expression. */
+function syncDebuggerContext(): void {
+	void vscode.commands.executeCommand(
+		'setContext',
+		'purebasic.debuggerEnabled',
+		compilerSettings().debugger,
+	);
+}
+
+/** The active PureBasic file, saved, or undefined with a word about why. */
+async function compilableDocument(): Promise<vscode.TextDocument | undefined> {
+	const editor = vscode.window.activeTextEditor;
+	if (!editor || editor.document.languageId !== LANGUAGE) {
+		void vscode.window.showInformationMessage('PureBasic: open a .pb file first.');
+		return undefined;
+	}
+	// the compiler reads the file from disk, so an unsaved buffer would compile
+	// the previous version of the code
+	if (editor.document.isDirty && !(await editor.document.save())) {
+		void vscode.window.showWarningMessage('PureBasic: the file could not be saved, so nothing was compiled.');
+		return undefined;
+	}
+	return editor.document;
+}
+
+/** Run the file, or build it, in the PureBasic terminal. */
+async function runOrCompile(compileOnly: boolean): Promise<void> {
+	const document = await compilableDocument();
+	if (!document) return;
+
+	const settings = compilerSettings();
+	const compiler = resolveCompiler(settings.path);
+	const source = document.uri.fsPath;
+	const output = outputPathFor(source, settings);
+
+	const steps: string[] = [];
+	if (compileOnly) {
+		steps.push(shellCommand([compiler, ...compilerArguments(settings, output), source]));
+	} else if (settings.commandLine.trim()) {
+		// pbcompiler cannot pass arguments through when it launches the program
+		// itself, so build one and start it, in the same terminal, in order
+		const target = join(tmpdir(), `pb-${basename(source).replace(/\.[^.]*$/, '')}`);
+		steps.push(shellCommand([compiler, ...compilerArguments(settings, target), source]));
+		steps.push(shellCommand([target, ...splitCommandLine(settings.commandLine)]));
+	} else {
+		steps.push(shellCommand([compiler, ...compilerArguments(settings), source]));
+	}
+
+	const terminal = terminalFor(dirname(source));
+	terminal.show(true);
+	terminal.sendText(steps.join(' && '), true);
+	trace(`compiler: ${steps.join(' && ')}`);
+	if (compileOnly) {
+		void vscode.window.setStatusBarMessage(`PureBasic: building ${basename(output)}`, 5000);
+	}
+}
+
+/**
+ * `PureBasic: Compiler Settings` -- the IDE's dialog as a list.
+ *
+ * Each entry shows what it is set to and changes one thing, so the common
+ * choices are two clicks rather than a trip through the settings editor.  The
+ * last entry opens that editor for everything else.
+ */
+async function chooseCompilerSettings(): Promise<void> {
+	const c = vscode.workspace.getConfiguration('purebasic.compiler');
+	const onOff = (value: boolean) => (value ? 'on' : 'off');
+
+	type Choice = vscode.QuickPickItem & { key?: string; boolean?: boolean; input?: 'text' | 'file' };
+	const choices: Choice[] = [
+		{ label: 'Debugger', description: onOff(c.get('debugger', false)), detail: '-d  Debug output and runtime error lines', key: 'debugger', boolean: true },
+		{ label: 'Optimizer', description: onOff(c.get('optimizer', true)), detail: '-z  Optimize generated code', key: 'optimizer', boolean: true },
+		{ label: 'Threadsafe', description: onOff(c.get('threadsafe', true)), detail: '-t  Create a threadsafe executable', key: 'threadsafe', boolean: true },
+		{ label: 'Purifier', description: onOff(c.get('purifier', false)), detail: '-pf  Enable the purifier', key: 'purifier', boolean: true },
+		{ label: 'OnError lines', description: onOff(c.get('onErrorLines', false)), detail: '-l  Enable OnError lines support', key: 'onErrorLines', boolean: true },
+		{ label: 'Quiet', description: onOff(c.get('quiet', false)), detail: '-q  Show only errors', key: 'quiet', boolean: true },
+		{ label: 'Executable format', description: c.get('executableFormat', 'macos'), detail: 'An application, a console one, or a shared library', key: 'executableFormat' },
+		{ label: 'Output path', description: c.get('outputPath', '') || 'beside the source', detail: 'Where Compile writes', key: 'outputPath', input: 'text' },
+		{ label: 'Command line', description: c.get('commandLine', '') || 'none', detail: 'Arguments to start the program with', key: 'commandLine', input: 'text' },
+		{ label: 'Subsystem', description: c.get('subsystem', '') || 'default', detail: '-s  Library subsystem', key: 'subsystem', input: 'text' },
+		{ label: 'Compiler', description: resolveCompiler(c.get<string>('path', '')), detail: 'The pbcompiler to run', key: 'path', input: 'file' },
+		{ label: 'Open the settings editor', detail: 'Every PureBasic setting, including the ones above' },
+	];
+
+	const pick = await vscode.window.showQuickPick(choices, {
+		title: 'PureBasic Compiler Settings',
+		placeHolder: 'Choose a setting to change',
+	});
+	if (!pick) return;
+
+	if (!pick.key) {
+		await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:agorangetek.purebasic');
+		return;
+	}
+
+	let value: unknown;
+	if (pick.boolean) {
+		value = !c.get(pick.key, false);
+	} else if (pick.key === 'executableFormat') {
+		const formats = ['macos', 'console', 'dylib'];
+		value = await vscode.window.showQuickPick(formats, {
+			title: 'Executable format',
+			placeHolder: c.get('executableFormat', 'macos'),
+		});
+	} else if (pick.input === 'file') {
+		const chosen = await vscode.window.showOpenDialog({
+			title: 'Choose pbcompiler',
+			canSelectMany: false,
+			openLabel: 'Use this compiler',
+		});
+		value = chosen?.[0]?.fsPath;
+	} else {
+		value = await vscode.window.showInputBox({
+			title: pick.label,
+			value: c.get<string>(pick.key, ''),
+			prompt: pick.detail,
+		});
+	}
+	if (value === undefined) return;
+
+	await c.update(pick.key, value, configurationTarget());
+	if (pick.key === 'debugger') syncDebuggerContext();
+	void vscode.window.setStatusBarMessage(`PureBasic: ${pick.label} set to ${String(value) || 'default'}`, 4000);
+}
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	output = vscode.window.createOutputChannel('PureBasic');
 	index = new PbIndex(config().maxFiles);
 	context.subscriptions.push(output);
+	// the title-bar debug button reads its toggled state from this
+	syncDebuggerContext();
 
 	// Awaited, so activation is not "done" with the grammar half-written.  A
 	// keyword file that cannot be read must never fail activation, hence the
@@ -351,9 +539,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	}
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('purebasic.run', () => runOrCompile(false)),
+		vscode.commands.registerCommand('purebasic.compile', () => runOrCompile(true)),
+		vscode.commands.registerCommand('purebasic.toggleDebugger', async () => {
+			const c = vscode.workspace.getConfiguration('purebasic.compiler');
+			const enabled = !c.get<boolean>('debugger', false);
+			await c.update('debugger', enabled, configurationTarget());
+			syncDebuggerContext();
+			void vscode.window.setStatusBarMessage(
+				`PureBasic: debugger ${enabled ? 'on' : 'off'}`,
+				3000,
+			);
+		}),
+		vscode.commands.registerCommand('purebasic.compilerSettings', () => chooseCompilerSettings()),
 		vscode.commands.registerCommand('purebasic.refreshKeywords', () => refreshKeywords(context, true)),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration('purebasic.keywords.path')) void refreshKeywords(context, true);
+			// the setting can be changed from the settings editor too, so the
+			// toggle has to follow it from there as well
+			if (event.affectsConfiguration('purebasic.compiler.debugger')) syncDebuggerContext();
 		}),
 	);
 

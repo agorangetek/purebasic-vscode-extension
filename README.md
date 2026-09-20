@@ -25,6 +25,17 @@ TextMate scopes, so your theme decides every colour — nothing is pinned.
   written.
 * **Smart Enter** — pressing Enter on a block opener closes the block and puts
   the caret in its body.
+* **Run** — builds the open file and starts it in a terminal, so the program's
+  own output, anything it prints, and the compiler's errors all land in one
+  place. An interactive program can be answered there too.
+* **Compile to Executable** — writes a binary beside the source, or wherever
+  `purebasic.compiler.outputPath` says.
+* **Compiler settings** — a button for the options the PureBasic IDE's own
+  Compiler Options dialog has: debugger on/off, optimizer, threadsafe, purifier,
+  OnError lines, executable format (application, console or shared library),
+  subsystem, output path and the program's command line. The debugger has its
+  own toggling button, because what it changes is easy to miss: `Debug` output
+  and runtime error lines exist only when it is on.
 * **Comments, brackets and indentation** for PureBasic: `;` comments, `()` and
   `[]` pairs, and indentation that follows the language's blocks.
 * **Across files** — symbols from files joined to this one by
@@ -36,5 +47,6 @@ TextMate scopes, so your theme decides every colour — nothing is pinned.
 
 ## Requirements
 
-PureBasic 6.x. The extension neither ships nor invokes the compiler; it is a
-language service only.
+PureBasic 6.x, with `pbcompiler` found in the PureBasic installation or on the
+PATH. The compiler switches are the ones the macOS and Linux builds document;
+the Windows spellings are not implemented.
