@@ -13,7 +13,7 @@
  * node.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, delimiter, dirname, join } from 'node:path';
 
@@ -35,7 +35,7 @@ export interface CompilerSettings {
 	/** `windowed` is the IDE's plain application; `library` is its Shared dll. */
 	executableFormat: 'windowed' | 'console' | 'library';
 	subsystem: string;
-	/** Where Compile writes.  Empty: beside the source. */
+	/** Where Compile writes.  Empty: beside the source.  A directory: in there. */
 	outputPath: string;
 	/** Arguments handed to the program when Run starts it. */
 	commandLine: string;
@@ -143,27 +143,63 @@ export function compilerArguments(
 	return args;
 }
 
-/** Where Compile writes: the setting, or the source's own name beside it. */
+/**
+ * The extension Compile's output carries here, without the dot.
+ *
+ * Empty on the Unix platforms for an application, because that is what the
+ * compiler itself does: the file keeps the name it was given.  It is the
+ * library switch that always wants a suffix, and Windows that wants `.exe`.
+ */
+export function outputExtensionFor(
+	settings: CompilerSettings,
+	platform: Platform = hostPlatform(),
+): string {
+	if (settings.executableFormat === 'library') {
+		if (platform === 'win32') return 'dll';
+		return platform === 'darwin' ? 'dylib' : 'so';
+	}
+	return platform === 'win32' ? 'exe' : '';
+}
+
+/** What Compile calls the output when the source is all it has to go on. */
+export function outputNameFor(
+	sourcePath: string,
+	settings: CompilerSettings,
+	platform: Platform = hostPlatform(),
+): string {
+	const base = basename(sourcePath).replace(/\.[^.]*$/, '');
+	const extension = outputExtensionFor(settings, platform);
+	return extension ? `${base}.${extension}` : base;
+}
+
+/**
+ * Where Compile writes, as the save panel should first offer it.
+ *
+ * Beside the source under the source's own name, unless `outputPath` says
+ * otherwise -- and a setting that names a folder, whether it ends in a
+ * separator or is simply there already, means the folder to write in, since the
+ * compiler's `-o` wants a file and would only fail on a directory.
+ */
 export function outputPathFor(
 	sourcePath: string,
 	settings: CompilerSettings,
 	platform: Platform = hostPlatform(),
 ): string {
 	const configured = settings.outputPath.trim();
-	if (configured) return configured;
+	if (!configured) return join(dirname(sourcePath), outputNameFor(sourcePath, settings, platform));
+	if (isFolder(configured)) return join(configured, outputNameFor(sourcePath, settings, platform));
+	return configured;
+}
 
-	const base = basename(sourcePath).replace(/\.[^.]*$/, '');
-	const suffix =
-		settings.executableFormat !== 'library'
-			? platform === 'win32'
-				? '.exe'
-				: ''
-			: platform === 'win32'
-				? '.dll'
-				: platform === 'darwin'
-					? '.dylib'
-					: '.so';
-	return join(dirname(sourcePath), base + suffix);
+/** Whether a path is written as a folder, or is one that is already there. */
+function isFolder(path: string): boolean {
+	if (path.endsWith('/') || path.endsWith('\\')) return true;
+	try {
+		return statSync(path).isDirectory();
+	} catch {
+		// not there, or not readable: treat it as the file the user named
+		return false;
+	}
 }
 
 /**

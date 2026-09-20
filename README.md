@@ -31,8 +31,9 @@ TextMate scopes, so your theme decides every colour — nothing is pinned.
   output -- `Debug` output above all, which only exists when the debugger is on --
   is somewhere it can be read. The window stays open when the program ends, so
   nothing scrolls away.
-* **Compile to Executable** — writes a binary beside the source, or wherever
-  `purebasic.compiler.outputPath` says.
+* **Compile to Executable** — asks where to write it, in the save panel of the
+  system you are on, starting at `purebasic.compiler.outputPath` or beside the
+  source.
 * **Compiler settings** — a button for the options the PureBasic IDE's own
   Compiler Options dialog has: debugger on/off, optimizer, threadsafe, purifier,
   OnError lines, executable format (application, console or shared library),

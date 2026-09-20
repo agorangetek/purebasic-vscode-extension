@@ -2,7 +2,7 @@
 	"name": "purebasic",
 	"displayName": "PureBasic",
 	"description": "PureBasic language support for Visual Studio Code: code completion, hover, signature help and document outline.",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"publisher": "agorangetek",
 	"license": "MIT",
 	"engines": {
@@ -148,7 +148,7 @@
 				"purebasic.compiler.outputPath": {
 					"type": "string",
 					"default": "",
-					"markdownDescription": "Where Compile writes the executable. Empty writes it beside the source, named after it."
+					"markdownDescription": "What Compile to Executable offers in the save dialog: a file to write there, or a folder to write the usual name in. Empty opens the dialog beside the source."
 				},
 				"purebasic.compiler.commandLine": {
 					"type": "string",

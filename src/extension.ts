@@ -32,6 +32,7 @@ import { PbIndex } from './service/index.ts';
 import { addKeywordsToGrammar, keywordEntry, newKeywordNames, parseKeywordsData } from './service/keywords.ts';
 import {
 	compilerArguments,
+	outputExtensionFor,
 	outputPathFor,
 	resolveCompiler,
 	hostPlatform,
@@ -42,6 +43,7 @@ import {
 	windowsLauncher,
 	writeLaunchScript,
 	type CompilerSettings,
+	type Platform,
 } from './service/compiler.ts';
 import { getSignatureHelp } from './service/signature.ts';
 import type { PbCompletionItem, PbCompletionKind, PbDocument, PbSymbol } from './service/types.ts';
@@ -444,6 +446,37 @@ async function compilableDocument(): Promise<vscode.TextDocument | undefined> {
 }
 
 /**
+ * Ask where a Compile should write, in the platform's own save panel.
+ *
+ * The panel is the system's -- the save panel on macOS, the common dialog on
+ * Windows, the desktop's own on Linux -- so it is the one place that knows the
+ * volumes, the sidebar and the recent folders of the machine it is on.  It
+ * opens at the configured output path, or beside the source, and is free to
+ * choose anywhere; there is no filter where the platform does not put an
+ * extension on the output, which leaves an application on macOS and Linux
+ * unfiltered, as it should be.
+ */
+async function askWhereToWrite(
+	source: string,
+	settings: CompilerSettings,
+	platform: Platform,
+): Promise<string | undefined> {
+	const extension = outputExtensionFor(settings, platform);
+	const library = settings.executableFormat === 'library';
+	const filters = extension
+		? { [library ? (platform === 'win32' ? 'DLL' : 'Shared library') : 'Executable']: [extension] }
+		: undefined;
+
+	const chosen = await vscode.window.showSaveDialog({
+		title: library ? 'Compile to Library' : 'Compile to Executable',
+		saveLabel: 'Compile',
+		defaultUri: vscode.Uri.file(outputPathFor(source, settings, platform)),
+		...(filters ? { filters } : {}),
+	});
+	return chosen?.fsPath;
+}
+
+/**
  * Build the file, and start it in a window of its own.
  *
  * The build is one command in the editor's terminal and starting the program is
@@ -462,10 +495,17 @@ async function runOrCompile(compileOnly: boolean): Promise<void> {
 	const compiler = resolveCompiler(settings.path, platform);
 	const source = document.uri.fsPath;
 	const cwd = dirname(source);
-	// Run builds a temporary executable; Compile writes where it was told
-	const target = compileOnly
-		? outputPathFor(source, settings, platform)
-		: temporaryOutputFor(source, platform);
+
+	// Run builds a temporary executable; Compile asks where its own one goes,
+	// and a cancelled panel compiles nothing and says nothing
+	let target: string;
+	if (compileOnly) {
+		const chosen = await askWhereToWrite(source, settings, platform);
+		if (!chosen) return;
+		target = chosen;
+	} else {
+		target = temporaryOutputFor(source, platform);
+	}
 
 	// the compiler writes its output with the system linker, which will not
 	// create the directory for it -- and a configured output path may name one
@@ -521,7 +561,7 @@ async function chooseCompilerSettings(): Promise<void> {
 		{ label: 'OnError lines', description: onOff(c.get('onErrorLines', false)), detail: '-l  Enable OnError lines support', key: 'onErrorLines', boolean: true },
 		{ label: 'Quiet', description: onOff(c.get('quiet', false)), detail: '-q  Show only errors', key: 'quiet', boolean: true },
 		{ label: 'Executable format', description: c.get('executableFormat', 'macos'), detail: 'An application, a console one, or a shared library', key: 'executableFormat' },
-		{ label: 'Output path', description: c.get('outputPath', '') || 'beside the source', detail: 'Where Compile writes', key: 'outputPath', input: 'text' },
+		{ label: 'Output path', description: c.get('outputPath', '') || 'beside the source', detail: 'Where the Compile save panel opens', key: 'outputPath', input: 'text' },
 		{ label: 'Command line', description: c.get('commandLine', '') || 'none', detail: 'Arguments to start the program with', key: 'commandLine', input: 'text' },
 		{ label: 'Subsystem', description: c.get('subsystem', '') || 'default', detail: '-s  Library subsystem', key: 'subsystem', input: 'text' },
 		{ label: 'Compiler', description: resolveCompiler(c.get<string>('path', '')), detail: 'The pbcompiler to run', key: 'path', input: 'file' },

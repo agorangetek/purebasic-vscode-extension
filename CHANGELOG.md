@@ -4,6 +4,20 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.2] - 2026-09-21
+
+### Added
+
+- **Compile to Executable asks where to write**, in the platform's own save panel -- the save dialog on
+  macOS, the common dialog on Windows, the desktop's own on Linux -- so the places that machine offers
+  are in it. It opens at `purebasic.compiler.outputPath`, or beside the source under the source's name,
+  and a cancelled panel compiles nothing rather than something in the wrong place.
+
+### Changed
+
+- `purebasic.compiler.outputPath` is now where that panel opens: a file to write there, or a folder to
+  write the usual name in. It used to be handed to the compiler as-is, which a folder could not survive.
+
 ## [0.2.1] - 2026-09-20
 
 ### Added
