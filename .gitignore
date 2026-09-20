@@ -12,3 +12,6 @@ out
 
 # throwaway run artifacts (e2e launches, scratch dirs)
 .tmp-*/
+
+# left behind by `git filter-branch` if it is interrupted
+.git-rewrite/

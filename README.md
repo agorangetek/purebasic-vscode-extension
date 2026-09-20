@@ -52,5 +52,6 @@ TextMate scopes, so your theme decides every colour — nothing is pinned.
 ## Requirements
 
 PureBasic 6.x, with `pbcompiler` found in the PureBasic installation or on the
-PATH. The compiler switches are the ones the macOS and Linux builds document;
-the Windows spellings are not implemented.
+PATH. macOS, Linux and Windows are all supported: the compiler switches, the
+places the compiler is looked for, and the window the program opens in are each
+chosen per platform.

@@ -4,8 +4,7 @@
  * All the language logic lives in ./service (editor-agnostic, plain objects);
  * this file only translates between those plain objects and the vscode API.
  */
-import { tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname } from 'node:path';
 import * as vscode from 'vscode';
 import {
 	allBlocks,
@@ -35,12 +34,12 @@ import {
 	compilerArguments,
 	outputPathFor,
 	resolveCompiler,
-	hasTerminalWindow,
-	openTerminalWindow,
+	hostPlatform,
+	launcherCommand,
 	shellCommand,
 	splitCommandLine,
 	temporaryOutputFor,
-	waitForExitMarker,
+	windowsLauncher,
 	writeLaunchScript,
 	type CompilerSettings,
 } from './service/compiler.ts';
@@ -369,7 +368,9 @@ function compilerSettings(): CompilerSettings {
 		threadsafe: c.get<boolean>('threadsafe', true),
 		purifier: c.get<boolean>('purifier', false),
 		onErrorLines: c.get<boolean>('onErrorLines', false),
-		executableFormat: c.get<'macos' | 'console' | 'dylib'>('executableFormat', 'macos'),
+		// the older names for both of these are still read, so a setting written
+		// before they were renamed keeps working
+		executableFormat: formatOf(c.get<string>('executableFormat', 'windowed')),
 		subsystem: c.get<string>('subsystem', ''),
 		outputPath: c.get<string>('outputPath', ''),
 		commandLine: c.get<string>('commandLine', ''),
@@ -378,15 +379,13 @@ function compilerSettings(): CompilerSettings {
 }
 
 /*
- * Two terminals, each reused until the directory changes.
+ * One terminal, reused until the directory changes.
  *
  * The compiler has to run in the file's own directory so that its relative
- * Includes resolve, so a terminal is replaced when that directory changes rather
- * than left pointing at the wrong place.  There are two because the two kinds of
- * output want different places: the compiler's messages belong in a build log
- * you can read without the program's chatter in it, and the program -- whose
- * `Debug` output is only there when the debugger is on -- gets a terminal of its
- * own.
+ * Includes resolve, so the terminal is replaced when that directory changes
+ * rather than left pointing at the wrong place.  It carries the build log: the
+ * program itself is started from it into a window of its own, so the compiler's
+ * messages do not scroll away behind the program's output.
  */
 const terminals = new Map<string, { terminal: vscode.Terminal; cwd: string }>();
 
@@ -414,6 +413,13 @@ function configurationTarget(): vscode.ConfigurationTarget {
 	return vscode.ConfigurationTarget.Global;
 }
 
+/** The executable format, the older spellings included. */
+function formatOf(value: string): CompilerSettings['executableFormat'] {
+	if (value === 'console') return 'console';
+	if (value === 'library' || value === 'dylib') return 'library';
+	return 'windowed';
+}
+
 /** Turn the debugger on or off, and say so. */
 async function setDebugger(enabled: boolean): Promise<void> {
 	const c = vscode.workspace.getConfiguration('purebasic.compiler');
@@ -438,25 +444,28 @@ async function compilableDocument(): Promise<vscode.TextDocument | undefined> {
 }
 
 /**
- * Build the file, and run it in a terminal of its own.
+ * Build the file, and start it in a window of its own.
  *
- * A build always happens first, even for Run: that is what keeps the compiler's
- * messages in the build terminal, where they can be read, and gives the program
- * a terminal where its own output -- and the debugger's, when the debugger is on
- * -- is the only thing in it.  The two are sequenced through a file, because a
- * command sent to a terminal reports nothing back and the program must not start
- * before the build that produces it has finished.
+ * The build is one command in the editor's terminal and starting the program is
+ * chained onto it with `&&`, so a build that failed starts nothing and the
+ * compiler's messages stay in that terminal as a log.  Where the platform has a
+ * window to offer, the program opens in it -- a Terminal window on macOS, a
+ * terminal emulator on Linux, a console window on Windows -- and where it has
+ * none, it runs in the build terminal rather than not at all.
  */
 async function runOrCompile(compileOnly: boolean): Promise<void> {
 	const document = await compilableDocument();
 	if (!document) return;
 
 	const settings = compilerSettings();
-	const compiler = resolveCompiler(settings.path);
+	const platform = hostPlatform();
+	const compiler = resolveCompiler(settings.path, platform);
 	const source = document.uri.fsPath;
 	const cwd = dirname(source);
 	// Run builds a temporary executable; Compile writes where it was told
-	const target = compileOnly ? outputPathFor(source, settings) : temporaryOutputFor(source);
+	const target = compileOnly
+		? outputPathFor(source, settings, platform)
+		: temporaryOutputFor(source, platform);
 
 	// the compiler writes its output with the system linker, which will not
 	// create the directory for it -- and a configured output path may name one
@@ -467,54 +476,29 @@ async function runOrCompile(compileOnly: boolean): Promise<void> {
 		trace(`compiler: cannot create ${dirname(target)}: ${String(error)}`);
 	}
 
-	const build = terminalFor('PureBasic', cwd);
-	build.show(true);
+	const build = shellCommand(
+		[compiler, ...compilerArguments(settings, target, platform), source],
+		platform,
+	);
+	let command = build;
 
-	const marker = join(tmpdir(), `pb-exit-${Date.now()}`);
-	const line = shellCommand([compiler, ...compilerArguments(settings, target), source]);
-	build.sendText(`${line}; printf '%s' "$?" > ${shellCommand([marker])}`, true);
-	trace(`compiler: ${line}`);
+	if (!compileOnly) {
+		const args = splitCommandLine(settings.commandLine);
+		const launch =
+			platform === 'win32'
+				? windowsLauncher(target, args, cwd)
+				: launcherCommand(writeLaunchScript(target, args, cwd, platform), platform);
+		command = `${build} && ${launch ?? shellCommand([target, ...args], platform)}`;
+	}
+
+	const terminal = terminalFor('PureBasic', cwd);
+	terminal.show(true);
+	terminal.sendText(command, true);
+	trace(`compiler: ${command}`);
 
 	if (compileOnly) {
 		void vscode.window.setStatusBarMessage(`PureBasic: building ${basename(target)}`, 5000);
-		return;
 	}
-
-	const code = await waitForExitMarker(marker);
-	void vscode.workspace.fs.delete(vscode.Uri.file(marker)).then(undefined, () => undefined);
-
-	if (code === undefined) {
-		void vscode.window.showWarningMessage(
-			'PureBasic: the build did not finish, so the program was not started.',
-		);
-		return;
-	}
-	if (code !== 0) {
-		// the build terminal is on screen and holds the compiler's own message
-		void vscode.window.showErrorMessage('PureBasic: the build failed. See the PureBasic terminal.');
-		return;
-	}
-
-	const args = splitCommandLine(settings.commandLine);
-
-	// The program gets a window of its own where that is possible, so that its
-	// output -- the debugger's above all -- is somewhere it can be read without
-	// the compiler's log beside it.  Where it is not, the editor's terminal
-	// stands in rather than nothing running.
-	if (hasTerminalWindow()) {
-		try {
-			await openTerminalWindow(writeLaunchScript(target, args, cwd));
-			trace(`program: ${target} in a Terminal window`);
-			return;
-		} catch (error) {
-			trace(`program: no Terminal window (${String(error)}); using the editor's`);
-		}
-	}
-
-	const program = terminalFor('PureBasic Program', cwd);
-	program.show(true);
-	program.sendText(shellCommand([target, ...args]), true);
-	trace(`program: ${target}`);
 }
 
 /**
@@ -559,10 +543,10 @@ async function chooseCompilerSettings(): Promise<void> {
 	if (pick.boolean) {
 		value = !c.get(pick.key, false);
 	} else if (pick.key === 'executableFormat') {
-		const formats = ['macos', 'console', 'dylib'];
+		const formats = ['windowed', 'console', 'library'];
 		value = await vscode.window.showQuickPick(formats, {
 			title: 'Executable format',
-			placeHolder: c.get('executableFormat', 'macos'),
+			placeHolder: c.get('executableFormat', 'windowed'),
 		});
 	} else if (pick.input === 'file') {
 		const chosen = await vscode.window.showOpenDialog({

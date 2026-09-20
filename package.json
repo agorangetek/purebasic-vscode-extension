@@ -2,7 +2,7 @@
 	"name": "purebasic",
 	"displayName": "PureBasic",
 	"description": "PureBasic language support for Visual Studio Code: code completion, hover, signature help and document outline.",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"publisher": "agorangetek",
 	"license": "MIT",
 	"engines": {
@@ -98,7 +98,7 @@
 				"purebasic.compiler.path": {
 					"type": "string",
 					"default": "",
-					"markdownDescription": "The `pbcompiler` to run. Empty uses the one in the PureBasic installation, then `pbcompiler` on the PATH."
+					"markdownDescription": "The `pbcompiler` to run. Empty uses the one in the PureBasic installation -- `/Applications/PureBasic.app` on macOS, the folder PureBasic came in on Linux and Windows -- and then `pbcompiler` on the PATH."
 				},
 				"purebasic.compiler.debugger": {
 					"type": "boolean",
@@ -128,17 +128,17 @@
 				"purebasic.compiler.executableFormat": {
 					"type": "string",
 					"enum": [
-						"macos",
+						"windowed",
 						"console",
-						"dylib"
+						"library"
 					],
 					"enumDescriptions": [
-						"An ordinary application.",
-						"A console application (`-cl`), which keeps its output attached to the terminal.",
-						"A shared library (`-dl`)."
+						"An ordinary application: the IDE's MacOS, Windows or Linux choice.",
+						"A console application (`-cl`, `/CONSOLE`).",
+						"A shared library (`-dl`, `/DLL`): `.dylib` on macOS, `.so` on Linux, `.dll` on Windows."
 					],
-					"default": "macos",
-					"description": "The format Compile writes. The IDE's three choices on macOS: MacOS, Console, Shared .dylib."
+					"default": "windowed",
+					"description": "The format Compile writes. The IDE's three choices, under names that make sense on every platform."
 				},
 				"purebasic.compiler.subsystem": {
 					"type": "string",

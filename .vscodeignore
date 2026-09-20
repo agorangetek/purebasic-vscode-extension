@@ -13,4 +13,6 @@ esbuild.mjs
 **/*.ts
 .npm-cache/**
 *.vsix
+.git-rewrite/**
+.npm-cache/**
 .tmp-*/**

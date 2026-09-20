@@ -4,6 +4,26 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.1] - 2026-09-20
+
+### Added
+
+- **Linux and Windows**, alongside macOS. The compiler switches are per platform (`-d -cl -o` on
+  Unix, `/DEBUGGER /CONSOLE /EXE` on Windows), the compiler is looked for where each platform keeps
+  it and then on the PATH, and a Run opens the program in a window of its own: a Terminal window on
+  macOS, a terminal emulator on Linux, a console window on Windows. Where no window can be had, the
+  program runs in the build terminal rather than not at all.
+- `purebasic.compiler.executableFormat` is now `windowed`, `console` and `library` rather than
+  `macos`, `console` and `dylib`, which only made sense on one platform. The old names are still
+  read, and a library is written `.dylib`, `.so` or `.dll` as the platform wants.
+
+### Changed
+
+- A Run is one command in the editor's terminal: the build, then `&&`, then starting the program.
+  A build that failed starts nothing, and the compiler's messages stay in that terminal -- which
+  also removes the exit-code file the two-terminal arrangement needed, and with it the last piece
+  of shell syntax the extension depended on.
+
 ## [0.2.0] - 2026-09-20
 
 ### Added
