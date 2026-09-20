@@ -4,8 +4,8 @@
  * All the language logic lives in ./service (editor-agnostic, plain objects);
  * this file only translates between those plain objects and the vscode API.
  */
-import { writeFileSync } from 'node:fs';
-import { basename, dirname } from 'node:path';
+import { realpathSync, writeFileSync } from 'node:fs';
+import { basename, dirname, resolve } from 'node:path';
 import * as vscode from 'vscode';
 import {
 	allBlocks,
@@ -32,9 +32,9 @@ import {
 import { PbIndex } from './service/index.ts';
 import { addKeywordsToGrammar, keywordEntry, newKeywordNames, parseKeywordsData } from './service/keywords.ts';
 import {
+	compileSavePanel,
 	compilerArguments,
-	outputExtensionFor,
-	outputPathFor,
+	parseCompilerOutput,
 	placeBuiltFile,
 	resolveCompiler,
 	runCompiler,
@@ -56,6 +56,8 @@ const LANGUAGE = 'purebasic';
 
 let index: PbIndex;
 let output: vscode.OutputChannel;
+/** The lines the last build could not compile, for the editor to underline. */
+let compilerDiagnostics: vscode.DiagnosticCollection | undefined;
 
 function config() {
 	const c = vscode.workspace.getConfiguration('purebasic');
@@ -454,28 +456,20 @@ async function compilableDocument(): Promise<vscode.TextDocument | undefined> {
  *
  * The panel is the system's -- the save panel on macOS, the common dialog on
  * Windows, the desktop's own on Linux -- so it is the one place that knows the
- * volumes, the sidebar and the recent folders of the machine it is on.  It
- * opens at the configured output path, or beside the source, and is free to
- * choose anywhere; there is no filter where the platform does not put an
- * extension on the output, which leaves an application on macOS and Linux
- * unfiltered, as it should be.
+ * volumes, the sidebar and the recent folders of the machine it is on.  What it
+ * is offered, and where it opens, is the platform's too: see compileSavePanel.
  */
 async function askWhereToWrite(
 	source: string,
 	settings: CompilerSettings,
 	platform: Platform,
 ): Promise<string | undefined> {
-	const extension = outputExtensionFor(settings, platform);
-	const library = settings.executableFormat === 'library';
-	const filters = extension
-		? { [library ? (platform === 'win32' ? 'DLL' : 'Shared library') : 'Executable']: [extension] }
-		: undefined;
-
+	const panel = compileSavePanel(source, settings, platform);
 	const chosen = await vscode.window.showSaveDialog({
-		title: library ? 'Compile to Library' : 'Compile to Executable',
-		saveLabel: 'Compile',
-		defaultUri: vscode.Uri.file(outputPathFor(source, settings, platform)),
-		...(filters ? { filters } : {}),
+		title: panel.title,
+		saveLabel: panel.saveLabel,
+		defaultUri: vscode.Uri.file(panel.path),
+		...(panel.filters ? { filters: panel.filters } : {}),
 	});
 	return chosen?.fsPath;
 }
@@ -533,34 +527,79 @@ function showBuildLog(
  * file, and running the compiler a second time for the same one would be work
  * with nothing to show for it.
  */
-async function writeExecutable(
-	source: string,
+/** What a build had to say, and the command that produced it. */
+interface Build {
+	/** The command line, as the terminal would have shown it. */
+	command: string;
+	/** What the compiler said. */
+	output: string;
+	/** Whether it produced what it was asked for. */
+	ok: boolean;
+}
+
+/**
+ * Build the file here rather than in the terminal, and keep what was said.
+ *
+ * Both buttons build this way: Compile asks where to write only once the build
+ * has worked, and Run underlines the line the compiler stopped at before it
+ * starts anything -- and neither can be told by a command typed into the
+ * terminal.  What the compiler said goes to the terminal all the same.
+ */
+async function buildFile(
+	document: vscode.TextDocument,
 	settings: CompilerSettings,
 	platform: Platform,
-): Promise<void> {
-	const cwd = dirname(source);
-	const staged = stagedOutputFor(source, platform);
-	await createFolder(dirname(staged));
+	target: string,
+): Promise<Build> {
+	const source = document.uri.fsPath;
+	await createFolder(dirname(target));
 
 	const compiler = resolveCompiler(settings.path, platform);
-	const args = [...compilerArguments(settings, staged, platform), source];
+	const args = [...compilerArguments(settings, target, platform), source];
 	const command = shellCommand([compiler, ...args], platform);
 	trace(`compiler: ${command}`);
 
 	// the build is not in the terminal to watch, so the status bar says it is
 	// under way until it has something to report
 	const building = vscode.window.setStatusBarMessage(`PureBasic: building ${basename(source)}`);
-	const built = await runCompiler(compiler, args, cwd);
+	const result = await runCompiler(compiler, args, dirname(source));
 	building.dispose();
-	if (built.code !== 0) {
-		showBuildLog(staged, command, built.output, 'nothing was written: the build failed', cwd, platform);
+
+	reportCompilerErrors(document, result.output);
+	return { command, output: result.output, ok: result.code === 0 };
+}
+
+/**
+ * `PureBasic: Compile to Executable` -- the build first, then where it goes.
+ *
+ * The build runs from here rather than in the terminal because the save panel
+ * has to wait for its result: there is no point asking where to write a program
+ * that will not compile, and a build that fails is reported in the terminal
+ * instead of being asked about.  What did compile is staged in the temporary
+ * directory, under a name of its own so that a Run of the same file keeps its
+ * own build, and then moved to the chosen path -- a compiled file is a compiled
+ * file, and running the compiler a second time for the same one would be work
+ * with nothing to show for it.
+ */
+async function writeExecutable(
+	document: vscode.TextDocument,
+	settings: CompilerSettings,
+	platform: Platform,
+): Promise<void> {
+	const source = document.uri.fsPath;
+	const cwd = dirname(source);
+	const staged = stagedOutputFor(source, platform);
+	const build = await buildFile(document, settings, platform, staged);
+
+	if (!build.ok) {
+		showBuildLog(staged, build.command, build.output, 'nothing was written: the build failed', cwd, platform);
 		void vscode.window.setStatusBarMessage('PureBasic: the build failed, so nothing was written', 5000);
 		return;
 	}
 
 	const chosen = await askWhereToWrite(source, settings, platform);
 	if (!chosen) {
-		showBuildLog(staged, command, built.output, 'nothing was written: the save panel was cancelled', cwd, platform);
+		showBuildLog(staged, build.command, build.output, 'nothing was written: the save panel was cancelled', cwd, platform);
 		return;
 	}
 
@@ -572,7 +611,7 @@ async function writeExecutable(
 		return;
 	}
 
-	showBuildLog(staged, command, built.output, `wrote ${chosen}`, cwd, platform);
+	showBuildLog(staged, build.command, build.output, `wrote ${chosen}`, cwd, platform);
 	void vscode.window.setStatusBarMessage(`PureBasic: wrote ${basename(chosen)}`, 5000);
 }
 
@@ -580,18 +619,18 @@ async function writeExecutable(
 async function compileToExecutable(): Promise<void> {
 	const document = await compilableDocument();
 	if (!document) return;
-	await writeExecutable(document.uri.fsPath, compilerSettings(), hostPlatform());
+	await writeExecutable(document, compilerSettings(), hostPlatform());
 }
 
 /**
  * `PureBasic: Run` -- build the file, and start it in a window of its own.
  *
- * The build is one command in the editor's terminal and starting the program is
- * chained onto it with `&&`, so a build that failed starts nothing and the
- * compiler's messages stay in that terminal as a log.  Where the platform has a
- * window to offer, the program opens in it -- a Terminal window on macOS, a
- * terminal emulator on Linux, a console window on Windows -- and where it has
- * none, it runs in the build terminal rather than not at all.
+ * The build comes first, so a file that does not compile starts nothing and has
+ * its error underlined; the command that starts the program goes to the
+ * terminal once the build has worked.  Where the platform has a window to
+ * offer, the program opens in it -- a Terminal window on macOS, a terminal
+ * emulator on Linux, a console window on Windows -- and where it has none, it
+ * runs in the build terminal rather than not at all.
  */
 async function runOrCompile(): Promise<void> {
 	const document = await compilableDocument();
@@ -599,27 +638,82 @@ async function runOrCompile(): Promise<void> {
 
 	const settings = compilerSettings();
 	const platform = hostPlatform();
-	const compiler = resolveCompiler(settings.path, platform);
 	const source = document.uri.fsPath;
 	const cwd = dirname(source);
 	const target = temporaryOutputFor(source, platform);
-	await createFolder(dirname(target));
+	const build = await buildFile(document, settings, platform, target);
 
-	const build = shellCommand(
-		[compiler, ...compilerArguments(settings, target, platform), source],
-		platform,
-	);
+	if (!build.ok) {
+		showBuildLog(target, build.command, build.output, 'nothing was started: the build failed', cwd, platform);
+		void vscode.window.setStatusBarMessage('PureBasic: the build failed, so nothing was started', 5000);
+		return;
+	}
+
 	const args = splitCommandLine(settings.commandLine);
 	const launch =
 		platform === 'win32'
 			? windowsLauncher(target, args, cwd)
 			: launcherCommand(writeLaunchScript(target, args, cwd, platform), platform);
-	const command = `${build} && ${launch ?? shellCommand([target, ...args], platform)}`;
 
+	showBuildLog(target, build.command, build.output, 'starting the program', cwd, platform);
 	const terminal = terminalFor('PureBasic', cwd);
-	terminal.show(true);
-	terminal.sendText(command, true);
-	trace(`compiler: ${command}`);
+	terminal.sendText(launch ?? shellCommand([target, ...args], platform), true);
+}
+
+/**
+ * Underline the line the compiler stopped at, and take the last one away.
+ *
+ * The compiler names a line and not a column, so the whole line carries it.  A
+ * line of an included file is named as being in that file, and belongs there
+ * rather than on the line of the same number in the file that was compiled --
+ * which is why the two paths are compared after resolving them, since the
+ * compiler reports the path with its symlinks resolved and the editor has the
+ * one that was opened.
+ */
+function reportCompilerErrors(document: vscode.TextDocument, output: string): void {
+	const collection = compilerDiagnostics;
+	if (!collection) return;
+
+	const open = new Map<string, vscode.TextDocument>();
+	for (const other of vscode.workspace.textDocuments) open.set(canonicalPath(other.uri.fsPath), other);
+	open.set(canonicalPath(document.uri.fsPath), document);
+
+	const byFile = new Map<string, { uri: vscode.Uri; items: vscode.Diagnostic[] }>();
+	byFile.set(document.uri.toString(), { uri: document.uri, items: [] });
+
+	for (const error of parseCompilerOutput(output)) {
+		const named = error.file ? open.get(canonicalPath(error.file)) : document;
+		const uri = named ? named.uri : vscode.Uri.file(error.file);
+		const entry = byFile.get(uri.toString()) ?? { uri, items: [] };
+		byFile.set(uri.toString(), entry);
+		entry.items.push(
+			new vscode.Diagnostic(
+				lineRange(named, error.line),
+				error.message,
+				error.severity === 'warning' ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error,
+			),
+		);
+	}
+
+	// the file that was built is always answered for, so a build that worked is
+	// what takes an error away
+	for (const entry of byFile.values()) collection.set(entry.uri, entry.items);
+}
+
+/** The line the compiler named, as a range, whether or not the file is open. */
+function lineRange(document: vscode.TextDocument | undefined, line: number): vscode.Range {
+	const index = Math.max(line - 1, 0);
+	if (document && index < document.lineCount) return document.lineAt(index).range;
+	return new vscode.Range(index, 0, index, Number.MAX_SAFE_INTEGER);
+}
+
+/** A path with its symlinks resolved, for matching two ways of naming a file. */
+function canonicalPath(path: string): string {
+	try {
+		return realpathSync(path);
+	} catch {
+		return resolve(path);
+	}
 }
 
 /**
@@ -692,7 +786,8 @@ async function chooseCompilerSettings(): Promise<void> {
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	output = vscode.window.createOutputChannel('PureBasic');
 	index = new PbIndex(config().maxFiles);
-	context.subscriptions.push(output);
+	compilerDiagnostics = vscode.languages.createDiagnosticCollection('purebasic');
+	context.subscriptions.push(output, compilerDiagnostics);
 
 	// Awaited, so activation is not "done" with the grammar half-written.  A
 	// keyword file that cannot be read must never fail activation, hence the
@@ -778,6 +873,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}),
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			if (event.document.languageId === LANGUAGE) indexOf(event.document);
+			// a line that has been typed over is no longer the line the compiler
+			// stopped at, and should not keep its squiggle until the next build
+			compilerDiagnostics?.delete(event.document.uri);
 		}),
 		vscode.workspace.onDidCloseTextDocument((doc) => {
 			if (doc.languageId === LANGUAGE) index.remove(doc.uri.toString());

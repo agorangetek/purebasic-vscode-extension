@@ -216,6 +216,45 @@ export function outputPathFor(
 	return configured;
 }
 
+/**
+ * What Compile should offer in the platform's own save panel.
+ *
+ * The panel is the system's, so what is offered has to be the platform's too:
+ * the extension it puts on the output, and therefore the file type it can
+ * filter on, is `.exe` on Windows, `.dylib` on macOS and `.so` on Linux, and an
+ * application on the Unix systems has none at all -- which leaves the panel
+ * unfiltered there, as it should be.
+ */
+export interface SavePanel {
+	title: string;
+	saveLabel: string;
+	/** Where it opens, under the name the output would take. */
+	path: string;
+	filters?: Record<string, string[]>;
+}
+
+/** The save panel for a Compile of this source, on this platform. */
+export function compileSavePanel(
+	sourcePath: string,
+	settings: CompilerSettings,
+	platform: Platform = hostPlatform(),
+): SavePanel {
+	const extension = outputExtensionFor(settings, platform);
+	const library = settings.executableFormat === 'library';
+	return {
+		title: library ? 'Compile to Library' : 'Compile to Executable',
+		saveLabel: 'Compile',
+		path: outputPathFor(sourcePath, settings, platform),
+		...(extension
+			? {
+					filters: {
+						[library ? (platform === 'win32' ? 'DLL' : 'Shared library') : 'Executable']: [extension],
+					},
+				}
+			: {}),
+	};
+}
+
 /** Whether a path is written as a folder, or is one that is already there. */
 function isFolder(path: string): boolean {
 	if (path.endsWith('/') || path.endsWith('\\')) return true;
@@ -366,10 +405,13 @@ export function windowsLauncher(target: string, args: readonly string[], cwd: st
 	return `cmd /c start "" /D ${shellQuote(cwd, 'win32')} cmd /k ${inner}`;
 }
 
-/** A source line the compiler rejected, from its `Error: Line N - message`. */
+/** A source line the compiler rejected. */
 export interface CompilerError {
+	/** Empty when the line is in the file that was compiled. */
+	file: string;
 	line: number;
 	message: string;
+	severity: 'error' | 'warning';
 }
 
 /** What a finished build had to say, and how it ended. */
@@ -432,15 +474,42 @@ export function placeBuiltFile(staged: string, destination: string): void {
 /**
  * The errors in the compiler's output.
  *
- * It writes them to stdout as `Error: Line 12 - <message>` (`Error` for a
- * failure, `Warning` for a warning), one per line, and exits non-zero.  Kept
- * here rather than only shown in the terminal so a caller can act on them.
+ * It writes them to stdout and exits non-zero, in one of two shapes.  A line of
+ * the compiled file is named outright, as
+ * `Error: Line 12 - <message>` (`Warning` in place of `Error` for a warning);
+ * a line of an included file is named in two, as
+ * `Error: in included file '<path>'` and then the `Line 12 - <message>` that
+ * belongs to it.  Kept here rather than only shown in the terminal so a caller
+ * can act on them, which is what puts them under the line in the editor.
  */
 export function parseCompilerOutput(text: string): CompilerError[] {
 	const errors: CompilerError[] = [];
+	/** The included file a following `Line N - ...` belongs to, if any. */
+	let file = '';
+	let severity: CompilerError['severity'] = 'error';
+
 	for (const line of text.split('\n')) {
-		const match = /^\s*(?:Error|Warning)\s*:\s*Line\s+(\d+)\s*-\s*(.*)$/i.exec(line.trim());
-		if (match) errors.push({ line: Number(match[1]), message: match[2]!.trim() });
+		const included = /^\s*(Error|Warning)\s*:\s*in included file\s+'([^']+)'\s*$/i.exec(line.trim());
+		if (included) {
+			file = included[2]!.trim();
+			severity = /^warn/i.test(included[1]!) ? 'warning' : 'error';
+			continue;
+		}
+		const named = /^\s*(Error|Warning)\s*:\s*Line\s+(\d+)\s*-\s*(.*)$/i.exec(line.trim());
+		if (named) {
+			errors.push({
+				file: '',
+				line: Number(named[2]),
+				message: named[3]!.trim(),
+				severity: /^warn/i.test(named[1]!) ? 'warning' : 'error',
+			});
+			continue;
+		}
+		const detail = /^\s*Line\s+(\d+)\s*-\s*(.*)$/i.exec(line.trim());
+		if (detail && file) {
+			errors.push({ file, line: Number(detail[1]), message: detail[2]!.trim(), severity });
+			file = '';
+		}
 	}
 	return errors;
 }

@@ -4,6 +4,22 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.4] - 2026-09-21
+
+### Added
+
+- **The line the compiler stopped at is underlined**, in the editor and in the Problems panel, with what
+  the compiler had to say about it. An error inside an included file is marked in that file and on its
+  own line. Typing over the line takes the mark away, so an error that has been fixed does not keep its
+  squiggle until the next build.
+
+### Changed
+
+- **Run builds before it starts anything**, as Compile does, and from the extension rather than in the
+  terminal -- the errors have to be read here to be underlined, and a file that does not compile must
+  not start. The terminal still shows the build's log and then the command that starts the program, so
+  the compiler's messages are there as they were.
+
 ## [0.2.3] - 2026-09-21
 
 ### Changed
