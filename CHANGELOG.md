@@ -4,6 +4,25 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.15] - 2026-09-20
+
+### Changed
+
+- **Declaration and use are scoped apart, the way the PureBasic IDE colours them.** Read off the
+  IDE's own preferences (`~/.purebasic/purebasic.prefs`, the Monokai scheme) and measured from a
+  screenshot rather than guessed: a *declaration* is normal text -- a structure's name, a field
+  line in a `Structure`, a native suffix such as `.i` -- while a *use* in code wears the colour the
+  IDE gives identifiers and commands. So:
+  - the `field` rule is gone: a field line is left as normal text (`Structure Point` and the
+    `name.s` under it stay plain, as in the IDE), and a `*` field is coloured by the pointer rule
+    like any other pointer;
+  - a plain identifier is now `variable.other.purebasic`, from a catch-all rule that sits last in
+    the grammar so it only claims what nothing else did;
+  - a type after a dot is `entity.name.type.reference.purebasic` instead of sharing the
+    declaration's `entity.name.type.purebasic`.
+  A scheme can now tell `Structure my_test` from `test.my_test`, which is exactly what the IDE
+  does: plain text for the first, its command colour for the second.
+
 ## [0.1.14] - 2026-09-20
 
 ### Added

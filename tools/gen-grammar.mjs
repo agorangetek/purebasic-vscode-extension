@@ -113,6 +113,9 @@ const grammar = {
 		{ include: '#constants' },
 		{ include: '#keywords' },
 		{ include: '#type-suffix' },
+		// last, so it only catches what nothing else claimed: a plain identifier,
+		// which the IDE colours like the code it sits in rather than as text
+		{ include: '#identifiers' },
 	],
 	repository: {
 		asm: {
@@ -174,32 +177,11 @@ const grammar = {
 				{ include: '#strings' },
 				{ include: '#numbers' },
 				{ include: '#keywords' },
-				{ include: '#sigils' },
+				{ include: '#specials' },
 				{ include: '#type-suffix' },
 				{ include: '#members' },
 				{ include: '#constants' },
 				{ include: '#builtins' },
-			],
-		},
-		field: {
-			comment:
-				'A member declaration -- `x.i` or `List Items.Inner()` -- scoped like the `\\x` reading it, so both ends of a member look the same.  A `*Entry` field is a pointer like any other, and the PureBasic IDE colours it as one, so the second pattern leaves it to the pointer rule.',
-			patterns: [
-				{
-					match: '(?i)^(\\s*)(\\*[A-Za-z_]\\w*)(?=\\s*(?:\\.|\\[|\\(|$))',
-					captures: { 2: { name: 'variable.other.pointer.purebasic' } },
-				},
-				{
-					match:
-						'(?i)^(\\s*)' +
-						// the block markers and directives that also sit on a line of
-						// their own are not members, and a bare List/Array/Map is not one
-						// either; the block rule has to see those before this one does
-						'(?!(?:StructureUnion|Structure|Interface|EndStructureUnion|EndStructure|EndInterface|Extends|Align|Static|Compiler[A-Za-z]*|ImportC?|Data)\\b)' +
-						'(?!(?:List|Array|Map)\\s*$)' +
-						'(?:(?:List|Array|Map)\\s+)?([A-Za-z_]\\w*\\$?)(?=\\s*(?:\\.|\\[|\\(|$))',
-					captures: { 2: { name: 'variable.other.member.purebasic' } },
-				},
 			],
 		},
 		declarations: {
@@ -288,6 +270,10 @@ const grammar = {
 		 * unless they are scoped.  This comes after the sigil rules, so the `*`
 		 * of `*p` is still a pointer and only a lone `*` is an operator.
 		 */
+		identifiers: {
+			name: 'variable.other.purebasic',
+			match: '[A-Za-z_]\\w*',
+		},
 		operators: {
 			match: '<<|>>|<=|>=|<>|[=+*/%&|<>^-]',
 			name: 'keyword.operator.symbol.purebasic',
@@ -318,8 +304,12 @@ const grammar = {
 					captures: { 1: { name: 'storage.type.purebasic' } },
 				},
 				{
+					// a use of a type, not its declaration: `test.my_test`.  The
+					// IDE colours this like the code around it (its Structure /
+					// PureKeyword colour) while `Structure my_test` stays normal
+					// text, so the two need scopes of their own.
 					match: '(?<=\\b[A-Za-z_]\\w*)\\.([A-Za-z_]\\w*)',
-					captures: { 1: { name: 'entity.name.type.purebasic' } },
+					captures: { 1: { name: 'entity.name.type.reference.purebasic' } },
 				},
 			],
 		},

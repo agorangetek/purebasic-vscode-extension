@@ -333,14 +333,14 @@ test('a reference carries its sigil, even before the name is typed', { skip }, a
 });
 
 /*
- * The PureBasic IDE colours a member the same where it is declared and where it
- * is read (both plain identifiers), and gives only the *native* type suffixes
- * its `type` colour; a structure name is an identifier wherever it appears.
- * These tests keep the two ends of each of those pairs on one TextMate scope, so
- * a theme colours them alike -- and leave a local or module-level declaration of
- * the same shape alone.
+ * Read off the PureBasic IDE's own preferences (`~/.purebasic/purebasic.prefs`,
+ * the Monokai scheme) and measured from a screenshot of it: a *declaration* is
+ * normal text -- a structure's name, a field, a native type suffix -- while a
+ * *use* in code wears the colour the IDE gives identifiers and commands.  These
+ * tests keep the two apart, because a theme can only colour them differently if
+ * the grammar scopes them differently.
  */
-test('a structure member is scoped the same where it is declared and read', { skip }, async () => {
+test('a member read is code, a member declaration is not', { skip }, async () => {
 	const lines = await tokenize(
 		[
 			'Structure IMAGE_THUNK_DATA',
@@ -356,19 +356,25 @@ test('a structure member is scoped the same where it is declared and read', { sk
 		].join('\n'),
 	);
 
+	// a declaration no rule claims is left unscoped, and the tokenizer merges it
+	// with the whitespace before it, so look for a token that contains the text
 	const innermost = (line: number, text: string) => {
-		const token = lines[line]!.find((t) => t.text.trim() === text);
+		const token = lines[line]!.find((t) => t.text.includes(text));
 		assert.ok(token, `line ${line + 1}: ${text} did not tokenize`);
-		return token.scopes[token.scopes.length - 1];
+		return token.scopes[token.scopes.length - 1] ?? '';
 	};
 
-	// the declaration and the read share one scope
-	assert.equal(innermost(2, 'Function'), 'variable.other.member.purebasic');
-	assert.equal(innermost(8, '\\Function'), innermost(2, 'Function'));
-	assert.equal(innermost(5, 'Items'), 'variable.other.member.purebasic');
+	// reading a member is code: the IDE colours it like an identifier
+	assert.equal(innermost(8, '\\Function'), 'variable.other.member.purebasic');
+	assert.equal(innermost(9, '\\Entry'), 'variable.other.member.purebasic');
 
-	// a `*` field is a pointer, as the PureBasic IDE colours it -- the same as a
-	// `*` variable, which is what a pointer has to match
+	// declaring one is not: a field line is left as normal text, so a theme can
+	// keep it plain the way the IDE does
+	for (const [line, text] of [[2, 'Function'], [3, 'Ordinal'], [5, 'Items']] as const) {
+		assert.equal(innermost(line, text), '', `line ${line + 1}: ${text} is a declaration`);
+	}
+
+	// a `*` field is a pointer, as it is anywhere else
 	assert.equal(innermost(6, '*Entry'), 'variable.other.pointer.purebasic');
 
 	// the block markers stay structure keywords, nested or not
@@ -385,7 +391,7 @@ test('a structure member is scoped the same where it is declared and read', { sk
 	}
 });
 
-test('a type name is scoped the same where it is declared and used', { skip }, async () => {
+test('a type use is scoped apart from its declaration', { skip }, async () => {
 	const lines = await tokenize(
 		[
 			'Structure Point',
@@ -407,22 +413,17 @@ test('a type name is scoped the same where it is declared and used', { skip }, a
 		return token.scopes[token.scopes.length - 1] ?? '';
 	};
 
-	// a structure name is a type wherever it appears
+	// the declaration is a type name; the use is code, like the IDE
 	assert.equal(innermost(0, 'Point'), 'entity.name.type.purebasic');
-	assert.equal(innermost(3, 'Point'), 'entity.name.type.purebasic');
-	assert.equal(innermost(4, 'ScreenBuffer'), 'entity.name.type.purebasic');
-	// a native suffix is a storage type, never a type name
+	assert.equal(innermost(3, 'Point'), 'entity.name.type.reference.purebasic');
+	assert.equal(innermost(4, 'ScreenBuffer'), 'entity.name.type.reference.purebasic');
+	// a native suffix is neither: it is a storage type
 	assert.equal(innermost(5, 'd'), 'storage.type.purebasic');
 	assert.equal(innermost(6, 'i'), 'storage.type.purebasic');
 
-	// a declaration of the same shape outside a structure is not a member:
-	// `x.i` above is a field, but these are variables
-	for (const [line, text] of [[5, 'n'], [6, 'globalVar'], [8, 'localVar']] as const) {
-		assert.ok(
-			!innermost(line, text).includes('member'),
-			`line ${line + 1}: ${text} is a variable, not a member`,
-		);
-	}
+	// a plain name is code too, which is what the IDE colours it as
+	assert.equal(innermost(5, 'n'), 'variable.other.purebasic');
+	assert.equal(innermost(8, 'localVar'), 'variable.other.purebasic');
 });
 
 test('a multiplication sign is not a pointer', { skip }, async () => {
