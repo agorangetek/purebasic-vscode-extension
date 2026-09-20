@@ -78,6 +78,10 @@ whatever theme you run, paste the rules from
 nothing is left half-coloured. Any customisation you add overrides the theme for the scopes it
 names, which is how VS Code layers them.
 
+`node tools/theme-audit.mjs <theme.json>` prints what a given theme renders each scope as, and
+`node tools/theme-audit.mjs --palette docs/purebasic-ide-monokai.jsonc` checks that palette
+against the grammar and the IDE's own values.
+
 A code scope must never contain the word `string` or `comment`: VS Code reads the
 suggestions category of the token under the caret from its innermost scope with
 `/\b(comment|string|regex|regexp)\b/`, and a code token that reads as a string

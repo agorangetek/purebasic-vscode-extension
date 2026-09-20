@@ -42,7 +42,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
   directives and operators `#F92672`; commands and procedure names `#A6E22E`; structures, type
   uses, members and module qualifiers `#A6E22E`; constants, numbers, pointers and `@addresses`
   `#AE81FF`; strings `#E6DB74`; comments `#88846F`; the native `.i` suffix `#66D9EF`. Re-check
-  any theme with the audit in `.tmp-probe/theme-audit.mjs`.
+  any theme of your own with `node tools/theme-audit.mjs <theme.json>`.
 - The opt-in palette in `docs/purebasic-ide-monokai.jsonc` is rewritten for these scopes and
   machine-checked: all 27 selectors name a scope the grammar really emits, and all 28 scopes
   render the exact colour the PureBasic IDE's own Monokai scheme uses. (Monokai itself has no
