@@ -4,6 +4,16 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.3] - 2026-09-21
+
+### Changed
+
+- **Compile to Executable builds before it asks where to write**, so a file that does not compile is
+  reported in the terminal rather than asked about, and the save panel is never opened for a build that
+  failed. The build is staged out of the way, then moved to the chosen path -- across volumes as well,
+  with the executable bit kept -- and what the compiler said is put in the terminal all the same. The
+  status bar shows the build while it runs, since it no longer runs in the terminal.
+
 ## [0.2.2] - 2026-09-21
 
 ### Added

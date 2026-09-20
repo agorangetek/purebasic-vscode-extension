@@ -4,6 +4,7 @@
  * All the language logic lives in ./service (editor-agnostic, plain objects);
  * this file only translates between those plain objects and the vscode API.
  */
+import { writeFileSync } from 'node:fs';
 import { basename, dirname } from 'node:path';
 import * as vscode from 'vscode';
 import {
@@ -34,7 +35,10 @@ import {
 	compilerArguments,
 	outputExtensionFor,
 	outputPathFor,
+	placeBuiltFile,
 	resolveCompiler,
+	runCompiler,
+	stagedOutputFor,
 	hostPlatform,
 	launcherCommand,
 	shellCommand,
@@ -476,8 +480,111 @@ async function askWhereToWrite(
 	return chosen?.fsPath;
 }
 
+/** Make sure a directory is there for the compiler to write into. */
+async function createFolder(path: string): Promise<void> {
+	// the compiler writes its output with the system linker, which will not
+	// create the directory for it -- and a configured output path may name one
+	// that does not exist either
+	try {
+		await vscode.workspace.fs.createDirectory(vscode.Uri.file(path));
+	} catch (error) {
+		trace(`compiler: cannot create ${path}: ${String(error)}`);
+	}
+}
+
 /**
- * Build the file, and start it in a window of its own.
+ * Put a finished build's log in the terminal, where the compiler's messages
+ * belong.
+ *
+ * Compile hears the compiler from here rather than letting the terminal run it,
+ * so the output is replayed from a file: a log handed over as a command of its
+ * own cannot be mistaken by the shell for something to run.
+ */
+function showBuildLog(
+	staged: string,
+	command: string,
+	output: string,
+	note: string,
+	cwd: string,
+	platform: Platform,
+): void {
+	const file = `${staged}.log`;
+	const ending = output === '' || output.endsWith('\n') ? '' : '\n';
+	try {
+		writeFileSync(file, `$ ${command}\n${output}${ending}[PureBasic] ${note}\n`);
+	} catch (error) {
+		trace(`compiler: cannot write ${file}: ${String(error)}`);
+		return;
+	}
+	const terminal = terminalFor('PureBasic', cwd);
+	terminal.show(true);
+	terminal.sendText(shellCommand([platform === 'win32' ? 'type' : 'cat', file], platform), true);
+}
+
+/**
+ * `PureBasic: Compile to Executable` -- the build first, then where it goes.
+ *
+ * The build runs from here rather than in the terminal because the save panel
+ * has to wait for its result: there is no point asking where to write a program
+ * that will not compile, and a build that fails is reported in the terminal
+ * instead of being asked about.  What did compile is staged in the temporary
+ * directory, under a name of its own so that a Run of the same file keeps its
+ * own build, and then moved to the chosen path -- a compiled file is a compiled
+ * file, and running the compiler a second time for the same one would be work
+ * with nothing to show for it.
+ */
+async function writeExecutable(
+	source: string,
+	settings: CompilerSettings,
+	platform: Platform,
+): Promise<void> {
+	const cwd = dirname(source);
+	const staged = stagedOutputFor(source, platform);
+	await createFolder(dirname(staged));
+
+	const compiler = resolveCompiler(settings.path, platform);
+	const args = [...compilerArguments(settings, staged, platform), source];
+	const command = shellCommand([compiler, ...args], platform);
+	trace(`compiler: ${command}`);
+
+	// the build is not in the terminal to watch, so the status bar says it is
+	// under way until it has something to report
+	const building = vscode.window.setStatusBarMessage(`PureBasic: building ${basename(source)}`);
+	const built = await runCompiler(compiler, args, cwd);
+	building.dispose();
+	if (built.code !== 0) {
+		showBuildLog(staged, command, built.output, 'nothing was written: the build failed', cwd, platform);
+		void vscode.window.setStatusBarMessage('PureBasic: the build failed, so nothing was written', 5000);
+		return;
+	}
+
+	const chosen = await askWhereToWrite(source, settings, platform);
+	if (!chosen) {
+		showBuildLog(staged, command, built.output, 'nothing was written: the save panel was cancelled', cwd, platform);
+		return;
+	}
+
+	try {
+		placeBuiltFile(staged, chosen);
+	} catch (error) {
+		trace(`compiler: cannot put the build at ${chosen}: ${String(error)}`);
+		void vscode.window.showErrorMessage(`PureBasic: the build could not be written to ${chosen}: ${String(error)}`);
+		return;
+	}
+
+	showBuildLog(staged, command, built.output, `wrote ${chosen}`, cwd, platform);
+	void vscode.window.setStatusBarMessage(`PureBasic: wrote ${basename(chosen)}`, 5000);
+}
+
+/** `PureBasic: Compile to Executable`, for the file in the editor. */
+async function compileToExecutable(): Promise<void> {
+	const document = await compilableDocument();
+	if (!document) return;
+	await writeExecutable(document.uri.fsPath, compilerSettings(), hostPlatform());
+}
+
+/**
+ * `PureBasic: Run` -- build the file, and start it in a window of its own.
  *
  * The build is one command in the editor's terminal and starting the program is
  * chained onto it with `&&`, so a build that failed starts nothing and the
@@ -486,7 +593,7 @@ async function askWhereToWrite(
  * terminal emulator on Linux, a console window on Windows -- and where it has
  * none, it runs in the build terminal rather than not at all.
  */
-async function runOrCompile(compileOnly: boolean): Promise<void> {
+async function runOrCompile(): Promise<void> {
 	const document = await compilableDocument();
 	if (!document) return;
 
@@ -495,50 +602,24 @@ async function runOrCompile(compileOnly: boolean): Promise<void> {
 	const compiler = resolveCompiler(settings.path, platform);
 	const source = document.uri.fsPath;
 	const cwd = dirname(source);
-
-	// Run builds a temporary executable; Compile asks where its own one goes,
-	// and a cancelled panel compiles nothing and says nothing
-	let target: string;
-	if (compileOnly) {
-		const chosen = await askWhereToWrite(source, settings, platform);
-		if (!chosen) return;
-		target = chosen;
-	} else {
-		target = temporaryOutputFor(source, platform);
-	}
-
-	// the compiler writes its output with the system linker, which will not
-	// create the directory for it -- and a configured output path may name one
-	// that does not exist either
-	try {
-		await vscode.workspace.fs.createDirectory(vscode.Uri.file(dirname(target)));
-	} catch (error) {
-		trace(`compiler: cannot create ${dirname(target)}: ${String(error)}`);
-	}
+	const target = temporaryOutputFor(source, platform);
+	await createFolder(dirname(target));
 
 	const build = shellCommand(
 		[compiler, ...compilerArguments(settings, target, platform), source],
 		platform,
 	);
-	let command = build;
-
-	if (!compileOnly) {
-		const args = splitCommandLine(settings.commandLine);
-		const launch =
-			platform === 'win32'
-				? windowsLauncher(target, args, cwd)
-				: launcherCommand(writeLaunchScript(target, args, cwd, platform), platform);
-		command = `${build} && ${launch ?? shellCommand([target, ...args], platform)}`;
-	}
+	const args = splitCommandLine(settings.commandLine);
+	const launch =
+		platform === 'win32'
+			? windowsLauncher(target, args, cwd)
+			: launcherCommand(writeLaunchScript(target, args, cwd, platform), platform);
+	const command = `${build} && ${launch ?? shellCommand([target, ...args], platform)}`;
 
 	const terminal = terminalFor('PureBasic', cwd);
 	terminal.show(true);
 	terminal.sendText(command, true);
 	trace(`compiler: ${command}`);
-
-	if (compileOnly) {
-		void vscode.window.setStatusBarMessage(`PureBasic: building ${basename(target)}`, 5000);
-	}
 }
 
 /**
@@ -623,8 +704,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	}
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('purebasic.run', () => runOrCompile(false)),
-		vscode.commands.registerCommand('purebasic.compile', () => runOrCompile(true)),
+		vscode.commands.registerCommand('purebasic.run', () => runOrCompile()),
+		vscode.commands.registerCommand('purebasic.compile', () => compileToExecutable()),
 		// Two commands, not one toggle: the title-bar button's icon belongs to
 		// the command, so turning it on and turning it off have to be separate
 		// to be drawn differently.  Which one is offered follows the setting

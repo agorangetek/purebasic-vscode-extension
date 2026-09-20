@@ -12,8 +12,18 @@
  * Editor-agnostic: no 'vscode' import, so the mapping can be checked with plain
  * node.
  */
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, statSync, writeFileSync } from 'node:fs';
+import {
+	chmodSync,
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	renameSync,
+	statSync,
+	unlinkSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, delimiter, dirname, join } from 'node:path';
 
@@ -50,10 +60,25 @@ export interface CompilerSettings {
  * overwrite each other and rebuilding one reuses the same path.
  */
 export function temporaryOutputFor(sourcePath: string, platform: Platform = hostPlatform()): string {
+	return temporaryOutput(sourcePath, platform, '');
+}
+
+/**
+ * Where Compile stages its build, before the save panel names the destination.
+ *
+ * A name of its own, so that compiling while a Run of the same file is still
+ * open does not write the very executable that is running -- which Windows
+ * would refuse, and which would leave that Run with a file it no longer owns.
+ */
+export function stagedOutputFor(sourcePath: string, platform: Platform = hostPlatform()): string {
+	return temporaryOutput(sourcePath, platform, '-compile');
+}
+
+function temporaryOutput(sourcePath: string, platform: Platform, tag: string): string {
 	const name = basename(sourcePath).replace(/\.[^.]*$/, '');
 	const stamp = createHash('sha1').update(sourcePath).digest('hex').slice(0, 8);
 	const suffix = platform === 'win32' ? '.exe' : '';
-	return join(tmpdir(), 'purebasic', `${name}-${stamp}${suffix}`);
+	return join(tmpdir(), 'purebasic', `${name}${tag}-${stamp}${suffix}`);
 }
 
 /** The three platforms the compiler integration knows about. */
@@ -345,6 +370,63 @@ export function windowsLauncher(target: string, args: readonly string[], cwd: st
 export interface CompilerError {
 	line: number;
 	message: string;
+}
+
+/** What a finished build had to say, and how it ended. */
+export interface BuildResult {
+	/** The exit code, or -1 when the compiler could not be run at all. */
+	code: number;
+	output: string;
+}
+
+/**
+ * Run the compiler, and wait for it.
+ *
+ * Compile has to know whether the build worked before it can ask where the
+ * result should go, and a command typed into the terminal cannot tell it.  The
+ * arguments go to the program directly rather than through a shell, so nothing
+ * in a path has to survive quoting.
+ */
+export function runCompiler(
+	compiler: string,
+	args: readonly string[],
+	cwd: string,
+): Promise<BuildResult> {
+	return new Promise((resolve) => {
+		const child = spawn(compiler, [...args], { cwd });
+		let output = '';
+		const collect = (chunk: Buffer) => {
+			output += chunk.toString();
+		};
+		child.stdout.on('data', collect);
+		child.stderr.on('data', collect);
+		child.on('error', (error) => {
+			resolve({ code: -1, output: `${output}${String(error.message)}\n` });
+		});
+		child.on('close', (code) => {
+			resolve({ code: code === null ? -1 : code, output });
+		});
+	});
+}
+
+/**
+ * Put a staged build at the path that was chosen for it.
+ *
+ * A plain rename is what a build beside its source amounts to.  Across volumes
+ * -- a temporary directory on another disk than the destination -- the rename
+ * cannot work, so the file is copied and the copy is given the mode of the
+ * original, which is what makes an executable executable.
+ */
+export function placeBuiltFile(staged: string, destination: string): void {
+	mkdirSync(dirname(destination), { recursive: true });
+	if (staged === destination) return;
+	try {
+		renameSync(staged, destination);
+	} catch {
+		copyFileSync(staged, destination);
+		chmodSync(destination, statSync(staged).mode & 0o777);
+		unlinkSync(staged);
+	}
 }
 
 /**
