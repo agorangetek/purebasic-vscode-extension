@@ -11,8 +11,9 @@
  * Editor-agnostic: no 'vscode' import, so the mapping can be checked with plain
  * node.
  */
+import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 
@@ -161,12 +162,59 @@ export async function waitForExitMarker(path: string, timeoutMs = 300_000): Prom
 
 /** One command line, quoted for the shell the terminal runs. */
 export function shellCommand(parts: readonly string[]): string {
-	return parts.map(quote).join(' ');
+	return parts.map(shellQuote).join(' ');
 }
 
-function quote(part: string): string {
+/** One argument, quoted for a POSIX shell. */
+export function shellQuote(part: string): string {
 	if (part.length > 0 && /^[A-Za-z0-9_@%+=:,./-]+$/.test(part)) return part;
 	return `'${part.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * Whether the program can be given a window of its own.
+ *
+ * macOS has one way to do this that needs no guesswork: a `.command` file, which
+ * Terminal opens in a new window and runs.  Elsewhere there is no single answer
+ * -- x-terminal-emulator, gnome-terminal, konsole, cmd -- and rather than guess,
+ * those keep the terminal the editor provides.
+ */
+export function hasTerminalWindow(): boolean {
+	return process.platform === 'darwin';
+}
+
+/**
+ * A `.command` script that runs the program and leaves the window open.
+ *
+ * Terminal closes a window when its shell exits, so the output of a program that
+ * ran and finished would vanish with it.  The script therefore reports the exit
+ * status and hands the window to an interactive shell, the way the PureBasic IDE
+ * leaves one behind.
+ */
+export function writeLaunchScript(target: string, args: readonly string[], cwd: string): string {
+	const lines = [
+		'#!/bin/sh',
+		`# PureBasic: written by the extension so the program gets a window of its own`,
+		`cd ${shellQuote(cwd)}`,
+		shellCommand([target, ...args]),
+		'status=$?',
+		`printf '\\n[PureBasic] the program exited with %s\\n' "$status"`,
+		'exec "${SHELL:-/bin/sh}" -i',
+		'',
+	];
+	const path = join(tmpdir(), `purebasic-run-${process.pid}-${Date.now()}.command`);
+	writeFileSync(path, lines.join('\n'), { mode: 0o755 });
+	return path;
+}
+
+/** Open a script in a Terminal window.  Rejects if `open` will not do it. */
+export function openTerminalWindow(script: string): Promise<void> {
+	return new Promise((resolve, reject) => {
+		execFile('open', ['-a', 'Terminal', script], (error) => {
+			if (error) reject(error);
+			else resolve();
+		});
+	});
 }
 
 /** A source line the compiler rejected, from its `Error: Line N - message`. */

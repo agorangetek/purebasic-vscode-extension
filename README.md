@@ -25,11 +25,12 @@ TextMate scopes, so your theme decides every colour — nothing is pinned.
   written.
 * **Smart Enter** — pressing Enter on a block opener closes the block and puts
   the caret in its body.
-* **Run** — builds the open file, then starts it in a terminal of its own. The
-  compiler talks in the PureBasic terminal and the program in a second one, so
-  the build log stays readable and `Debug` output -- which only exists when the
-  debugger is on -- has somewhere to appear. An interactive program can be
-  answered there.
+* **Run** — builds the open file, then starts the program in a **window of its
+  own**. The compiler talks in the editor's PureBasic terminal, where its
+  messages stay as a log, and the program opens in a Terminal window so that its
+  output -- `Debug` output above all, which only exists when the debugger is on --
+  is somewhere it can be read. The window stays open when the program ends, so
+  nothing scrolls away.
 * **Compile to Executable** — writes a binary beside the source, or wherever
   `purebasic.compiler.outputPath` says.
 * **Compiler settings** — a button for the options the PureBasic IDE's own

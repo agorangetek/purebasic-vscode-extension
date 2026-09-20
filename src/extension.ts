@@ -35,10 +35,13 @@ import {
 	compilerArguments,
 	outputPathFor,
 	resolveCompiler,
+	hasTerminalWindow,
+	openTerminalWindow,
 	shellCommand,
 	splitCommandLine,
 	temporaryOutputFor,
 	waitForExitMarker,
+	writeLaunchScript,
 	type CompilerSettings,
 } from './service/compiler.ts';
 import { getSignatureHelp } from './service/signature.ts';
@@ -492,9 +495,25 @@ async function runOrCompile(compileOnly: boolean): Promise<void> {
 		return;
 	}
 
+	const args = splitCommandLine(settings.commandLine);
+
+	// The program gets a window of its own where that is possible, so that its
+	// output -- the debugger's above all -- is somewhere it can be read without
+	// the compiler's log beside it.  Where it is not, the editor's terminal
+	// stands in rather than nothing running.
+	if (hasTerminalWindow()) {
+		try {
+			await openTerminalWindow(writeLaunchScript(target, args, cwd));
+			trace(`program: ${target} in a Terminal window`);
+			return;
+		} catch (error) {
+			trace(`program: no Terminal window (${String(error)}); using the editor's`);
+		}
+	}
+
 	const program = terminalFor('PureBasic Program', cwd);
 	program.show(true);
-	program.sendText(shellCommand([target, ...splitCommandLine(settings.commandLine)]), true);
+	program.sendText(shellCommand([target, ...args]), true);
 	trace(`program: ${target}`);
 }
 
