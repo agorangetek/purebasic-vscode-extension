@@ -1,7 +1,3 @@
-/*
- * Completion item construction.  Editor-agnostic: returns plain objects that
- * the VS Code layer (src/extension.ts) converts to vscode.CompletionItem.
- */
 import { allBlocks, allBuiltins, builtinMarkdown, isCompletableName } from './builtins.ts';
 import { blockBody, blockContinuations, expectsName, isDeclarationPrefix } from './blocks.ts';
 import { baseNameOf, pathOfUri } from './includes.ts';
@@ -17,7 +13,6 @@ import type {
 	PbSymbol,
 } from './types.ts';
 
-/** Lower sorts first. */
 const RANK = {
 	local: '0',
 	document: '1',
@@ -26,7 +21,6 @@ const RANK = {
 	keyword: '4',
 } as const;
 
-/** The built-in type suffixes, with what they mean. */
 const TYPE_SUFFIXES: Record<string, string> = {
 	b: 'Byte, 1 byte',
 	a: 'Ascii, 1 byte',
@@ -75,24 +69,18 @@ function symbolDetail(symbol: PbSymbol): string {
 	return symbol.detail || `${symbol.kind} ${symbol.name}`;
 }
 
-/** The file name part of a uri, for the label of a symbol from another file. */
 export function fileNameOf(uri: string): string {
 	const path = uri.split('#')[0] ?? uri;
 	return baseNameOf(pathOfUri(path)) || uri;
 }
 
 export interface SymbolItemOptions {
-	/** Insert a call snippet with parameter placeholders, where a call fits. */
 	snippet?: boolean;
-	/** Sort key inside the rank; the file name, to keep one file together. */
+
 	group?: string;
-	/** Dimmed text after the label, e.g. the file the symbol comes from. */
+
 	labelDescription?: string;
-	/**
-	 * The symbol is used as an address (`@Proc`, `@variable`).  pbcompiler accepts
-	 * `@Proc()` but rejects `@Proc(1)` as a syntax error, so a callable is
-	 * inserted with empty parentheses and no parameters.
-	 */
+
 	address?: boolean;
 }
 
@@ -114,19 +102,10 @@ export function symbolToCompletionItem(
 		symbol.kind === 'array' ||
 		symbol.container !== undefined;
 	if (isContainer) {
-		/*
-		 * A List, Map or Array is reached through its parentheses.  A list has a
-		 * valid empty form -- `items()` reads the current element -- so it goes
-		 * in as plain text and the caret ends up after it.  A map or an array
-		 * needs a key or an index, so those get an empty placeholder instead.
-		 * This is syntax rather than an argument list, so it is inserted
-		 * whether or not call snippets are allowed here.
-		 */
 		const emptyForm = symbol.container === 'list' || symbol.kind === 'list';
 		insertText = emptyForm ? `${symbol.name}()` : `${symbol.name}(\${1})`;
 		isSnippet = !emptyForm;
 	} else if (isCallable && address) {
-		// `@Proc()` is the address; `@Proc(1)` is a syntax error
 		insertText = `${symbol.name}()`;
 	} else if (isCallable && params.length > 0 && snippet) {
 		const placeholders = params.map((p, i) => `\${${i + 1}:${p}}`).join(', ');
@@ -142,8 +121,7 @@ export function symbolToCompletionItem(
 		documentation: symbol.doc,
 		insertText,
 		isSnippet,
-		// `group` keeps the symbols of one file together; the editor sorts by
-		// match quality first, so it only decides between equally good matches.
+
 		sortText: rank + group + symbol.name.toLowerCase(),
 	};
 }
@@ -158,8 +136,7 @@ export function builtinToCompletionItem(
 
 	let insertText = item.name;
 	let isSnippet = false;
-	// every PureBasic command is called with parentheses, so a command with
-	// parameters always gets a call snippet
+
 	if (allowSnippet && params.length > 0) {
 		const placeholders = params
 			.map((p, i) => `\${${i + 1}:${(p.name || 'arg').replace(/^[*@?#]/, '').replace(/\$$/, '') || 'arg'}}`)
@@ -187,50 +164,31 @@ export interface CompletionRequest {
 	options: PbCompletionOptions;
 }
 
-/** The procedure whose body contains `position`, if any. */
 export function enclosingProcedure(document: PbDocument, position: PbPosition): PbSymbol | undefined {
 	let best: PbSymbol | undefined;
 	for (const symbol of document.symbols) {
 		if (symbol.kind !== 'procedure') continue;
 		if (symbol.line > position.line) continue;
-		// a procedure that has already been closed above the cursor does not
-		// enclose it
+
 		if (symbol.endLine !== undefined && symbol.endLine < position.line) continue;
 		if (!best || symbol.line > best.line) best = symbol;
 	}
 	return best;
 }
 
-/** The fields of every structure/interface the document knows about. */
 function allFields(document: PbDocument, workspaceSymbols: readonly PbSymbol[]): PbSymbol[] {
 	return [...document.symbols, ...workspaceSymbols].filter((s) => s.kind === 'field');
 }
 
-/** A name with its sigils off, so `*p`, `p$` and `p` are the same variable. */
 function plainName(name: string): string {
 	return name.replace(/^[*@?]/, '').replace(/\$$/, '');
 }
 
-/**
- * What stands before a `\`, and therefore what may be offered after it:
- *
- * - `structure`: a structure or interface, so its fields are the answer;
- * - `leaf`: a native type -- `.i`, a `$` string, a bare `*` pointer -- which has
- *   no members at all, so nothing is offered;
- * - `unknown`: nothing could be told (an undeclared name, a call, a `With`
- *   block), where every known field stays on offer rather than none.
- *
- * The chain is walked step by step: the first name is a declared variable and
- * each further `\name` step moves to the structure that field is declared as,
- * so `m\list()\` reaches the element structure of a List field and
- * `pt\inner\x` walks a nested structure.
- */
 type MemberSource =
 	| { kind: 'structure'; name: string }
 	| { kind: 'leaf' }
 	| { kind: 'unknown' };
 
-/** A native PureBasic type (`.i`, `.s`, ...): it has no members. */
 function isNativeType(type: string): boolean {
 	return Object.hasOwn(TYPE_SUFFIXES, type.toLowerCase());
 }
@@ -241,8 +199,6 @@ function memberSource(
 	before: string,
 	position: PbPosition,
 ): MemberSource {
-	// a step may carry an index or a key -- `list(0)`, `map("key")` -- and the
-	// masked text turns a quoted key into spaces, so whitespace is allowed here
 	const chain = /((?:[*@?]?[A-Za-z_]\w*)(?:\\[^\\]*)*)\\s*$/.exec(before)?.[1];
 	if (chain === undefined) return { kind: 'unknown' };
 
@@ -267,8 +223,7 @@ function memberSource(
 				symbol.kind === 'array'),
 	);
 	const first = declared.find((symbol) => symbol.scope === scope) ?? declared.find((symbol) => symbol.scope === '');
-	// nothing declared at all tells us nothing; a declared name without a type
-	// is a native variable, and a native variable has no members
+
 	if (first === undefined) return { kind: 'unknown' };
 	if (first.type === undefined) return { kind: 'leaf' };
 	if (isNativeType(first.type)) return { kind: 'leaf' };
@@ -289,12 +244,6 @@ function memberSource(
 	return { kind: 'structure', name: type };
 }
 
-/**
- * The members to offer after a `\`: the fields of the structure the variable is
- * declared as, so a file with many structures shows the right ones.  When the
- * type is unknown, or the structure brings no fields of its own, every known
- * field is offered rather than nothing.
- */
 function memberItems(
 	document: PbDocument,
 	workspaceSymbols: readonly PbSymbol[],
@@ -308,11 +257,6 @@ function memberItems(
 	return fields.filter((field) => field.scope === source.name);
 }
 
-/**
- * Build the completion list for a position.  Higher-priority sources come
- * first (locals, then this document, then the workspace, then the language),
- * and duplicates are dropped so the best-ranked entry wins.
- */
 export function buildCompletions(request: CompletionRequest): PbCompletionItem[] {
 	const { document, workspaceSymbols = [], position, options, word } = request;
 	const items: PbCompletionItem[] = [];
@@ -320,32 +264,12 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 	const context = statementContextAt(document.text, position, word);
 	const members = memberContextAt(document.text, position, word);
 
-	// Editor-side pacing: while a name is being typed, wait until enough of it
-	// is there before offering anything.  A member list after '.' or '\' is
-	// asked for deliberately -- the editor only triggers it on the character
-	// itself -- so it is never held back, and neither is a sigil: `@` already
-	// says a procedure address or a variable is wanted, so `@` alone lists them.
 	const sigil = /^[*@?]/.test(word) ? word[0] : undefined;
 	const address = sigil !== undefined;
 	if (members === 'plain' && !address && (options.minChars ?? 0) > 0) {
 		if (word.length < (options.minChars ?? 0)) return [];
 	}
 
-	/*
-	 * What each sigil can point at, checked against pbcompiler 6.41:
-	 *
-	 * - `@` and `*` take the address of a procedure or a variable, including a
-	 *   parameter, a Static, a pointer and a field; a container is reached
-	 *   through its element (`@list()`, `@array(0)`, `@map(key)`), never bare.
-	 * - `?` takes a data label.
-	 *
-	 * Rejected by the compiler, so never offered: a library command
-	 * (`@Sin(1.0)` is "not declared"), a compile-time pseudo function
-	 * (`@SizeOf(x)`), a type -- structure, prototype or module -- a constant, an
-	 * enum member, a macro, and a code label.  Library commands are dropped for
-	 * every sigil; a keyword cannot be addressed either.  A variable declared
-	 * *with* a prototype type is still a variable, and is offered.
-	 */
 	const SIGIL_TARGETS: Record<string, readonly PbSymbolKind[]> = {
 		'@': ['procedure', 'declare', 'variable', 'list', 'map', 'array'],
 		'*': ['procedure', 'declare', 'variable', 'list', 'map', 'array'],
@@ -361,11 +285,8 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 		items.push(item);
 	};
 
-	// -- inside a string or a comment, or after a dot no type belongs after,
-	//    nothing is offered at all
 	if (members === 'none') return [];
 
-	// -- after '.' a type is expected; after '\' a structure member
 	if (members === 'type' || members === 'member') {
 		if (members === 'type') {
 			for (const [suffix, description] of Object.entries(TYPE_SUFFIXES)) {
@@ -394,12 +315,10 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 		return filterByPrefix(items, word);
 	}
 
-	// -- right after Procedure/Structure/Module/... a name is expected
 	if (expectsName(context.before)) {
 		return filterByPrefix(items, word);
 	}
 
-	// 1. locals and parameters of the enclosing procedure
 	const proc = enclosingProcedure(document, position);
 	if (proc && wants('variable')) {
 		for (const name of parameterNames(proc.params)) {
@@ -420,23 +339,15 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 		}
 	}
 
-	// 2. module-level symbols of this document
 	for (const symbol of document.symbols) {
 		if (symbol.scope === '' && wants(symbol.kind)) {
 			push(symbolToCompletionItem(symbol, RANK.document, { address }));
 		}
 	}
 
-	/*
-	 * 3. symbols from other files in the workspace.  The popup has no row for a
-	 * group heading, so every item carries the file that defines it after its
-	 * label (CompletionItemLabel.description, the field VS Code documents for a
-	 * file path) and the file name doubles as the sort key that keeps the
-	 * symbols of one file together.
-	 */
 	for (const symbol of workspaceSymbols) {
 		if (symbol.file === document.uri) continue;
-		// a member is only valid after a `\`, which the branch above handles
+
 		if (symbol.kind === 'field' || !wants(symbol.kind)) continue;
 		const file = fileNameOf(symbol.file);
 		const item = symbolToCompletionItem(symbol, RANK.workspace, {
@@ -450,12 +361,8 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 		push(item);
 	}
 
-	// a fresh statement, with nothing on the line yet: where a block belongs.
-	// A sigil has already started the expression, so `@` alone is not one.
 	const freshStatement = !sigil && /^\s*$/.test(context.before);
 
-	// 4. library commands are valid in any expression -- but no library command
-	// can be addressed, so none of them belongs after a sigil
 	if (options.builtins && !address) {
 		for (const item of allBuiltins()) {
 			if (item.kind === 'keyword') continue;
@@ -464,7 +371,6 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 		}
 	}
 
-	// 5. at the start of a statement, the block openers expand into a skeleton
 	if (options.keywords && freshStatement && !isDeclarationPrefix(context.before)) {
 		for (const block of allBlocks()) {
 			const body = options.snippets ? blockBody(block) : undefined;
@@ -490,8 +396,6 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 		}
 	}
 
-	// 6. the rest of the language -- no keywords after a sigil, since `@`, `*`
-	// and `?` all want a name they can point at
 	if (options.keywords && !sigil) {
 		for (const item of allBuiltins()) {
 			if (item.kind !== 'keyword') continue;
@@ -503,7 +407,6 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 	return filterByPrefix(items, word);
 }
 
-/** Only what the typed text starts, whatever case was typed. */
 function filterByPrefix(items: PbCompletionItem[], word: string): PbCompletionItem[] {
 	if (word.length === 0) return items;
 	const prefix = word.replace(/^[*@?]/, '').toLowerCase();

@@ -1,6 +1,4 @@
-/* Generated from src/data/pb-builtins.json -- do not edit by hand.
- * Source: PureBasic 1888 library commands and 120 keywords
- * Regenerate with: npm run gen-builtins-ts (or npm run gen-data)
+/* Generated from src/data/pb-builtins.json -- do not edit; run npm run gen-builtins-ts.
  */
 import type { PbBuiltin, PbBuiltinData } from '../service/types.ts';
 

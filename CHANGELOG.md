@@ -4,6 +4,27 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.0] - 2026-09-20
+
+### Added
+
+- **Run** builds the file and opens the program in a Terminal window of its own, so `Debug` output
+  has somewhere to be read. The compiler keeps talking in the editor's PureBasic terminal, where
+  its messages stay as a log, and a failed build starts nothing.
+- **Compile to Executable** writes a binary beside the source, or wherever
+  `purebasic.compiler.outputPath` says.
+- **Compiler settings**, from a settings button and as editor title buttons: debugger, optimizer,
+  threadsafe, purifier, OnError lines, executable format, subsystem, output path and the program's
+  command line -- the options the IDE's own Compiler Options dialog has. The debugger defaults to
+  on, as the IDE ships it, and its button turns green while it is on.
+
+### Changed
+
+- Compiler settings set from the buttons are written globally rather than into whichever folder is
+  open.
+- The sources lost their running commentary: 1051 comment lines to 85. What is left marks the
+  places where the code looks wrong and is not.
+
 ## [0.1.25] - 2026-09-20
 
 ### Changed

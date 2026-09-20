@@ -1,37 +1,7 @@
-/*
- * Keyword refresh from the PureBasic IDE's own table.
- *
- * The extension ships a keyword list generated from the IDE's data.  When a new
- * PureBasic comes out that list is stale until this extension is rebuilt, so the
- * user can point `purebasic.keywords.path` at a
- * `PureBasicIDE/KeywordsData.pbi` and the new words are picked up at startup.
- *
- * Note what this is NOT: the file does not ship with a PureBasic installation
- * (the app bundle has catalogs, colorschemes, compilers, purelibraries, ... and
- * no keyword table), so the path points at the IDE source.  It is also not
- * tools/gen-data.mjs, which needs three further files that only exist in that
- * source tree; this reads the one file that carries the reserved words.
- *
- * Everything here is editor-agnostic and side-effect free, so the paths, the
- * guards and the merge can be tested without a running editor.
- */
 import type { PbBuiltin } from './types.ts';
 
-/** A word that can be typed on its own, which is all the grammar can alternate. */
 const TYPEABLE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-/**
- * The `Data$ "Name"` lines of the IDE's `BasicKeywords:` section.
- *
- * The file is compiled by the IDE under `CompilerIf #SpiderBasic` /
- * `CompilerIf Not #SpiderBasic` guards, and this is a PureBasic extension, so
- * `#SpiderBasic` counts as FALSE: `Not #SpiderBasic` includes, a bare
- * `#SpiderBasic` excludes.  That is what keeps SpiderBasic's DisableJS and
- * EnableJS from becoming PureBasic keywords.
- *
- * The `ASMKeywords:` section is skipped: its words come from an IncludeFile, and
- * inline assembly is a scope of its own here rather than a keyword list.
- */
 export function parseKeywordsData(text: string): string[] {
 	const names: string[] = [];
 	const included: boolean[] = [];
@@ -48,6 +18,7 @@ export function parseKeywordsData(text: string): string[] {
 			continue;
 		}
 
+		// #SpiderBasic counts as false: this is a PureBasic extension
 		const guard = /^CompilerIf\s+(Not\s+)?#SpiderBasic\b/i.exec(line);
 		if (guard) {
 			included.push(Boolean(guard[1]));
