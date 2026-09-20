@@ -562,7 +562,7 @@
 		"members": {
 			"patterns": [
 				{
-					"comment": "var\\field, Module::item, and the element form var\\map().  Scoped under entity.name.type so that a scheme paints it where it paints a type: the IDE gives a member its Structures colour, which in the Monokai themes VS Code ships is the entity.name.* green.",
+					"comment": "var\\field, Module::item, and the element form var\\map().  Scoped under entity.name.type so that a scheme paints it where it paints a type: the IDE gives a member its Structures colour, which in the dark themes VS Code ships is the entity.name.* green.",
 					"name": "entity.name.type.member.purebasic",
 					"match": "(?:\\\\|::)[A-Za-z_]\\w*(?:\\(\\))?"
 				},

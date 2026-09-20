@@ -9,8 +9,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ### Changed
 
 - **A declared name is normal text, as the PureBasic IDE draws it.** `MemDll` in `Module MemDll` and in
-  `DeclareModule MemDll` was `entity.name.type.purebasic`, which is the Structures green under
-  Monokai. The IDE has no declaration colour at all: its highlighter
+  `DeclareModule MemDll` was `entity.name.type.purebasic`, which is the green the dark themes
+  VS Code ships use for a Structure. The IDE has no declaration colour at all: its highlighter
   ([`HighlightingEngine.pb`](https://github.com/fantaisie-software/purebasic/blob/master/PureBasicIDE/HighlightingEngine.pb))
   assigns a colour by what *surrounds* a word, never by the word being declared.
   - `Module` / `DeclareModule` / `Structure` / `Interface` / `Enumeration` / `Macro` are Basic
@@ -24,7 +24,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
     (`Procedure.d Area(...)`, `Declare.i Bar(...)`, `Prototype.i Callback(...)`) is the function
     colour, a `::` is the module colour (`MemDll::DoIt()`), a `.Structure` or a `\` is the
     structures colour (`pt.Point`, `test\age`).
-- `docs/purebasic-ide-monokai.jsonc` drops the rule for the removed scope: the base normal-text rule
+- The opt-in IDE palette dropped the rule for the removed scope: the base normal-text rule
   already covers a declared name, so the opt-in palette is unchanged in what it renders.
 
 ### Note
@@ -145,9 +145,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 - Every built-in type, in both cases, through a declaration, a parameter, a return type and a
   structure field, is confirmed unscoped under the tokenizer the editor uses.
-- `docs/purebasic-ide-monokai.jsonc` drops the now-meaningless `storage.type.purebasic` rule; its
+- The opt-in IDE palette dropped the now-meaningless `storage.type.purebasic` rule; its
   26 selectors all name a scope the grammar emits, and all 27 scopes it covers render the exact
-  colour the IDE's own Monokai scheme uses.
+  colour the IDE's own scheme uses.
 
 ## [0.1.20] - 2026-09-20
 
@@ -175,7 +175,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - **A member and the name it comes off are one scope**, `entity.name.type.member.purebasic`
   (was `variable.other.member` / `variable.other.typed`). The IDE paints a member with its
   Structures colour, and `variable.other.*` gets whatever a theme gives a variable -- white in
-  Monokai. `OBJ_MEMDLL\ModulesMap()` is now one green expression instead of a green owner beside
+  those themes. `OBJ_MEMDLL\ModulesMap()` is now one green expression instead of a green owner beside
   a grey member, which is what the IDE shows.
 - Compiler directives, includes and macros are `keyword.other.preprocessor.purebasic` (was
   `meta.preprocessor.purebasic`, which several themes leave uncoloured).
@@ -183,14 +183,13 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ### Verified
 
 - Every scope the grammar can emit was tokenized and resolved against the themes VS Code ships,
-  so each one's rendered colour is known rather than assumed. Under **Monokai**: keywords,
+  so each one's rendered colour is known rather than assumed. Under the dark theme in use: keywords,
   directives and operators `#F92672`; commands and procedure names `#A6E22E`; structures, type
   uses, members and module qualifiers `#A6E22E`; constants, numbers, pointers and `@addresses`
-  `#AE81FF`; strings `#E6DB74`; comments `#88846F`; the native `.i` suffix `#66D9EF`. Re-check
-  any theme of your own with `node tools/theme-audit.mjs <theme.json>`.
-- The opt-in palette in `docs/purebasic-ide-monokai.jsonc` is rewritten for these scopes and
+  `#AE81FF`; strings `#E6DB74`; comments `#88846F`; the native `.i` suffix `#66D9EF`.
+- The opt-in IDE palette was rewritten for these scopes and
   machine-checked: all 27 selectors name a scope the grammar really emits, and all 28 scopes
-  render the exact colour the PureBasic IDE's own Monokai scheme uses. (Monokai itself has no
+  render the exact colour the PureBasic IDE's own scheme uses. (That theme has no
   rule for a label or for an inline-assembly line, so under that theme a label is white and
   `! mov eax, 1` is plain text; the palette is how you get the IDE's orange and cyan back.)
 
@@ -200,14 +199,14 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 - **A pointer and an address are scoped in the constant family**, `constant.other.pointer.purebasic`
   and `constant.other.reference.purebasic`, rather than under `variable.other`. The scope decides
-  which colour a scheme gives them, and in the PureBasic IDE's own Monokai scheme `PointerColor`
-  *is* `ConstantColor` -- while in VS Code's Monokai themes the purple family is `constant.*`.
-  Under Monokai a pointer was coming out `#F8F8F2` (the theme's variable colour); it is now
+  which colour a scheme gives them, and in the PureBasic IDE's own scheme `PointerColor`
+  *is* `ConstantColor` -- while in the dark themes VS Code ships the purple family is `constant.*`.
+  Under the theme then in use a pointer was coming out `#F8F8F2` (its variable colour); it is now
   `#AE81FF`, the same purple as `#MAX` and a number, which is what the IDE shows. Verified against
   the theme: `*pointer`, `*buffer`, `@test`, `#max`, `$FF`, `%1010`, `12.5` all render `#AE81FF`.
-- Two things stay the theme's word, because Monokai has no scope of its own for them: a member
+- Two things stay the theme's word, because that theme has no scope of its own for them: a member
   read (`test\age`) and a data label reference (`?data`) come out the theme's normal text. The
-  opt-in palette in `docs/purebasic-ide-monokai.jsonc` still pins them if you want the IDE's own
+  opt-in IDE palette still pins them if you want the IDE's own
   colours over whatever theme you run.
 
 ## [0.1.18] - 2026-09-20
@@ -266,7 +265,7 @@ lookbehind that works.
 ### Changed
 
 - **Declaration and use are scoped apart, the way the PureBasic IDE colours them.** Read off the
-  IDE's own preferences (`~/.purebasic/purebasic.prefs`, the Monokai scheme) and measured from a
+  IDE's own preferences (`~/.purebasic/purebasic.prefs`, its shipped scheme) and measured from a
   screenshot rather than guessed: a *declaration* is normal text -- a structure's name, a field
   line in a `Structure`, a native suffix such as `.i` -- while a *use* in code wears the colour the
   IDE gives identifiers and commands. So:
@@ -285,7 +284,7 @@ lookbehind that works.
 ### Added
 
 - **Symbolic operators are scoped**, as `keyword.operator.symbol.purebasic`: `=`, `+`, `-`, `*`, `/`,
-  `%`, `<`, `>`, `&`, `|` and the two-character forms. The PureBasic IDE's Monokai scheme gives them
+  `%`, `<`, `>`, `&`, `|` and the two-character forms. The PureBasic IDE's own scheme gives them
   the keyword colour (its OperatorColor), and no selector could reach them while they were
   unscoped. The rule sits after the sigil rules, so the `*` of `*p` is still a pointer and only a
   lone `*` -- a multiplication -- is an operator.

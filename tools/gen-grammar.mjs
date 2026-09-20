@@ -46,9 +46,9 @@ const slug = (text) =>
  * colours these things as it colours a type or a function:
  *
  *   - library commands and user calls are entity.name.function, not
- *     support.function: the IDE gives both its Functions colour, and in the
- *     Monokai themes VS Code ships, entity.name.function is that same green.
- *     It is also what makes `MessageRequester` and `MyUserProc` one colour.
+ *     support.function: the IDE gives both its Functions colour, and the dark
+ *     themes VS Code ships paint entity.name.function that same green.  It is
+ *     also what makes `MessageRequester` and `MyUserProc` one colour.
  *   - a member access and the name it hangs off are entity.name.type.member,
  *     not variable.other.*: the IDE gives a member its Structures colour, which
  *     is the entity.name.* green, and `OBJ\Map()` then reads as one thing
@@ -300,7 +300,7 @@ export const grammar = {
 			patterns: [
 				{
 					comment:
-						'var\\field, Module::item, and the element form var\\map().  Scoped under entity.name.type so that a scheme paints it where it paints a type: the IDE gives a member its Structures colour, which in the Monokai themes VS Code ships is the entity.name.* green.',
+						'var\\field, Module::item, and the element form var\\map().  Scoped under entity.name.type so that a scheme paints it where it paints a type: the IDE gives a member its Structures colour, which in the dark themes VS Code ships is the entity.name.* green.',
 					name: 'entity.name.type.member.purebasic',
 					match: '(?:\\\\|::)[A-Za-z_]\\w*(?:\\(\\))?',
 				},
@@ -332,9 +332,9 @@ export const grammar = {
 				//
 				// The scope is a `constant.*` one, not `variable.other.pointer`,
 				// so that a scheme paints it where it paints a constant: in the
-				// PureBasic IDE's own Monokai scheme PointerColor *is*
-				// ConstantColor, and in VS Code's Monokai themes the purple family
-				// is `constant.*`, so a pointer comes out purple beside `#MAX`.
+				// PureBasic IDE's own scheme PointerColor *is* ConstantColor, and
+				// in the dark themes VS Code ships the purple family is
+				// `constant.*`, so a pointer comes out purple beside `#MAX`.
 				{ name: 'constant.other.pointer.purebasic', match: '(?<![A-Za-z0-9_])\\*[A-Za-z_]\\w*' },
 				{ name: 'constant.other.reference.purebasic', match: '@[A-Za-z_]\\w*' },
 				// a `@` with no name yet -- `@` on its own, or `@` before
@@ -347,9 +347,9 @@ export const grammar = {
 			],
 		},
 		/*
-		 * Symbolic operators.  The PureBasic IDE's Monokai scheme gives them the
-		 * keyword colour (OperatorColor), and it cannot place them with a selector
-		 * unless they are scoped.  This comes after the sigil rules, so the `*`
+		 * Symbolic operators.  The PureBasic IDE's own scheme gives them the keyword
+		 * colour (OperatorColor), and it cannot place them with a selector unless
+		 * they are scoped.  This comes after the sigil rules, so the `*`
 		 * of `*p` is still a pointer and only a lone `*` is an operator.
 		 */
 		identifiers: {

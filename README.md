@@ -90,12 +90,8 @@ theme paints them their normal text — which is what the IDE does.
 The scope vocabulary follows [duty1g/vscode-purebasic](https://github.com/duty1g/vscode-purebasic) (MIT).
 
 Colours come from the theme: the grammar emits only standard TextMate scopes, so switching
-theme switches them and nothing is pinned. If you want the PureBasic IDE's own Monokai scheme
-whatever theme you run, paste the rules from
-[docs/purebasic-ide-monokai.jsonc](docs/purebasic-ide-monokai.jsonc) into
-`editor.tokenColorCustomizations.textMateRules` -- they name every scope the grammar emits, so
-nothing is left half-coloured. Any customisation you add overrides the theme for the scopes it
-names, which is how VS Code layers them.
+theme switches them and nothing is pinned. Any `editor.tokenColorCustomizations` you add overrides
+the theme for the scopes it names, which is how VS Code layers them.
 
 A code scope must never contain the word `string` or `comment`: VS Code reads the
 suggestions category of the token under the caret from its innermost scope with
