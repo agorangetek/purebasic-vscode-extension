@@ -15,6 +15,12 @@ import { existsSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
 /** The IDE's Compiler Options, as far as the macOS/Linux compiler implements them. */
+/*
+ * The defaults are declared in package.json, where the settings editor shows
+ * them and where VS Code applies them, and read back with the same fallbacks in
+ * extension.ts.  There is deliberately no second copy here: a default in two
+ * places is a default that drifts.
+ */
 export interface CompilerSettings {
 	/** Empty: find the installed compiler, then fall back to PATH. */
 	path: string;
@@ -32,23 +38,6 @@ export interface CompilerSettings {
 	/** `-q`: only errors on stdout. */
 	quiet: boolean;
 }
-
-export const DEFAULT_SETTINGS: CompilerSettings = {
-	path: '',
-	// the IDE's own defaults are Debugger 1, Optimizer 1, Thread 1, Purifier 0,
-	// OnError 0 -- except the debugger, which is off here so that Run is a plain
-	// build until you ask for the debugger
-	debugger: false,
-	optimizer: true,
-	threadsafe: true,
-	purifier: false,
-	onErrorLines: false,
-	executableFormat: 'macos',
-	subsystem: '',
-	outputPath: '',
-	commandLine: '',
-	quiet: false,
-};
 
 /**
  * The compiler to run.  The IDE installs one inside the application bundle, and

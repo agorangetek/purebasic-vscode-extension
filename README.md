@@ -35,7 +35,8 @@ TextMate scopes, so your theme decides every colour — nothing is pinned.
   OnError lines, executable format (application, console or shared library),
   subsystem, output path and the program's command line. The debugger has its
   own toggling button, because what it changes is easy to miss: `Debug` output
-  and runtime error lines exist only when it is on.
+  and runtime error lines exist only when it is on. It starts on, as the IDE
+  ships it.
 * **Comments, brackets and indentation** for PureBasic: `;` comments, `()` and
   `[]` pairs, and indentation that follows the language's blocks.
 * **Across files** — symbols from files joined to this one by

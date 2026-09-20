@@ -102,7 +102,7 @@
 				},
 				"purebasic.compiler.debugger": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"markdownDescription": "Compile with the debugger (`-d`). This is what makes `Debug` print and runtime errors report a line; without it they are compiled out."
 				},
 				"purebasic.compiler.optimizer": {

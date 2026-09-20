@@ -359,7 +359,7 @@ function compilerSettings(): CompilerSettings {
 	const c = vscode.workspace.getConfiguration('purebasic.compiler');
 	return {
 		path: c.get<string>('path', ''),
-		debugger: c.get<boolean>('debugger', false),
+		debugger: c.get<boolean>('debugger', true),
 		optimizer: c.get<boolean>('optimizer', true),
 		threadsafe: c.get<boolean>('threadsafe', true),
 		purifier: c.get<boolean>('purifier', false),
@@ -465,7 +465,7 @@ async function chooseCompilerSettings(): Promise<void> {
 
 	type Choice = vscode.QuickPickItem & { key?: string; boolean?: boolean; input?: 'text' | 'file' };
 	const choices: Choice[] = [
-		{ label: 'Debugger', description: onOff(c.get('debugger', false)), detail: '-d  Debug output and runtime error lines', key: 'debugger', boolean: true },
+		{ label: 'Debugger', description: onOff(c.get('debugger', true)), detail: '-d  Debug output and runtime error lines', key: 'debugger', boolean: true },
 		{ label: 'Optimizer', description: onOff(c.get('optimizer', true)), detail: '-z  Optimize generated code', key: 'optimizer', boolean: true },
 		{ label: 'Threadsafe', description: onOff(c.get('threadsafe', true)), detail: '-t  Create a threadsafe executable', key: 'threadsafe', boolean: true },
 		{ label: 'Purifier', description: onOff(c.get('purifier', false)), detail: '-pf  Enable the purifier', key: 'purifier', boolean: true },
