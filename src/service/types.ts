@@ -51,6 +51,11 @@ export interface PbSymbol {
 	type?: string;
 	/** Whether the name carries a leading `*` (a pointer, and part of the name). */
 	pointer?: boolean;
+	/**
+	 * A List, Map or Array field, reached through parentheses -- `list()`,
+	 * `map(key)`, `array(i)` -- rather than by name alone.
+	 */
+	container?: 'list' | 'map' | 'array';
 	/** Absolute path (or uri) of the file the symbol came from. */
 	file: string;
 	/** Extra text for hover (documentation comment above the declaration). */

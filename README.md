@@ -95,6 +95,10 @@ another keyword.
 * **Type awareness** — after a `.` you get the built-in type suffixes (`.i`,
   `.d`, `.s`, …) with what each one means, plus every structure and interface in
   the include group; after a `\` you get structure members.
+* **List, Map and Array access** — a `List`, `Map` or `Array` member is completed
+  with its parentheses, because that is how an element is reached: a list inserts
+  `items()`, a map or an array inserts `lookup(${1})`, leaving the caret where the
+  key or the index goes.
 * **Prefix filtering, in any case** — typing a character offers only the names
   that *start* with it, whatever case you type.
 * **It waits for you** — nothing pops up until three characters of the name are

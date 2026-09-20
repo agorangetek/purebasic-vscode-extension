@@ -71,6 +71,10 @@ const workspaceFiles = new Map<string, string>([
 			'Structure WsShape',
 			'\twidth.i',
 			'\theight.i',
+			'\tList Parts.WsPart()',
+			'EndStructure',
+			'Structure WsPart',
+			'\tlabel$',
 			'EndStructure',
 			'Procedure WsHelperGreet(name$)',
 			'\tDebug name$',
@@ -760,6 +764,7 @@ test('integration: only files joined by IncludeFile share symbols', { skip }, as
 			lineFor('WsOut'),
 			'\tDefine s.WsShape',
 			'\ts\\',
+			'\ts\\Parts()\\',
 			'EndProcedure',
 		].join('\n'),
 	);
@@ -837,6 +842,22 @@ test('integration: only files joined by IncludeFile share symbols', { skip }, as
 		assert.ok(
 			!labels.includes('WsHelperGreet'),
 			'a member list holds members, not the names you type anywhere',
+		);
+
+		// a List member is inserted with its parentheses, and its element can be
+		// stepped into
+		const parts = items.find((i) => shownLabel(i) === 'Parts');
+		assert.ok(parts, `expected Parts among ${labels.join(', ')}`);
+		assert.equal(parts.insertText, 'Parts()', 'a List member is inserted with its parentheses');
+
+		const element = registrations.completion[0]!.provider.provideCompletionItems(
+			scratch,
+			new Position(9, 11),
+			{ triggerCharacter: '\\' },
+		) as CompletionItem[];
+		assert.ok(
+			element.map(shownLabel).includes('label$'),
+			`expected the element members, got ${element.map(shownLabel).join(', ')}`,
 		);
 	});
 

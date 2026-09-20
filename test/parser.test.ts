@@ -214,3 +214,31 @@ test('a bare name.Type line declares the variable, as pbcompiler accepts', () =>
 
 	assert.deepEqual(declared, ['x:MyStruct', '*p:MyStruct:pointer', 'y:i']);
 });
+
+test('a List, Map or Array field is recorded as a container', () => {
+	const doc = parseDocument(
+		'file:///p.pb',
+		[
+			'Structure Inner',
+			'\tv.i',
+			'EndStructure',
+			'Structure Outer',
+			'\tList Items.Inner()',
+			'\tMap Lookup.Inner()',
+			'\tArray Slots.Inner(8)',
+			'\tplain.i',
+			'EndStructure',
+		].join('\n'),
+	);
+	const fields = doc.symbols
+		.filter((s) => s.kind === 'field')
+		.map((s) => `${s.name}:${s.container ?? '-'}:${s.type ?? '-'}`);
+
+	assert.deepEqual(fields, [
+		'v:-:i',
+		'Items:list:Inner',
+		'Lookup:map:Inner',
+		'Slots:array:Inner',
+		'plain:-:i',
+	]);
+});

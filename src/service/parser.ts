@@ -250,7 +250,7 @@ const FIELD_RESERVED_RE =
 const BARE_DECL_RE = /^\s*(\*?[A-Za-z_]\w*)\s*\.\s*([A-Za-z_]\w*)\s*$/;
 
 const FIELD_RE =
-	/^\s*(?:list\s+|array\s+|map\s+)?(\*?[A-Za-z_]\w*\$?)(?:\.([A-Za-z_]\w*))?(?:\s*(?:\[\s*\w+\s*\]|\([^)]*\)))?\s*$/i;
+	/^\s*(?:(list|array|map)\s+)?(\*?[A-Za-z_]\w*\$?)(?:\.([A-Za-z_]\w*))?(?:\s*(?:\[\s*\w+\s*\]|\([^)]*\)))?\s*$/i;
 const LABEL_RE = /^\s*([A-Za-z_]\w*)\s*:(?!:)/;
 const ASSIGN_RE = /^\s*(\*?[A-Za-z_]\w*\$?)\s*=[^=]/;
 const FOR_RE = /^\s*(foreach|for)\b\s*(\*?[A-Za-z_]\w*\$?)/i;
@@ -439,9 +439,10 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			if (scopeBlock.kind !== 'enumeration') {
 				const field = FIELD_RE.exec(trimmed);
 				if (field && !FIELD_RESERVED_RE.test(trimmed) && !/^\*?\w+\s*\(/.test(trimmed)) {
-					add(field[1]!, 'field', i, source, {
-						type: field[2],
-						pointer: field[1]!.startsWith('*') || undefined,
+					add(field[2]!, 'field', i, source, {
+						type: field[3],
+						pointer: field[2]!.startsWith('*') || undefined,
+						container: field[1]?.toLowerCase() as 'list' | 'map' | 'array' | undefined,
 					});
 					continue;
 				}

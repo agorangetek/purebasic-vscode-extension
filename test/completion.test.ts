@@ -376,3 +376,35 @@ test('members follow a chain of structures, through a List, a Map and a pointer'
 		'an untyped pointer leaves every known field on offer',
 	);
 });
+
+test('a List, Map or Array member is inserted with its parentheses', () => {
+	const source = [
+		'Structure Inner',
+		'\tv.i',
+		'EndStructure',
+		'Structure Outer',
+		'\tList Items.Inner()',
+		'\tMap Lookup.Inner()',
+		'\tArray Slots.Inner(8)',
+		'\tplain.i',
+		'EndStructure',
+		'o.Outer',
+		'\to\\',
+	].join('\n');
+	const document = parseDocument('file:///c.pb', source);
+	const items = buildCompletions({
+		document,
+		position: { line: 10, character: 3 },
+		word: '',
+		options: OPTIONS,
+	});
+	const inserted = new Map(items.map((i) => [i.label, i]));
+
+	assert.equal(inserted.get('Items')?.insertText, 'Items()', 'a list has an empty form');
+	assert.equal(inserted.get('Items')?.isSnippet, false);
+	assert.equal(inserted.get('Lookup')?.insertText, 'Lookup(${1})', 'a map needs a key');
+	assert.equal(inserted.get('Slots')?.insertText, 'Slots(${1})', 'an array needs an index');
+	assert.equal(inserted.get('Lookup')?.isSnippet, true);
+	assert.equal(inserted.get('plain')?.insertText, 'plain', 'a plain field stays plain');
+	assert.equal(inserted.get('plain')?.isSnippet, false);
+});

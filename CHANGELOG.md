@@ -4,6 +4,22 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.7] - 2026-09-20
+
+### Fixed
+
+- **A `List`, `Map` or `Array` member was completed as a bare name.** `m\ImportedList` came out
+  without the parentheses an element access needs, so the suggestion was reported missing its
+  `()`. A list now inserts `items()`, since the empty form reads the current element, and a map
+  or an array inserts `lookup(${1})`, leaving the caret where the key or the index goes. The
+  parser keeps the `List`/`Map`/`Array` keyword of a field, which it used to throw away.
+
+### Changed
+
+- Enter no longer runs the newline command while a snippet placeholder is active
+  (`!inSnippetMode`), so pressing Enter inside `MessageRequester(${1:title})`, or inside a map
+  key, cannot fire the block-expanding newline instead.
+
 ## [0.1.6] - 2026-09-20
 
 ### Changed

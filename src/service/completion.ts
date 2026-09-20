@@ -93,7 +93,24 @@ export function symbolToCompletionItem(
 
 	let insertText = symbol.name;
 	let isSnippet = false;
-	if (isCallable && params.length > 0 && allowSnippet) {
+	const isContainer =
+		symbol.kind === 'list' ||
+		symbol.kind === 'map' ||
+		symbol.kind === 'array' ||
+		symbol.container !== undefined;
+	if (isContainer) {
+		/*
+		 * A List, Map or Array is reached through its parentheses.  A list has a
+		 * valid empty form -- `items()` reads the current element -- so it goes
+		 * in as plain text and the caret ends up after it.  A map or an array
+		 * needs a key or an index, so those get an empty placeholder instead.
+		 * This is syntax rather than an argument list, so it is inserted
+		 * whether or not call snippets are allowed here.
+		 */
+		const emptyForm = symbol.container === 'list' || symbol.kind === 'list';
+		insertText = emptyForm ? `${symbol.name}()` : `${symbol.name}(\${1})`;
+		isSnippet = !emptyForm;
+	} else if (isCallable && params.length > 0 && allowSnippet) {
 		const placeholders = params.map((p, i) => `\${${i + 1}:${p}}`).join(', ');
 		insertText = `${symbol.name}(${placeholders})`;
 		isSnippet = true;
