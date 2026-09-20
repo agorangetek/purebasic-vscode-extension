@@ -34,6 +34,14 @@ const slug = (text) =>
 		.replace(/^-|-$/g, '');
 
 /*
+ * The scope vocabulary follows duty1g/vscode-purebasic (MIT): keyword.control
+ * and keyword.other, meta.preprocessor for directives, support.function for the
+ * library commands, constant.* for values, entity.name.label with its colon and
+ * punctuation.separator.statement for `:`.  Its own type rule matches any single
+ * letter anywhere (`\b([ilqbfwdsa])\b`), which colours `i = 0` as a type, so
+ * ours keeps the suffix anchored after a dot; the sigil, member, structure and
+ * assembly rules it does not have are ours.
+ *
  * The editor decides which editor.quickSuggestions entry applies to a keystroke
  * by deriving a "standard token type" from a token's INNERMOST scope name, with
  * /\b(comment|string|regex|regexp)\b/ (getStandardTokenType in the editor's
@@ -53,17 +61,17 @@ const codeScope = (name) => (RESERVED_TOKEN_TYPE.test(name) ? `${name}lib` : nam
 /** Keyword categories, in the order the grammar lists them. */
 const KEYWORD_SCOPES = {
 	'Control Flow': 'keyword.control',
-	Procedures: 'keyword.other.procedure',
-	Declarations: 'keyword.other.declaration',
-	Structures: 'keyword.other.structure',
-	Modules: 'keyword.other.module',
-	Macros: 'keyword.other.macro',
-	Data: 'keyword.other.data',
-	Includes: 'keyword.other.include',
-	Enumerations: 'keyword.other.enumeration',
-	Containers: 'keyword.other.container',
-	Compiler: 'keyword.other.compiler',
-	Operators: 'keyword.operator.word',
+	Procedures: 'keyword.control',
+	Declarations: 'keyword.other',
+	Structures: 'keyword.control',
+	Modules: 'keyword.control',
+	Macros: 'meta.preprocessor',
+	Data: 'keyword.control',
+	Includes: 'meta.preprocessor',
+	Enumerations: 'keyword.control',
+	Containers: 'keyword.other',
+	Compiler: 'meta.preprocessor',
+	Operators: 'keyword.operator',
 };
 
 const keywordsByCategory = new Map();
@@ -109,6 +117,7 @@ const grammar = {
 		{ include: '#declared-calls' },
 		{ include: '#labels' },
 		{ include: '#specials' },
+		{ include: '#statements' },
 		{ include: '#operators' },
 		{ include: '#constants' },
 		{ include: '#keywords' },
@@ -144,11 +153,24 @@ const grammar = {
 			],
 		},
 		numbers: {
-			name: 'constant.numeric.purebasic',
-			// $ and % are not word characters, so the guard has to be a
-			// lookbehind: \b before them would never match
-			match:
-				'(?i)(?<![A-Za-z0-9_])(?:\\$[0-9a-f]+|%[01]+|\\d+\\.\\d*(?:e[+-]?\\d+)?|\\d+(?:e[+-]?\\d+)?)(?![A-Za-z0-9_])',
+			patterns: [
+				{
+					// duty1g's rule is `\\b\\$...`, which can never match: `\\b`
+					// needs a word character before the `$`.  A lookbehind does
+					// the job.
+					name: 'constant.numeric.hex.purebasic',
+					match: '(?i)(?<![A-Za-z0-9_])\\$[0-9a-f]+\\b',
+				},
+				{ name: 'constant.numeric.bin.purebasic', match: '(?<![A-Za-z0-9_])%[01]+\\b' },
+				{
+					name: 'constant.numeric.float.purebasic',
+					match: '(?<![A-Za-z0-9_])\\d+\\.\\d*(?:e[+-]?\\d+)?(?![A-Za-z0-9_])',
+				},
+				{
+					name: 'constant.numeric.decimal.purebasic',
+					match: '(?<![A-Za-z0-9_])\\d+(?:e[+-]?\\d+)?(?![A-Za-z0-9_])',
+				},
+			],
 		},
 		/*
 		 * The body of a Structure, Interface or StructureUnion is a block, not a
@@ -162,12 +184,12 @@ const grammar = {
 			begin:
 				'(?i)\\b(StructureUnion|Structure|Interface)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s*([A-Za-z_]\\w*)?',
 			beginCaptures: {
-				1: { name: 'keyword.other.structure.purebasic' },
+				1: { name: 'keyword.control.purebasic' },
 				2: { name: 'storage.type.purebasic' },
 				3: { name: 'entity.name.type.purebasic' },
 			},
 			end: '(?i)\\b(EndStructureUnion|EndStructure|EndInterface)\\b',
-			endCaptures: { 0: { name: 'keyword.other.structure.purebasic' } },
+			endCaptures: { 0: { name: 'keyword.control.purebasic' } },
 			patterns: [
 				// a nested StructureUnion must open its own block before the
 				// field rule can mistake it for a member
@@ -192,7 +214,7 @@ const grammar = {
 					match:
 						'(?i)\\b(Procedure(?:DLL|C|CDLL)?|Declare(?:DLL|C|CDLL)?|PrototypeC?|Runtime\\s+Procedure)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s+([A-Za-z_]\\w*)',
 					captures: {
-						1: { name: 'keyword.other.procedure.purebasic' },
+						1: { name: 'keyword.control.purebasic' },
 						2: { name: 'storage.type.purebasic' },
 						3: { name: 'entity.name.function.purebasic' },
 					},
@@ -203,7 +225,7 @@ const grammar = {
 					match:
 						'(?i)\\b(DeclareModule|Module|EnumerationBinary|Enumeration)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s+([A-Za-z_]\\w*)',
 					captures: {
-						1: { name: 'keyword.other.structure.purebasic' },
+						1: { name: 'keyword.control.purebasic' },
 						2: { name: 'storage.type.purebasic' },
 						3: { name: 'entity.name.type.purebasic' },
 					},
@@ -211,15 +233,17 @@ const grammar = {
 				{
 					match: '(?i)\\b(Macro)\\b(\\s+)([A-Za-z_]\\w*)',
 					captures: {
-						1: { name: 'keyword.other.macro.purebasic' },
+						1: { name: 'meta.preprocessor.purebasic' },
 						3: { name: 'entity.name.function.purebasic' },
 					},
 				},
 			],
 		},
 		builtins: {
-			patterns: [...commandsByLibrary.entries()].map(([library, names]) => ({
-				name: `support.function.${library}.purebasic`,
+			comment:
+				'Every library command, one scope: the library name in the scope was a trap (support.function.string.* reads as a string token, which silences completion) and no theme needs the split.',
+			patterns: [...commandsByLibrary.entries()].map(([, names]) => ({
+				name: 'support.function.purebasic',
 				match: `(?i)\\b(?:${alternation(names)})\\b`,
 			})),
 		},
@@ -243,11 +267,13 @@ const grammar = {
 			match: '\\b[A-Za-z_]\\w*(?=\\s*\\()',
 		},
 		labels: {
-			match: '^\\s*([A-Za-z_]\\w*)(:)',
-			captures: {
-				1: { name: 'entity.name.label.purebasic' },
-				2: { name: 'punctuation.separator.label.purebasic' },
-			},
+			name: 'entity.name.label.purebasic',
+			match: '^\\s*[A-Za-z_]\\w*:',
+		},
+		statements: {
+			// their punctuation scope: the `:` that separates statements
+			name: 'punctuation.separator.statement.purebasic',
+			match: ':',
 		},
 		specials: {
 			patterns: [
@@ -272,28 +298,21 @@ const grammar = {
 		 * of `*p` is still a pointer and only a lone `*` is an operator.
 		 */
 		identifiers: {
-			patterns: [
-				{
-					// a name that goes on to a type or a member -- `test.my_test`,
-					// `OBJ_MEMDLL\\ModulesMap()` -- is what a variable wears code
-					// colour for; on its own it stays normal text
-					match: '[A-Za-z_]\\w*(?=\\s*[.\\\\])',
-					name: 'variable.other.typed.purebasic',
-				},
-				{
-					name: 'variable.other.purebasic',
-					match: '[A-Za-z_]\\w*',
-				},
-			],
+			comment:
+				'A name that goes on to a type or a member -- `test.my_test`, `OBJ_MEMDLL\\ModulesMap()` -- is what a variable wears code colour for.  A name on its own is left unscoped, so the theme paints it its normal text, which is what the PureBasic IDE does.',
+			name: 'variable.other.typed.purebasic',
+			match: '[A-Za-z_]\\w*(?=\\s*[.\\\\])',
 		},
 		operators: {
-			match: '<<|>>|<=|>=|<>|[=+*/%&|<>^-]',
-			name: 'keyword.operator.symbol.purebasic',
+			// after #specials, so the `*` of `*p` is still a pointer
+			match: '<<|>>|<=|>=|<>|[=+*/%&|<>^~-]',
+			name: 'keyword.operator.purebasic',
 		},
 		constants: {
 			patterns: [
-				{ name: 'support.constant.purebasic', match: '(?i)#PB_[A-Za-z0-9_]*' },
-				{ name: 'constant.other.purebasic', match: '#[A-Za-z_][A-Za-z0-9_]*' },
+				{ name: 'constant.language.boolean.purebasic', match: '(?i)\\b(True|False)\\b' },
+				{ name: 'constant.language.null.purebasic', match: '(?i)\\b(#Null|Null)\\b' },
+				{ name: 'constant.other.predefined.purebasic', match: '#\\w+' },
 			],
 		},
 		keywords: {

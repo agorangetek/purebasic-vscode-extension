@@ -1,8 +1,8 @@
 {
-	"_comment": "The PureBasic IDE's Monokai scheme (/Applications/PureBasic.app/Contents/Resources/colorschemes/Monokai.prefs, and the live values in ~/.purebasic/purebasic.prefs) mapped onto this grammar's scopes. Paste into  editor.tokenColorCustomizations.textMateRules  to pin these colours over any theme; note the scope prefix, because a [purebasic] block is ignored for token colours. Anything omitted follows the theme.",
+	"_comment": "The PureBasic IDE's Monokai scheme (colorschemes/Monokai.prefs, live values in ~/.purebasic/purebasic.prefs) mapped onto this grammar's scopes. Paste into editor.tokenColorCustomizations.textMateRules to pin these colours over any theme; note the source.purebasic prefix, because a [purebasic] block is ignored for token colours.",
 	"textMateRules": [
 		{
-			"_": "NormalTextColor: identifiers, punctuation",
+			"_": "NormalTextColor: names on their own, punctuation",
 			"scope": [
 				"source.purebasic"
 			],
@@ -14,27 +14,16 @@
 			"_": "BasicKeywordColor and OperatorColor",
 			"scope": [
 				"source.purebasic keyword.control.purebasic",
-				"source.purebasic keyword.other.procedure.purebasic",
-				"source.purebasic keyword.other.data.purebasic",
-				"source.purebasic keyword.other.declaration.purebasic",
-				"source.purebasic keyword.other.structure.purebasic",
-				"source.purebasic keyword.other.module.purebasic",
-				"source.purebasic keyword.other.macro.purebasic",
-				"source.purebasic keyword.other.compiler.purebasic",
-				"source.purebasic keyword.other.include.purebasic",
-				"source.purebasic keyword.other.enumeration.purebasic",
-				"source.purebasic keyword.other.container.purebasic",
-				"source.purebasic keyword.operator.word.purebasic",
-				"source.purebasic keyword.operator.symbol.purebasic"
+				"source.purebasic keyword.operator.purebasic"
 			],
 			"settings": {
 				"foreground": "#F92672"
 			}
 		},
 		{
-			"_": "PureKeywordColor: library commands and procedure names",
+			"_": "PureKeywordColor: library commands, procedure names",
 			"scope": [
-				"source.purebasic support.function",
+				"source.purebasic support.function.purebasic",
 				"source.purebasic entity.name.function.purebasic"
 			],
 			"settings": {
@@ -72,32 +61,36 @@
 		{
 			"_": "LabelColor",
 			"scope": [
-				"source.purebasic variable.other.label-reference.purebasic",
-				"source.purebasic entity.name.label.purebasic"
+				"source.purebasic entity.name.label.purebasic",
+				"source.purebasic variable.other.label-reference.purebasic"
 			],
 			"settings": {
 				"foreground": "#E69F66"
 			}
 		},
 		{
-			"_": "ConstantColor, NumberColor and PointerColor are one value here",
+			"_": "ConstantColor, NumberColor and PointerColor are one value in this scheme",
 			"scope": [
-				"source.purebasic constant.other.purebasic",
-				"source.purebasic support.constant.purebasic",
-				"source.purebasic constant.numeric.purebasic",
-				"source.purebasic variable.other.reference.purebasic",
-				"source.purebasic variable.other.pointer.purebasic"
+				"source.purebasic constant.other.predefined.purebasic",
+				"source.purebasic constant.language.boolean.purebasic",
+				"source.purebasic constant.language.null.purebasic",
+				"source.purebasic constant.numeric.decimal.purebasic",
+				"source.purebasic constant.numeric.hex.purebasic",
+				"source.purebasic constant.numeric.bin.purebasic",
+				"source.purebasic constant.numeric.float.purebasic",
+				"source.purebasic variable.other.pointer.purebasic",
+				"source.purebasic variable.other.reference.purebasic"
 			],
 			"settings": {
 				"foreground": "#AE81FF"
 			}
 		},
 		{
-			"_": "Code colour: what comes off a structure, ModuleColor included",
+			"_": "StructureColor and ModuleColor: what comes off a structure",
 			"scope": [
-				"source.purebasic variable.other.typed.purebasic",
-				"source.purebasic variable.other.member.purebasic",
 				"source.purebasic entity.name.type.reference.purebasic",
+				"source.purebasic variable.other.member.purebasic",
+				"source.purebasic variable.other.typed.purebasic",
 				"source.purebasic entity.name.namespace.purebasic"
 			],
 			"settings": {
@@ -105,20 +98,12 @@
 			}
 		},
 		{
-			"_": "A variable on its own is plain text",
+			"_": "A declaration is normal text in the IDE: `Structure Point`, a native suffix",
 			"scope": [
-				"source.purebasic variable.other.purebasic",
-				"source.purebasic punctuation.separator.label.purebasic"
-			],
-			"settings": {
-				"foreground": "#F8F8F2"
-			}
-		},
-		{
-			"_": "A declaration is normal text: `Structure Point`, a field line, a native suffix",
-			"scope": [
+				"source.purebasic entity.name.type.purebasic",
 				"source.purebasic storage.type.purebasic",
-				"source.purebasic entity.name.type.purebasic"
+				"source.purebasic keyword.other.purebasic",
+				"source.purebasic meta.preprocessor.purebasic"
 			],
 			"settings": {
 				"foreground": "#F8F8F2"

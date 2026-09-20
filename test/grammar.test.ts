@@ -151,17 +151,17 @@ test('constants and keywords are scoped', { skip }, async () => {
 	const lines = await tokenize(['#MAX = 10', 'x = #PB_Event_CloseWindow', 'EndProcedure', 'ReDim a.i(2)', 'ForEach x()'].join('\n'));
 
 	assertScoped(lines, '#MAX', /^constant\.other/, 'user constant');
-	assertScoped(lines, '#PB_Event_CloseWindow', /^support\.constant/, 'library constant');
+	assertScoped(lines, '#PB_Event_CloseWindow', /^constant\.other\.predefined/, 'a predefined constant');
 	assertScoped(lines, 'EndProcedure', /^keyword\./, 'a terminator');
 	assertScoped(lines, 'ReDim', /^keyword\./, 'ReDim');
 	assertScoped(lines, 'ForEach', /^keyword\.control/, 'ForEach');
 });
 
-test('library commands keep their own scope, user calls are functions', { skip }, async () => {
+test('library commands are one scope, user calls are functions', { skip }, async () => {
 	const lines = await tokenize(['MessageRequester("t", "m")', 'r = Abs(-1)', 'MyUserProc(1)'].join('\n'));
 
 	assertScoped(lines, 'MessageRequester', /^support\.function\./, 'a library command');
-	assertScoped(lines, 'Abs', /^support\.function\.math/, 'a command from a known library');
+	assertScoped(lines, 'Abs', /^support\.function\.purebasic$/, 'a library command');
 	assertScoped(lines, 'MyUserProc', /^entity\.name\.function/, 'an unknown call');
 });
 
@@ -184,7 +184,7 @@ test('members, sigils and labels are scoped', { skip }, async () => {
 	assertScoped(lines, '*pBuffer', /^variable\.other\.pointer/, 'pointer variable');
 	assertScoped(lines, '@MyProc', /^variable\.other\.reference/, 'procedure address');
 	assertScoped(lines, '?data', /^variable\.other\.label-reference/, 'data label reference');
-	assertScoped(lines, 'top', /^entity\.name\.label/, 'a label');
+	assertScoped(lines, 'top:', /^entity\.name\.label/, 'a label, colon included');
 	assertScoped(lines, '! mov eax, 1', /^meta\.embedded\.asm/, 'inline assembly');
 
 	assertScoped(lines, 'Helper', /^entity\.name\.namespace/, 'a module qualifier');
@@ -327,7 +327,7 @@ test('a reference carries its sigil, even before the name is typed', { skip }, a
 	const multiply = lines[4]!.filter((t) => t.text === '*' || t.text === '@');
 	assert.equal(multiply.length, 1, 'the `*` of `a * b` tokenizes');
 	assert.ok(
-		multiply[0]!.scopes.includes('keyword.operator.symbol.purebasic'),
+		multiply[0]!.scopes.includes('keyword.operator.purebasic'),
 		`a multiplication is an operator, got ${multiply[0]!.scopes.join(' ') || 'no scope'}`,
 	);
 });
@@ -385,7 +385,7 @@ test('a member read is code, a member declaration is not', { skip }, async () =>
 		[7, 'EndStructure'],
 	] as const) {
 		assert.ok(
-			innermost(line, text).startsWith('keyword.other.structure'),
+			innermost(line, text).startsWith('keyword.control'),
 			`line ${line + 1}: ${text} should stay a structure keyword`,
 		);
 	}
@@ -457,20 +457,20 @@ test('symbolic operators are scoped, the sigils are not', { skip }, async () => 
 
 	for (const text of ['=', '+', '*']) {
 		assert.ok(
-			operator(0, text).includes('keyword.operator.symbol.purebasic'),
+			operator(0, text).includes('keyword.operator.purebasic'),
 			`${text} should be an operator`,
 		);
 	}
-	assert.ok(operator(1, '<=').includes('keyword.operator.symbol.purebasic'));
-	assert.ok(operator(1, '<>').includes('keyword.operator.symbol.purebasic'));
-	assert.ok(operator(3, '%').includes('keyword.operator.symbol.purebasic'), 'modulo, not a binary literal');
+	assert.ok(operator(1, '<=').includes('keyword.operator.purebasic'));
+	assert.ok(operator(1, '<>').includes('keyword.operator.purebasic'));
+	assert.ok(operator(3, '%').includes('keyword.operator.purebasic'), 'modulo, not a binary literal');
 
 	// a `*` glued to a name is still a pointer, not an operator
 	const pointer = lines[2]!.find((t) => t.text === '*p');
 	assert.ok(pointer?.scopes.includes('variable.other.pointer.purebasic'));
 });
 
-test('a variable is plain unless it is taking a type', { skip }, async () => {
+test('a name is left to the theme unless it is taking a type', { skip }, async () => {
 	const lines = await tokenize(
 		[
 			'Define p.Point',
@@ -496,7 +496,7 @@ test('a variable is plain unless it is taking a type', { skip }, async () => {
 	// colour with it: `p\x` is one expression
 	assert.equal(innermost(1, 'x'), 'variable.other.member.purebasic');
 	assert.equal(innermost(1, 'p'), 'variable.other.typed.purebasic');
-	assert.equal(innermost(4, 'count'), 'variable.other.purebasic');
+	assert.equal(innermost(4, 'count'), '', 'a name on its own is left to the theme');
 });
 
 test('a member access is one piece of code, element form included', { skip }, async () => {
@@ -515,7 +515,7 @@ test('a member access is one piece of code, element form included', { skip }, as
 	assert.equal(scopesOf('\\ModulesMap()'), 'variable.other.member.purebasic');
 	// and the code around it keeps its own scopes
 	assert.ok(scopesOf('If').startsWith('keyword.control'));
-	assert.equal(scopesOf('FindMapElement'), 'support.function.map.purebasic');
-	assert.equal(scopesOf('Str'), 'support.function.stringlib.purebasic');
+	assert.equal(scopesOf('FindMapElement'), 'support.function.purebasic');
+	assert.equal(scopesOf('Str'), 'support.function.purebasic');
 	assert.equal(scopesOf('*module'), 'variable.other.pointer.purebasic');
 });

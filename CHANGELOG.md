@@ -4,6 +4,35 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.18] - 2026-09-20
+
+### Changed
+
+- **The colouring vocabulary now follows [duty1g/vscode-purebasic](https://github.com/duty1g/vscode-purebasic)**
+  (MIT). Its scopes are the standard ones a theme already knows, so the colours come from the theme
+  rather than from anything the extension pins:
+  - the twelve keyword groups collapse to its four: `keyword.control.purebasic`,
+    `keyword.other.purebasic`, `meta.preprocessor.purebasic` (compiler directives, includes,
+    macros) and `keyword.operator.purebasic` (word and symbol operators);
+  - library commands are one scope, `support.function.purebasic` -- the per-library name is gone,
+    which also retires the `stringlib` workaround, since a scope with `string` in it reads as a
+    string token and silences completion;
+  - numbers become `constant.numeric.decimal|hex|bin|float.purebasic`, constants
+    `constant.other.predefined.purebasic` and `constant.language.boolean|null.purebasic`, labels
+    `entity.name.label.purebasic` with the colon, and `:` is
+    `punctuation.separator.statement.purebasic`;
+  - a name on its own is left unscoped, so the theme paints it normal text, which is what the
+    PureBasic IDE does too.
+
+### Kept from ours, because that grammar has no rule for them
+
+Pointers (`*p`), addresses (`@proc`), data label references (`?label`), member access
+(`obj\map()`, `Module::item`), the structure block with its type declaration and reference scopes,
+the name taking a type, and the `!` assembly line. Its type rule is `\b([ilqbfwdsa])\b`, which
+matches any single letter anywhere -- `i = 0` would be a type -- so our suffix stays anchored after
+a dot, and its hex literal rule uses `\b` before `$`, which can never match, so ours keeps the
+lookbehind that works.
+
 ## [0.1.17] - 2026-09-20
 
 ### Changed

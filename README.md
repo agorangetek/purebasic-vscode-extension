@@ -31,23 +31,29 @@ scope below is specific to PureBasic:
 
 | what | scope |
 | --- | --- |
-| keywords (`Procedure`, `EndProcedure`, `ReDim`, `If`, …) | `keyword.control\|other\|operator.*.purebasic` |
+| keywords (`Procedure`, `EndProcedure`, `ReDim`, `If`, …) | `keyword.control.purebasic` |
+| declaration keywords (`Dim`, `Global`, `NewList`, …) | `keyword.other.purebasic` |
+| compiler directives and includes (`CompilerIf`, `IncludeFile`, `Macro`) | `meta.preprocessor.purebasic` |
+| operators, words and symbols (`And`, `=`, `<=`) | `keyword.operator.purebasic` |
 | procedures, declared and called | `entity.name.function.purebasic` |
 | structures, interfaces, modules (declared) | `entity.name.type.purebasic` |
 | a type name after a `.` (used) | `entity.name.type.reference.purebasic` |
 | a native type suffix or return type (`.d`, `.i`) | `storage.type.purebasic` |
-| library commands (`MessageRequester`, …) | `support.function.<library>.purebasic` (String library: `stringlib`) |
-| library constants (`#PB_Event_CloseWindow`) | `support.constant.purebasic` |
-| your constants (`#MaxPoints`) | `constant.other.purebasic` |
+| library commands (`MessageRequester`, …) | `support.function.purebasic` |
+| constants (`#MaxPoints`, `#PB_Event_CloseWindow`) | `constant.other.predefined.purebasic` |
+| `True` / `False`, `Null` | `constant.language.boolean\|null.purebasic` |
+| numbers (`12`, `$FF`, `%1010`, `1.5`) | `constant.numeric.decimal\|hex\|bin\|float.purebasic` |
 | pointers (`*pBuffer`) | `variable.other.pointer.purebasic` |
 | structure members, read (`pt\x`, `obj\map()`) | `variable.other.member.purebasic` |
 | a name taking a type (`test.my_test`, `name.s`) | `variable.other.typed.purebasic` |
-| any other name (`test`, `age`) | `variable.other.purebasic` |
+| a module prefix (`Helper::DoIt`) | `entity.name.namespace.purebasic` |
 | a procedure address (`@MyProc`) | `variable.other.reference.purebasic` (bare `@` too) |
 | a data label (`?data`) | `variable.other.label-reference.purebasic` |
 | labels (`top:`) | `entity.name.label.purebasic` |
-| symbolic operators (`=`, `+`, `<=`, `<>`) | `keyword.operator.symbol.purebasic` |
+| a statement separator (`:`) | `punctuation.separator.statement.purebasic` |
 | inline assembly (`! mov …`) | `meta.embedded.asm.purebasic` |
+
+The scope vocabulary follows [duty1g/vscode-purebasic](https://github.com/duty1g/vscode-purebasic) (MIT).
 
 Colours come from the theme: the grammar emits only standard TextMate scopes, so switching
 theme switches them and nothing is pinned. If you want the PureBasic IDE's own Monokai scheme
