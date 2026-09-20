@@ -598,8 +598,16 @@
 			]
 		},
 		"identifiers": {
-			"name": "variable.other.purebasic",
-			"match": "[A-Za-z_]\\w*"
+			"patterns": [
+				{
+					"match": "[A-Za-z_]\\w*(?=\\s*\\.)",
+					"name": "variable.other.typed.purebasic"
+				},
+				{
+					"name": "variable.other.purebasic",
+					"match": "[A-Za-z_]\\w*"
+				}
+			]
 		},
 		"operators": {
 			"match": "<<|>>|<=|>=|<>|[=+*/%&|<>^-]",

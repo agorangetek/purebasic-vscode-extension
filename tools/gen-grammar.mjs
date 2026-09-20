@@ -271,8 +271,19 @@ const grammar = {
 		 * of `*p` is still a pointer and only a lone `*` is an operator.
 		 */
 		identifiers: {
-			name: 'variable.other.purebasic',
-			match: '[A-Za-z_]\\w*',
+			patterns: [
+				{
+					// a name about to take a type -- `test.my_test`, `name.s` -- is
+					// the one a variable wears code colour for; the rest of them
+					// stay normal text
+					match: '[A-Za-z_]\\w*(?=\\s*\\.)',
+					name: 'variable.other.typed.purebasic',
+				},
+				{
+					name: 'variable.other.purebasic',
+					match: '[A-Za-z_]\\w*',
+				},
+			],
 		},
 		operators: {
 			match: '<<|>>|<=|>=|<>|[=+*/%&|<>^-]',

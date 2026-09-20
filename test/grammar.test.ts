@@ -421,9 +421,11 @@ test('a type use is scoped apart from its declaration', { skip }, async () => {
 	assert.equal(innermost(5, 'd'), 'storage.type.purebasic');
 	assert.equal(innermost(6, 'i'), 'storage.type.purebasic');
 
-	// a plain name is code too, which is what the IDE colours it as
-	assert.equal(innermost(5, 'n'), 'variable.other.purebasic');
-	assert.equal(innermost(8, 'localVar'), 'variable.other.purebasic');
+	// a plain name is normal text; only one taking a type wears code colour
+	assert.equal(innermost(5, 'n'), 'variable.other.typed.purebasic');
+	// `localVar.i` takes a type, so it is the typed scope; `globalVar.i` likewise
+	assert.equal(innermost(8, 'localVar'), 'variable.other.typed.purebasic');
+	assert.equal(innermost(6, 'globalVar'), 'variable.other.typed.purebasic');
 });
 
 test('a multiplication sign is not a pointer', { skip }, async () => {
@@ -466,4 +468,32 @@ test('symbolic operators are scoped, the sigils are not', { skip }, async () => 
 	// a `*` glued to a name is still a pointer, not an operator
 	const pointer = lines[2]!.find((t) => t.text === '*p');
 	assert.ok(pointer?.scopes.includes('variable.other.pointer.purebasic'));
+});
+
+test('a variable is plain unless it is taking a type', { skip }, async () => {
+	const lines = await tokenize(
+		[
+			'Define p.Point',
+			'p\\x = 1',
+			'p2.Point',
+			'test.my_test',
+			'count = count + 1',
+			'name.s',
+		].join('\n'),
+	);
+
+	const innermost = (line: number, text: string) => {
+		const token = lines[line]!.find((t) => t.text.includes(text));
+		assert.ok(token, `line ${line + 1}: ${text} did not tokenize`);
+		return token.scopes[token.scopes.length - 1] ?? '';
+	};
+
+	// a name with a `.` after it is the one that turns
+	for (const [line, text] of [[0, 'p'], [2, 'p2'], [3, 'test'], [5, 'name']] as const) {
+		assert.equal(innermost(line, text), 'variable.other.typed.purebasic', `line ${line + 1}: ${text}`);
+	}
+	// every other name stays normal text: a member read, and a plain variable
+	assert.equal(innermost(1, 'x'), 'variable.other.member.purebasic');
+	assert.equal(innermost(1, 'p'), 'variable.other.purebasic');
+	assert.equal(innermost(4, 'count'), 'variable.other.purebasic');
 });

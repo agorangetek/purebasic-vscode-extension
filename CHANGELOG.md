@@ -4,6 +4,17 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.16] - 2026-09-20
+
+### Changed
+
+- **A variable is normal text until it takes a type.** A name with a `.` after it --
+  `test.my_test`, `name.s`, `localVar.i` -- is the one that wears the code colour, and it has its
+  own scope now, `variable.other.typed.purebasic`; every other name keeps
+  `variable.other.purebasic`, and a member read keeps `variable.other.member.purebasic`, both of
+  which are normal text. The grammar's catch-all was a single rule and is now two, the typed one
+  first, so a scheme can tell `count = count + 1` from `count.d = 1`.
+
 ## [0.1.15] - 2026-09-20
 
 ### Changed

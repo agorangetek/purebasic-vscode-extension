@@ -41,6 +41,7 @@ scope below is specific to PureBasic:
 | your constants (`#MaxPoints`) | `constant.other.purebasic` |
 | pointers (`*pBuffer`) | `variable.other.pointer.purebasic` |
 | structure members, read (`pt\x`) | `variable.other.member.purebasic` |
+| a name taking a type (`test.my_test`, `name.s`) | `variable.other.typed.purebasic` |
 | any other name (`test`, `age`) | `variable.other.purebasic` |
 | a procedure address (`@MyProc`) | `variable.other.reference.purebasic` (bare `@` too) |
 | a data label (`?data`) | `variable.other.label-reference.purebasic` |
