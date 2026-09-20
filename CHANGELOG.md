@@ -4,6 +4,30 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.22] - 2026-09-20
+
+### Fixed
+
+- **Nine reserved words the IDE highlights were missing**, so they were neither coloured as
+  keywords nor offered in completion:
+  `List`, `Map`, `Array`, `As`, `CallDebugger`, `DebugLevel`, `DisableDebugger`,
+  `EnableDebugger`, `IncludePath`.
+  `List` in `List Items.Inner()` was the visible one: plain text instead of the keyword colour,
+  including inside a structure block.
+- The keyword data now comes from the IDE's own table,
+  [`PureBasicIDE/KeywordsData.pbi`](https://github.com/fantaisie-software/purebasic/blob/master/PureBasicIDE/KeywordsData.pbi),
+  as well as the script table it came from before. `tools/gen-data.mjs` merges whatever that file
+  knows and the other does not, so a regeneration keeps them. It honours the file's
+  `CompilerIf #SpiderBasic` guards and treats `#SpiderBasic` as false, which is what keeps
+  SpiderBasic's `DisableJS`/`EnableJS` out of a PureBasic extension -- verified: the file yields
+  111 names for us out of its 113, and exactly the nine above were new.
+
+### Note
+
+- The two tables disagree on the spelling of two words the IDE auto-corrects to `ForEver` and
+  `XOr`, while this extension has `Forever` and `Xor`. The grammar matches either way, so no
+  colour changes; only what `PureBasic: Format Text` writes would. Left as it is.
+
 ## [0.1.21] - 2026-09-20
 
 ### Changed

@@ -131,7 +131,7 @@ each theme render it: because an owner and its members share
   from the PureBasic IDE's command database — `MessageRequester`, `AddElement`,
   `OpenFile`, each with its parameter list taken apart so call snippets can be
   inserted: `MessageRequester(${1:Title}, ${2:Text}, …)`.
-* **111 keywords** in their canonical spelling (`EndProcedure`, `ReDim`,
+* **120 keywords** in their canonical spelling (`EndProcedure`, `ReDim`,
   `ForEach`, `CompilerEndIf`).
 * **Your own symbols** — procedures, structures, interfaces, modules,
   enumerations, macros, constants, `NewList`/`NewMap` containers, fields,

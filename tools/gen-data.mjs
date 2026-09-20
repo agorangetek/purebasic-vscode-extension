@@ -21,7 +21,7 @@
  *   node tools/gen-data.mjs ["/path/to/PB IDE"]
  *   PB_IDE="/path/to/PB IDE" node tools/gen-data.mjs
  */
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -212,6 +212,78 @@ for (const lower of readArray(keywordsSource, 'OPERATOR')) {
 		kind: 'keyword',
 		category: 'Operators',
 	});
+}
+
+/*
+ * The IDE's own keyword table, PureBasicIDE/KeywordsData.pbi, on top of the
+ * script data above.  The two do not agree: the script table is missing
+ * List, Map, Array, As, CallDebugger, DebugLevel, DisableDebugger,
+ * EnableDebugger and IncludePath, which the IDE highlights and autocompletes
+ * like any other keyword.  Add whatever it knows and we do not.
+ *
+ * The entries sit inside CompilerIf #SpiderBasic / CompilerIf Not #SpiderBasic
+ * guards, and this is a PureBasic extension, so #SpiderBasic counts as FALSE:
+ * `Not #SpiderBasic` includes, a bare `#SpiderBasic` excludes.  That is what
+ * keeps SpiderBasic's DisableJS/EnableJS out.
+ */
+function readIdeKeywords(file) {
+	const included = [];
+	const names = [];
+	for (const raw of readFileSync(file, 'utf8').split('\n')) {
+		const line = raw.trim();
+		const guard = /^CompilerIf\s+(Not\s+)?#SpiderBasic\b/i.exec(line);
+		if (guard) {
+			// `Not #SpiderBasic` is true for us, a bare `#SpiderBasic` is not
+			included.push(Boolean(guard[1]));
+			continue;
+		}
+		if (/^CompilerElse\b/i.test(line)) {
+			if (included.length) included[included.length - 1] = !included[included.length - 1];
+			continue;
+		}
+		if (/^CompilerEndIf\b/i.test(line)) {
+			included.pop();
+			continue;
+		}
+		const data = /^Data\$\s*"([^"]+)"/.exec(line);
+		if (data && included.every(Boolean)) names.push(data[1]);
+	}
+	return names;
+}
+
+/** Where those keywords belong, using the categories the script table uses. */
+const CATEGORY_OF_IDE_KEYWORD = {
+	list: 'Containers',
+	map: 'Containers',
+	array: 'Containers',
+	as: 'Declarations',
+	calldebugger: 'Control Flow',
+	debuglevel: 'Compiler',
+	disabledebugger: 'Compiler',
+	enabledebugger: 'Compiler',
+	includepath: 'Includes',
+};
+
+const ideKeywordsFile = [join(pbIde, 'PureBasicIDE', 'KeywordsData.pbi'), join(pbIde, 'KeywordsData.pbi')].find(
+	(file) => existsSync(file),
+);
+
+let supplemented = 0;
+if (ideKeywordsFile) {
+	for (const name of readIdeKeywords(ideKeywordsFile)) {
+		const key = name.toLowerCase();
+		if (seenKeyword.has(key)) continue;
+		seenKeyword.add(key);
+		canonical.set(key, name);
+		keywordItems.push({
+			id: `${key}|keyword`,
+			name,
+			lower: key,
+			kind: 'keyword',
+			category: CATEGORY_OF_IDE_KEYWORD[key] ?? 'Declarations',
+		});
+		supplemented++;
+	}
 }
 
 /* ----------------------------------------------------------------- commands */

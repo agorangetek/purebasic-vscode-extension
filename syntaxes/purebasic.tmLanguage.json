@@ -651,15 +651,15 @@
 			"patterns": [
 				{
 					"name": "keyword.control.purebasic",
-					"match": "(?i)\\b(?:Procedure|EndProcedure|ProcedureReturn|ProcedureDLL|ProcedureC|ProcedureCDLL|Declare|DeclareDLL|DeclareC|DeclareCDLL|Prototype|PrototypeC|Runtime|If|ElseIf|Else|EndIf|Select|Case|Default|EndSelect|Gosub|Return|FakeReturn|Goto|End|Debug|For|ForEach|Next|While|Wend|Repeat|Until|Forever|Break|Continue|To|Step|DataSection|EndDataSection|Data|Read|Restore|Dim|ReDim|Swap|IncludeBinary|Structure|EndStructure|StructureUnion|EndStructureUnion|Extends|Align|Interface|EndInterface|With|EndWith|Module|EndModule|DeclareModule|EndDeclareModule|UseModule|UnuseModule|Enumeration|EnumerationBinary|EndEnumeration)\\b"
+					"match": "(?i)\\b(?:Procedure|EndProcedure|ProcedureReturn|ProcedureDLL|ProcedureC|ProcedureCDLL|Declare|DeclareDLL|DeclareC|DeclareCDLL|Prototype|PrototypeC|Runtime|If|ElseIf|Else|EndIf|Select|Case|Default|EndSelect|Gosub|Return|FakeReturn|Goto|End|Debug|For|ForEach|Next|While|Wend|Repeat|Until|Forever|Break|Continue|To|Step|DataSection|EndDataSection|Data|Read|Restore|Dim|ReDim|Swap|IncludeBinary|Structure|EndStructure|StructureUnion|EndStructureUnion|Extends|Align|Interface|EndInterface|With|EndWith|Module|EndModule|DeclareModule|EndDeclareModule|UseModule|UnuseModule|Enumeration|EnumerationBinary|EndEnumeration|CallDebugger)\\b"
 				},
 				{
 					"name": "keyword.other.purebasic",
-					"match": "(?i)\\b(?:Global|Protected|Static|Shared|Threaded|Define|NewList|NewMap|AddElement|AddMapElement|ClearList|ClearMap|DeleteList|DeleteMap)\\b"
+					"match": "(?i)\\b(?:Global|Protected|Static|Shared|Threaded|Define|NewList|NewMap|AddElement|AddMapElement|ClearList|ClearMap|DeleteList|DeleteMap|Array|As|List|Map)\\b"
 				},
 				{
 					"name": "keyword.other.preprocessor.purebasic",
-					"match": "(?i)\\b(?:Macro|EndMacro|UndefineMacro|MacroExpandedCount|CompilerIf|CompilerElseIf|CompilerElse|CompilerEndIf|CompilerSelect|CompilerCase|CompilerDefault|CompilerEndSelect|CompilerError|CompilerWarning|EnableExplicit|DisableExplicit|EnableASM|DisableASM|HeaderSection|EndHeaderSection|DisablePureLibrary|IncludeFile|XIncludeFile|Import|EndImport|ImportC)\\b"
+					"match": "(?i)\\b(?:Macro|EndMacro|UndefineMacro|MacroExpandedCount|CompilerIf|CompilerElseIf|CompilerElse|CompilerEndIf|CompilerSelect|CompilerCase|CompilerDefault|CompilerEndSelect|CompilerError|CompilerWarning|EnableExplicit|DisableExplicit|EnableASM|DisableASM|HeaderSection|EndHeaderSection|DisablePureLibrary|IncludeFile|XIncludeFile|Import|EndImport|ImportC|DebugLevel|DisableDebugger|EnableDebugger|IncludePath)\\b"
 				},
 				{
 					"name": "keyword.operator.purebasic",

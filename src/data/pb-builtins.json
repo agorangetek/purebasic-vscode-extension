@@ -1,7 +1,7 @@
 {
- "source": "PureBasic 1888 library commands and 111 keywords",
+ "source": "PureBasic 1888 library commands and 120 keywords",
  "generatedFrom": "PureBasic IDE checkout",
- "count": 1999,
+ "count": 2008,
  "keywords": [
   "Procedure",
   "EndProcedure",
@@ -113,7 +113,16 @@
   "And",
   "Or",
   "Not",
-  "Xor"
+  "Xor",
+  "Array",
+  "As",
+  "CallDebugger",
+  "DebugLevel",
+  "DisableDebugger",
+  "EnableDebugger",
+  "IncludePath",
+  "List",
+  "Map"
  ],
  "keywordCanonical": {
   "procedure": "Procedure",
@@ -226,7 +235,16 @@
   "and": "And",
   "or": "Or",
   "not": "Not",
-  "xor": "Xor"
+  "xor": "Xor",
+  "array": "Array",
+  "as": "As",
+  "calldebugger": "CallDebugger",
+  "debuglevel": "DebugLevel",
+  "disabledebugger": "DisableDebugger",
+  "enabledebugger": "EnableDebugger",
+  "includepath": "IncludePath",
+  "list": "List",
+  "map": "Map"
  },
  "typeSuffixes": [
   "b",
@@ -53753,6 +53771,69 @@
    "lower": "xor",
    "kind": "keyword",
    "category": "Operators"
+  },
+  {
+   "id": "array|keyword",
+   "name": "Array",
+   "lower": "array",
+   "kind": "keyword",
+   "category": "Containers"
+  },
+  {
+   "id": "as|keyword",
+   "name": "As",
+   "lower": "as",
+   "kind": "keyword",
+   "category": "Declarations"
+  },
+  {
+   "id": "calldebugger|keyword",
+   "name": "CallDebugger",
+   "lower": "calldebugger",
+   "kind": "keyword",
+   "category": "Control Flow"
+  },
+  {
+   "id": "debuglevel|keyword",
+   "name": "DebugLevel",
+   "lower": "debuglevel",
+   "kind": "keyword",
+   "category": "Compiler"
+  },
+  {
+   "id": "disabledebugger|keyword",
+   "name": "DisableDebugger",
+   "lower": "disabledebugger",
+   "kind": "keyword",
+   "category": "Compiler"
+  },
+  {
+   "id": "enabledebugger|keyword",
+   "name": "EnableDebugger",
+   "lower": "enabledebugger",
+   "kind": "keyword",
+   "category": "Compiler"
+  },
+  {
+   "id": "includepath|keyword",
+   "name": "IncludePath",
+   "lower": "includepath",
+   "kind": "keyword",
+   "category": "Includes"
+  },
+  {
+   "id": "list|keyword",
+   "name": "List",
+   "lower": "list",
+   "kind": "keyword",
+   "category": "Containers"
+  },
+  {
+   "id": "map|keyword",
+   "name": "Map",
+   "lower": "map",
+   "kind": "keyword",
+   "category": "Containers"
   }
  ]
 }
