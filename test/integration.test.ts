@@ -241,6 +241,7 @@ const registrations: Record<string, { selector: string; provider: any }[]> = {
 const commands = new Map<string, (...args: unknown[]) => unknown>();
 const executed: { id: string; args: unknown[] }[] = [];
 const statusMessages: string[] = [];
+const infoMessages: string[] = [];
 
 const DEFAULT_CONFIG: Record<string, unknown> = {
 	'completion.enable': true,
@@ -307,7 +308,10 @@ const vscodeMock = {
 	window: {
 		activeTextEditor: undefined as any,
 		createOutputChannel: () => ({ appendLine() {}, show() {}, dispose() {} }),
-		showInformationMessage: () => undefined,
+		showInformationMessage: (message: string) => {
+			infoMessages.push(message);
+			return undefined;
+		},
 		setStatusBarMessage: (message: string) => {
 			statusMessages.push(message);
 		},
@@ -503,6 +507,45 @@ test('integration: extension host wiring', { skip }, async (t) => {
 			}).length > 0,
 			'and when the editor reports the trigger character',
 		);
+	});
+
+	await t.test('three typed characters bring the list up, with results', () => {
+		const provider = registrations.completion[0]!.provider;
+		const doc = new TextDocument(
+			'/ws/str.pb',
+			['Procedure Test()', '\tstr', 'EndProcedure'].join('\n'),
+		);
+
+		const labels = (character: number) =>
+			(provider.provideCompletionItems(doc, new Position(1, character)) as CompletionItem[]).map(
+				(i) => i.label,
+			);
+
+		assert.equal(labels(2).length, 0, 'two characters is still too few');
+		const three = labels(4); // "str"
+		assert.ok(three.includes('Str'), `expected Str among ${three.join(', ')}`);
+		assert.ok(three.includes('Structure'), 'and the keyword that starts the same way');
+
+		// the editor filters on filterText a second time, so it has to carry the
+		// typed case and still match
+		const str = (provider.provideCompletionItems(doc, new Position(1, 4)) as CompletionItem[]).find(
+			(i) => i.label === 'Str',
+		);
+		assert.equal(str?.filterText, 'str');
+	});
+
+	await t.test('the diagnostic command reports what the provider would return', async () => {
+		const doc = new TextDocument('/ws/diag.pb', ['Procedure Test()', '\tstr', 'EndProcedure'].join('\n'));
+		editor.document = doc;
+		editor.selections = [new Selection(new Position(1, 4), new Position(1, 4))];
+		infoMessages.length = 0;
+
+		await commands.get('purebasic.diagnoseCompletion')!();
+
+		const report = infoMessages[0] ?? '';
+		assert.match(report, /typed "str" -> \d+ items/, report);
+		assert.doesNotMatch(report, /-> 0 items/, report);
+		assert.match(report, /minChars 3/);
 	});
 
 	await t.test('offers a call snippet for a command with parameters', () => {

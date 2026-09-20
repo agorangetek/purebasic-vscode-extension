@@ -2,7 +2,7 @@
 	"name": "purebasic",
 	"displayName": "PureBasic",
 	"description": "PureBasic language support for Visual Studio Code: code completion, hover, signature help and document outline.",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"publisher": "agorangetek",
 	"license": "MIT",
 	"engines": {
@@ -130,6 +130,11 @@
 			{
 				"command": "purebasic.newline",
 				"title": "PureBasic: New Line (Smart)",
+				"category": "PureBasic"
+			},
+			{
+				"command": "purebasic.diagnoseCompletion",
+				"title": "PureBasic: Diagnose Completion at the Cursor",
 				"category": "PureBasic"
 			}
 		],

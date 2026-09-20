@@ -4,6 +4,20 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.1] - 2026-09-20
+
+### Fixed
+
+- The completion prefix is now read from the line text instead of the editor's word
+  range, so a prefix like `str` is measured — and filtered — exactly as the service
+  computes it.
+
+### Added
+
+- `PureBasic: Diagnose Completion at the Cursor` reports the typed word and the number
+  of items the provider returns, telling a settings problem apart from an editor
+  trigger problem.
+
 ## [0.1.0] - 2026-09-20
 
 First release: PureBasic language support built the same way as the FreeBASIC

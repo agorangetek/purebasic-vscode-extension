@@ -179,6 +179,39 @@ export function activate(context: vscode.ExtensionContext): void {
 				`built-ins: ${builtinCount()} (${builtinSource()}); indexed: ${stats.files} files, ${stats.symbols} symbols`,
 			);
 		}),
+		vscode.commands.registerCommand('purebasic.diagnoseCompletion', () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor || editor.document.languageId !== LANGUAGE) {
+				void vscode.window.showInformationMessage('PureBasic: open a .pb file first.');
+				return;
+			}
+			const document = editor.document;
+			const position = editor.selection.active;
+			const line = document.lineAt(position.line).text;
+			const word =
+				/(\*|@|\?)?[A-Za-z_]\w*\$?$/.exec(line.slice(0, position.character))?.[0] ?? '';
+			const cfg = config();
+			const items = buildCompletions({
+				document: indexOf(document),
+				workspaceSymbols: cfg.workspace ? index.symbols(document.uri.toString()) : [],
+				position: { line: position.line, character: position.character },
+				word,
+				options: {
+					keywords: cfg.keywords,
+					builtins: cfg.builtins,
+					snippets: cfg.snippets,
+					minChars: cfg.minChars,
+				},
+			});
+
+			const summary =
+				`at ${position.line}:${position.character} typed ${JSON.stringify(word)} -> ${items.length} items ` +
+				`(minChars ${cfg.minChars}, keywords ${cfg.keywords}, builtins ${cfg.builtins}, enable ${cfg.enable})`;
+			output.show(true);
+			output.appendLine(`diagnose: ${summary}`);
+			output.appendLine(`  first: ${items.slice(0, 8).map((i) => i.label).join(', ')}`);
+			void vscode.window.showInformationMessage(`PureBasic: ${summary}`);
+		}),
 	);
 
 	// keep the index in sync with edits
@@ -434,12 +467,14 @@ export function activate(context: vscode.ExtensionContext): void {
 					if (!cfg.enable) return undefined;
 
 					const parsed = indexOf(document);
-					const wordRange = document.getWordRangeAtPosition(position, /(\*|@|\?)?[A-Za-z_]\w*\$?/);
-					// Only what has actually been typed: the word range spans the whole
-					// word, which may extend past the cursor when editing mid-word.
-					const word = wordRange
-						? document.getText(new vscode.Range(wordRange.start, position))
-						: '';
+					// What has actually been typed, read straight from the line.  The
+					// editor's own word range answers a different question -- it spans
+					// the whole word, which may extend past the cursor when editing
+					// inside one -- and how it treats a pattern like this one is the
+					// editor's business, so the text is taken directly instead.
+					const line = document.lineAt(position.line).text;
+					const word =
+						/(\*|@|\?)?[A-Za-z_]\w*\$?$/.exec(line.slice(0, position.character))?.[0] ?? '';
 
 					// a type or member list is asked for by the '.' or '\' itself, so the
 					// minimum length does not apply to it
@@ -459,7 +494,9 @@ export function activate(context: vscode.ExtensionContext): void {
 						},
 					});
 
-					trace(`completion at ${position.line}:${position.character} -> ${items.length} items`);
+					trace(
+						`completion at ${position.line}:${position.character} (typed ${JSON.stringify(word)}) -> ${items.length} items`,
+					);
 					return items.map((item) => toCompletionItem(item, word));
 				},
 			},

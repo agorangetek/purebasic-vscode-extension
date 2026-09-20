@@ -229,3 +229,10 @@ language service only.
 * No go-to-definition, references or rename yet.
 * Workspace indexing is capped (`purebasic.index.maxFiles`) and re-runs on demand.
 * Only the text form of `.pbf` form files is treated as PureBasic.
+
+## Troubleshooting
+
+- `PureBasic: Diagnose Completion at the Cursor` reports the typed word and how many
+  items the completion provider returns at the caret. If it says `0 items`, the settings
+  in the message tell you which source is disabled; if it lists items while no popup
+  appears, the editor is not auto-triggering suggestions there.
