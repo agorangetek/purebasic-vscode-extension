@@ -397,13 +397,11 @@ function configurationTarget(): vscode.ConfigurationTarget {
 		: vscode.ConfigurationTarget.Global;
 }
 
-/** The toggle's state, for the title-bar button's `toggled` expression. */
-function syncDebuggerContext(): void {
-	void vscode.commands.executeCommand(
-		'setContext',
-		'purebasic.debuggerEnabled',
-		compilerSettings().debugger,
-	);
+/** Turn the debugger on or off, and say so. */
+async function setDebugger(enabled: boolean): Promise<void> {
+	const c = vscode.workspace.getConfiguration('purebasic.compiler');
+	await c.update('debugger', enabled, configurationTarget());
+	void vscode.window.setStatusBarMessage(`PureBasic: debugger ${enabled ? 'on' : 'off'}`, 3000);
 }
 
 /** The active PureBasic file, saved, or undefined with a word about why. */
@@ -518,7 +516,6 @@ async function chooseCompilerSettings(): Promise<void> {
 	if (value === undefined) return;
 
 	await c.update(pick.key, value, configurationTarget());
-	if (pick.key === 'debugger') syncDebuggerContext();
 	void vscode.window.setStatusBarMessage(`PureBasic: ${pick.label} set to ${String(value) || 'default'}`, 4000);
 }
 
@@ -526,8 +523,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	output = vscode.window.createOutputChannel('PureBasic');
 	index = new PbIndex(config().maxFiles);
 	context.subscriptions.push(output);
-	// the title-bar debug button reads its toggled state from this
-	syncDebuggerContext();
 
 	// Awaited, so activation is not "done" with the grammar half-written.  A
 	// keyword file that cannot be read must never fail activation, hence the
@@ -541,23 +536,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('purebasic.run', () => runOrCompile(false)),
 		vscode.commands.registerCommand('purebasic.compile', () => runOrCompile(true)),
-		vscode.commands.registerCommand('purebasic.toggleDebugger', async () => {
-			const c = vscode.workspace.getConfiguration('purebasic.compiler');
-			const enabled = !c.get<boolean>('debugger', false);
-			await c.update('debugger', enabled, configurationTarget());
-			syncDebuggerContext();
-			void vscode.window.setStatusBarMessage(
-				`PureBasic: debugger ${enabled ? 'on' : 'off'}`,
-				3000,
-			);
-		}),
+		// Two commands, not one toggle: the title-bar button's icon belongs to
+		// the command, so turning it on and turning it off have to be separate
+		// to be drawn differently.  Which one is offered follows the setting
+		// itself, which the menu's `when` reads directly.
+		vscode.commands.registerCommand('purebasic.debuggerOn', () => setDebugger(true)),
+		vscode.commands.registerCommand('purebasic.debuggerOff', () => setDebugger(false)),
 		vscode.commands.registerCommand('purebasic.compilerSettings', () => chooseCompilerSettings()),
 		vscode.commands.registerCommand('purebasic.refreshKeywords', () => refreshKeywords(context, true)),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration('purebasic.keywords.path')) void refreshKeywords(context, true);
-			// the setting can be changed from the settings editor too, so the
-			// toggle has to follow it from there as well
-			if (event.affectsConfiguration('purebasic.compiler.debugger')) syncDebuggerContext();
 		}),
 	);
 

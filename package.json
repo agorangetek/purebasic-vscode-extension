@@ -225,10 +225,20 @@
 				"icon": "$(package)"
 			},
 			{
-				"command": "purebasic.toggleDebugger",
-				"title": "PureBasic: Toggle Debugger",
+				"command": "purebasic.debuggerOn",
+				"title": "PureBasic: Turn Debugger On",
 				"category": "PureBasic",
 				"icon": "$(bug)"
+			},
+			{
+				"//": "The same button in green while the debugger is on: a file icon keeps its own colour, which a codicon cannot. Two commands rather than one command in two menu entries, because the icon belongs to the command -- the way the built-in markdown preview does it -- and because two entries for one command id are not reliably shown as two.",
+				"command": "purebasic.debuggerOff",
+				"title": "PureBasic: Turn Debugger Off",
+				"category": "PureBasic",
+				"icon": {
+					"light": "./resources/debugger-on-light.svg",
+					"dark": "./resources/debugger-on-dark.svg"
+				}
 			},
 			{
 				"command": "purebasic.compilerSettings",
@@ -259,20 +269,14 @@
 					"group": "navigation@10"
 				},
 				{
-					"command": "purebasic.toggleDebugger",
-					"when": "editorLangId == purebasic && !purebasic.debuggerEnabled",
-					"group": "navigation@11",
-					"icon": "$(bug)"
+					"command": "purebasic.debuggerOn",
+					"when": "editorLangId == purebasic && !config.purebasic.compiler.debugger",
+					"group": "navigation@11"
 				},
 				{
-					"//": "The same button in green while the debugger is on. A file icon keeps its own colours, which a codicon cannot: `toggled` only tints the background.",
-					"command": "purebasic.toggleDebugger",
-					"when": "editorLangId == purebasic && purebasic.debuggerEnabled",
-					"group": "navigation@11",
-					"icon": {
-						"light": "resources/debugger-on-light.svg",
-						"dark": "resources/debugger-on-dark.svg"
-					}
+					"command": "purebasic.debuggerOff",
+					"when": "editorLangId == purebasic && config.purebasic.compiler.debugger",
+					"group": "navigation@11"
 				},
 				{
 					"command": "purebasic.compilerSettings",
@@ -295,6 +299,14 @@
 				{
 					"command": "purebasic.newline",
 					"when": "false"
+				},
+				{
+					"command": "purebasic.debuggerOn",
+					"when": "!config.purebasic.compiler.debugger"
+				},
+				{
+					"command": "purebasic.debuggerOff",
+					"when": "config.purebasic.compiler.debugger"
 				}
 			]
 		}
