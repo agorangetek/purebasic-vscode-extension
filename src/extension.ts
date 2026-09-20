@@ -37,6 +37,8 @@ import {
 	resolveCompiler,
 	shellCommand,
 	splitCommandLine,
+	temporaryOutputFor,
+	waitForExitMarker,
 	type CompilerSettings,
 } from './service/compiler.ts';
 import { getSignatureHelp } from './service/signature.ts';
@@ -372,22 +374,28 @@ function compilerSettings(): CompilerSettings {
 	};
 }
 
-/**
- * One terminal, reused.  The compiler has to be started in the file's own
- * directory so that its relative Includes resolve, so the terminal is replaced
- * when that directory changes rather than left pointing at the wrong place.
+/*
+ * Two terminals, each reused until the directory changes.
+ *
+ * The compiler has to run in the file's own directory so that its relative
+ * Includes resolve, so a terminal is replaced when that directory changes rather
+ * than left pointing at the wrong place.  There are two because the two kinds of
+ * output want different places: the compiler's messages belong in a build log
+ * you can read without the program's chatter in it, and the program -- whose
+ * `Debug` output is only there when the debugger is on -- gets a terminal of its
+ * own.
  */
-let compilerTerminal: vscode.Terminal | undefined;
-let compilerTerminalCwd = '';
+const terminals = new Map<string, { terminal: vscode.Terminal; cwd: string }>();
 
-function terminalFor(cwd: string): vscode.Terminal {
-	const usable = compilerTerminal && compilerTerminal.exitStatus === undefined;
-	if (!usable || compilerTerminalCwd !== cwd) {
-		compilerTerminal?.dispose();
-		compilerTerminal = vscode.window.createTerminal({ name: 'PureBasic', cwd });
-		compilerTerminalCwd = cwd;
+function terminalFor(name: string, cwd: string): vscode.Terminal {
+	const existing = terminals.get(name);
+	if (existing && existing.cwd === cwd && existing.terminal.exitStatus === undefined) {
+		return existing.terminal;
 	}
-	return compilerTerminal!;
+	existing?.terminal.dispose();
+	const terminal = vscode.window.createTerminal({ name, cwd });
+	terminals.set(name, { terminal, cwd });
+	return terminal;
 }
 
 /*
@@ -426,7 +434,16 @@ async function compilableDocument(): Promise<vscode.TextDocument | undefined> {
 	return editor.document;
 }
 
-/** Run the file, or build it, in the PureBasic terminal. */
+/**
+ * Build the file, and run it in a terminal of its own.
+ *
+ * A build always happens first, even for Run: that is what keeps the compiler's
+ * messages in the build terminal, where they can be read, and gives the program
+ * a terminal where its own output -- and the debugger's, when the debugger is on
+ * -- is the only thing in it.  The two are sequenced through a file, because a
+ * command sent to a terminal reports nothing back and the program must not start
+ * before the build that produces it has finished.
+ */
 async function runOrCompile(compileOnly: boolean): Promise<void> {
 	const document = await compilableDocument();
 	if (!document) return;
@@ -434,28 +451,51 @@ async function runOrCompile(compileOnly: boolean): Promise<void> {
 	const settings = compilerSettings();
 	const compiler = resolveCompiler(settings.path);
 	const source = document.uri.fsPath;
-	const output = outputPathFor(source, settings);
+	const cwd = dirname(source);
+	// Run builds a temporary executable; Compile writes where it was told
+	const target = compileOnly ? outputPathFor(source, settings) : temporaryOutputFor(source);
 
-	const steps: string[] = [];
-	if (compileOnly) {
-		steps.push(shellCommand([compiler, ...compilerArguments(settings, output), source]));
-	} else if (settings.commandLine.trim()) {
-		// pbcompiler cannot pass arguments through when it launches the program
-		// itself, so build one and start it, in the same terminal, in order
-		const target = join(tmpdir(), `pb-${basename(source).replace(/\.[^.]*$/, '')}`);
-		steps.push(shellCommand([compiler, ...compilerArguments(settings, target), source]));
-		steps.push(shellCommand([target, ...splitCommandLine(settings.commandLine)]));
-	} else {
-		steps.push(shellCommand([compiler, ...compilerArguments(settings), source]));
+	// the compiler writes its output with the system linker, which will not
+	// create the directory for it -- and a configured output path may name one
+	// that does not exist either
+	try {
+		await vscode.workspace.fs.createDirectory(vscode.Uri.file(dirname(target)));
+	} catch (error) {
+		trace(`compiler: cannot create ${dirname(target)}: ${String(error)}`);
 	}
 
-	const terminal = terminalFor(dirname(source));
-	terminal.show(true);
-	terminal.sendText(steps.join(' && '), true);
-	trace(`compiler: ${steps.join(' && ')}`);
+	const build = terminalFor('PureBasic', cwd);
+	build.show(true);
+
+	const marker = join(tmpdir(), `pb-exit-${Date.now()}`);
+	const line = shellCommand([compiler, ...compilerArguments(settings, target), source]);
+	build.sendText(`${line}; printf '%s' "$?" > ${shellCommand([marker])}`, true);
+	trace(`compiler: ${line}`);
+
 	if (compileOnly) {
-		void vscode.window.setStatusBarMessage(`PureBasic: building ${basename(output)}`, 5000);
+		void vscode.window.setStatusBarMessage(`PureBasic: building ${basename(target)}`, 5000);
+		return;
 	}
+
+	const code = await waitForExitMarker(marker);
+	void vscode.workspace.fs.delete(vscode.Uri.file(marker)).then(undefined, () => undefined);
+
+	if (code === undefined) {
+		void vscode.window.showWarningMessage(
+			'PureBasic: the build did not finish, so the program was not started.',
+		);
+		return;
+	}
+	if (code !== 0) {
+		// the build terminal is on screen and holds the compiler's own message
+		void vscode.window.showErrorMessage('PureBasic: the build failed. See the PureBasic terminal.');
+		return;
+	}
+
+	const program = terminalFor('PureBasic Program', cwd);
+	program.show(true);
+	program.sendText(shellCommand([target, ...splitCommandLine(settings.commandLine)]), true);
+	trace(`program: ${target}`);
 }
 
 /**

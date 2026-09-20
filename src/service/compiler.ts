@@ -11,7 +11,9 @@
  * Editor-agnostic: no 'vscode' import, so the mapping can be checked with plain
  * node.
  */
-import { existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 
 /** The IDE's Compiler Options, as far as the macOS/Linux compiler implements them. */
@@ -37,6 +39,18 @@ export interface CompilerSettings {
 	commandLine: string;
 	/** `-q`: only errors on stdout. */
 	quiet: boolean;
+}
+
+/**
+ * Where a Run builds its temporary executable.
+ *
+ * Named after the source and its directory, so two files called `test.pb` do not
+ * overwrite each other and rebuilding one reuses the same path.
+ */
+export function temporaryOutputFor(sourcePath: string): string {
+	const name = basename(sourcePath).replace(/\.[^.]*$/, '');
+	const stamp = createHash('sha1').update(sourcePath).digest('hex').slice(0, 8);
+	return join(tmpdir(), 'purebasic', `${name}-${stamp}`);
 }
 
 /**
@@ -120,6 +134,29 @@ export function splitCommandLine(text: string): string[] {
 	}
 	if (current) parts.push(current);
 	return parts;
+}
+
+/**
+ * The exit code a build left in a file, or undefined if it never got there.
+ *
+ * A command sent to a terminal reports nothing back -- there is no exit event
+ * for one -- so the build line writes `$?` to a file of its own and this waits
+ * for it.  The shell is POSIX, which is what the compiler switches assume too;
+ * it is also why this polls rather than watching, since the file does not exist
+ * until the build ends.
+ */
+export async function waitForExitMarker(path: string, timeoutMs = 300_000): Promise<number | undefined> {
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		try {
+			const text = readFileSync(path, 'utf8').trim();
+			if (text !== '') return Number.parseInt(text, 10);
+		} catch {
+			// not written yet
+		}
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
+	return undefined;
 }
 
 /** One command line, quoted for the shell the terminal runs. */
