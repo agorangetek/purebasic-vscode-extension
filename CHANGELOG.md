@@ -4,6 +4,17 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.17] - 2026-09-20
+
+### Changed
+
+- **A member access is one piece of code.** `OBJ_MEMDLL\ModulesMap()` -- the owner, the `\`, the
+  member and the empty element access -- is a single `variable.other.member.purebasic` token now,
+  and a name followed by `\` takes `variable.other.typed.purebasic` like one taking a type, so a
+  scheme can paint the whole expression as what it is: something that comes off a structure. A
+  variable on its own is still normal text, so `count = count + 1` stays plain while `test\age`
+  does not.
+
 ## [0.1.16] - 2026-09-20
 
 ### Changed

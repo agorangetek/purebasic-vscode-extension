@@ -551,9 +551,9 @@
 		"members": {
 			"patterns": [
 				{
-					"comment": "var\\field, and Module::item.",
+					"comment": "var\\field, Module::item, and the element form var\\map().",
 					"name": "variable.other.member.purebasic",
-					"match": "(?:\\\\|::)[A-Za-z_]\\w*"
+					"match": "(?:\\\\|::)[A-Za-z_]\\w*(?:\\(\\))?"
 				},
 				{
 					"name": "entity.name.namespace.purebasic",
@@ -600,7 +600,7 @@
 		"identifiers": {
 			"patterns": [
 				{
-					"match": "[A-Za-z_]\\w*(?=\\s*\\.)",
+					"match": "[A-Za-z_]\\w*(?=\\s*[.\\\\])",
 					"name": "variable.other.typed.purebasic"
 				},
 				{

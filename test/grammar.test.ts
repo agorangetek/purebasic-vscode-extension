@@ -188,7 +188,7 @@ test('members, sigils and labels are scoped', { skip }, async () => {
 	assertScoped(lines, '! mov eax, 1', /^meta\.embedded\.asm/, 'inline assembly');
 
 	assertScoped(lines, 'Helper', /^entity\.name\.namespace/, 'a module qualifier');
-	assertScoped(lines, '::DoIt', /^variable\.other\.member/, 'a module member');
+	assertScoped(lines, '::DoIt()', /^variable\.other\.member/, 'a module member');
 });
 
 test('a type suffix is scoped as a type, a decimal point is a number', { skip }, async () => {
@@ -492,8 +492,30 @@ test('a variable is plain unless it is taking a type', { skip }, async () => {
 	for (const [line, text] of [[0, 'p'], [2, 'p2'], [3, 'test'], [5, 'name']] as const) {
 		assert.equal(innermost(line, text), 'variable.other.typed.purebasic', `line ${line + 1}: ${text}`);
 	}
-	// every other name stays normal text: a member read, and a plain variable
+	// a member read is the member scope, and the name it comes off takes the code
+	// colour with it: `p\x` is one expression
 	assert.equal(innermost(1, 'x'), 'variable.other.member.purebasic');
-	assert.equal(innermost(1, 'p'), 'variable.other.purebasic');
+	assert.equal(innermost(1, 'p'), 'variable.other.typed.purebasic');
 	assert.equal(innermost(4, 'count'), 'variable.other.purebasic');
+});
+
+test('a member access is one piece of code, element form included', { skip }, async () => {
+	const source = 'If FindMapElement(OBJ_MEMDLL\\ModulesMap(), Str(*module))';
+	const lines = await tokenize(source);
+
+	const scopesOf = (text: string) => {
+		const token = lines[0]!.find((t) => t.text === text);
+		assert.ok(token, `${text} did not tokenize`);
+		return token.scopes[token.scopes.length - 1] ?? '';
+	};
+
+	// the owner, the member and the empty element access all wear one scope, so
+	// they can be one colour: `obj\map()` comes from a structure
+	assert.equal(scopesOf('OBJ_MEMDLL'), 'variable.other.typed.purebasic');
+	assert.equal(scopesOf('\\ModulesMap()'), 'variable.other.member.purebasic');
+	// and the code around it keeps its own scopes
+	assert.ok(scopesOf('If').startsWith('keyword.control'));
+	assert.equal(scopesOf('FindMapElement'), 'support.function.map.purebasic');
+	assert.equal(scopesOf('Str'), 'support.function.stringlib.purebasic');
+	assert.equal(scopesOf('*module'), 'variable.other.pointer.purebasic');
 });

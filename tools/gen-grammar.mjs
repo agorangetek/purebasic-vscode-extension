@@ -226,9 +226,10 @@ const grammar = {
 		members: {
 			patterns: [
 				{
-					comment: 'var\\field, and Module::item.',
+					comment:
+						'var\\field, Module::item, and the element form var\\map().',
 					name: 'variable.other.member.purebasic',
-					match: '(?:\\\\|::)[A-Za-z_]\\w*',
+					match: '(?:\\\\|::)[A-Za-z_]\\w*(?:\\(\\))?',
 				},
 				{
 					name: 'entity.name.namespace.purebasic',
@@ -273,10 +274,10 @@ const grammar = {
 		identifiers: {
 			patterns: [
 				{
-					// a name about to take a type -- `test.my_test`, `name.s` -- is
-					// the one a variable wears code colour for; the rest of them
-					// stay normal text
-					match: '[A-Za-z_]\\w*(?=\\s*\\.)',
+					// a name that goes on to a type or a member -- `test.my_test`,
+					// `OBJ_MEMDLL\\ModulesMap()` -- is what a variable wears code
+					// colour for; on its own it stays normal text
+					match: '[A-Za-z_]\\w*(?=\\s*[.\\\\])',
 					name: 'variable.other.typed.purebasic',
 				},
 				{
