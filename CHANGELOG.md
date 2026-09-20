@@ -4,6 +4,22 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.19] - 2026-09-20
+
+### Changed
+
+- **A pointer and an address are scoped in the constant family**, `constant.other.pointer.purebasic`
+  and `constant.other.reference.purebasic`, rather than under `variable.other`. The scope decides
+  which colour a scheme gives them, and in the PureBasic IDE's own Monokai scheme `PointerColor`
+  *is* `ConstantColor` -- while in VS Code's Monokai themes the purple family is `constant.*`.
+  Under Monokai a pointer was coming out `#F8F8F2` (the theme's variable colour); it is now
+  `#AE81FF`, the same purple as `#MAX` and a number, which is what the IDE shows. Verified against
+  the theme: `*pointer`, `*buffer`, `@test`, `#max`, `$FF`, `%1010`, `12.5` all render `#AE81FF`.
+- Two things stay the theme's word, because Monokai has no scope of its own for them: a member
+  read (`test\age`) and a data label reference (`?data`) come out the theme's normal text. The
+  opt-in palette in `docs/purebasic-ide-monokai.jsonc` still pins them if you want the IDE's own
+  colours over whatever theme you run.
+
 ## [0.1.18] - 2026-09-20
 
 ### Changed

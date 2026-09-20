@@ -43,11 +43,11 @@ scope below is specific to PureBasic:
 | constants (`#MaxPoints`, `#PB_Event_CloseWindow`) | `constant.other.predefined.purebasic` |
 | `True` / `False`, `Null` | `constant.language.boolean\|null.purebasic` |
 | numbers (`12`, `$FF`, `%1010`, `1.5`) | `constant.numeric.decimal\|hex\|bin\|float.purebasic` |
-| pointers (`*pBuffer`) | `variable.other.pointer.purebasic` |
+| pointers (`*pBuffer`) | `constant.other.pointer.purebasic` |
 | structure members, read (`pt\x`, `obj\map()`) | `variable.other.member.purebasic` |
 | a name taking a type (`test.my_test`, `name.s`) | `variable.other.typed.purebasic` |
 | a module prefix (`Helper::DoIt`) | `entity.name.namespace.purebasic` |
-| a procedure address (`@MyProc`) | `variable.other.reference.purebasic` (bare `@` too) |
+| a procedure address (`@MyProc`) | `constant.other.reference.purebasic` (bare `@` too) |
 | a data label (`?data`) | `variable.other.label-reference.purebasic` |
 | labels (`top:`) | `entity.name.label.purebasic` |
 | a statement separator (`:`) | `punctuation.separator.statement.purebasic` |

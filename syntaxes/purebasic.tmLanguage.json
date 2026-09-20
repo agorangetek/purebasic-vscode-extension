@@ -597,15 +597,15 @@
 		"specials": {
 			"patterns": [
 				{
-					"name": "variable.other.pointer.purebasic",
+					"name": "constant.other.pointer.purebasic",
 					"match": "(?<![A-Za-z0-9_])\\*[A-Za-z_]\\w*"
 				},
 				{
-					"name": "variable.other.reference.purebasic",
+					"name": "constant.other.reference.purebasic",
 					"match": "@[A-Za-z_]\\w*"
 				},
 				{
-					"name": "variable.other.reference.purebasic",
+					"name": "constant.other.reference.purebasic",
 					"match": "@(?![A-Za-z_])"
 				},
 				{

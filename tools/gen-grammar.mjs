@@ -280,14 +280,20 @@ const grammar = {
 				// `*p` is a pointer only when the `*` is glued to the name and not
 				// glued to what comes before it: `a*b`, `2*3` and `a * b` are
 				// multiplications, which the PB IDE colours as symbols.
-				{ name: 'variable.other.pointer.purebasic', match: '(?<![A-Za-z0-9_])\\*[A-Za-z_]\\w*' },
-				{ name: 'variable.other.reference.purebasic', match: '@[A-Za-z_]\\w*' },
+				//
+				// The scope is a `constant.*` one, not `variable.other.pointer`,
+				// so that a scheme paints it where it paints a constant: in the
+				// PureBasic IDE's own Monokai scheme PointerColor *is*
+				// ConstantColor, and in VS Code's Monokai themes the purple family
+				// is `constant.*`, so a pointer comes out purple beside `#MAX`.
+				{ name: 'constant.other.pointer.purebasic', match: '(?<![A-Za-z0-9_])\\*[A-Za-z_]\\w*' },
+				{ name: 'constant.other.reference.purebasic', match: '@[A-Za-z_]\\w*' },
 				// a `@` with no name yet -- `@` on its own, or `@` before
 				// something other than a name -- still wears the sigil's colour,
 				// so a reference never looks half-coloured.  `@` has no other
 				// meaning in PureBasic, which is why it is safe here (a bare `*`
 				// is the multiplication operator and cannot be told apart).
-				{ name: 'variable.other.reference.purebasic', match: '@(?![A-Za-z_])' },
+				{ name: 'constant.other.reference.purebasic', match: '@(?![A-Za-z_])' },
 				{ name: 'variable.other.label-reference.purebasic', match: '\\?[A-Za-z_]\\w*' },
 			],
 		},

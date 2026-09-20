@@ -181,8 +181,8 @@ test('members, sigils and labels are scoped', { skip }, async () => {
 		),
 	);
 	assertScoped(lines, '\\x', /^variable\.other\.member/, 'member access');
-	assertScoped(lines, '*pBuffer', /^variable\.other\.pointer/, 'pointer variable');
-	assertScoped(lines, '@MyProc', /^variable\.other\.reference/, 'procedure address');
+	assertScoped(lines, '*pBuffer', /^constant\.other\.pointer/, 'pointer variable');
+	assertScoped(lines, '@MyProc', /^constant\.other\.reference/, 'procedure address');
 	assertScoped(lines, '?data', /^variable\.other\.label-reference/, 'data label reference');
 	assertScoped(lines, 'top:', /^entity\.name\.label/, 'a label, colon included');
 	assertScoped(lines, '! mov eax, 1', /^meta\.embedded\.asm/, 'inline assembly');
@@ -310,18 +310,18 @@ test('a reference carries its sigil, even before the name is typed', { skip }, a
 	assert.ok(reference.length >= 2, 'the references should tokenize');
 	for (const { token } of reference) {
 		assert.equal(token.text, '@ThreadProcedure1', 'the @ belongs to the token');
-		assert.ok(token.scopes.includes('variable.other.reference.purebasic'), 'and to the scope');
+		assert.ok(token.scopes.includes('constant.other.reference.purebasic'), 'and to the scope');
 	}
 
 	// a sigil on its own is not left uncoloured
 	const bare = lines[2]!.find((t) => t.text === '@');
 	assert.ok(bare, 'the bare @ should tokenize');
 	assert.ok(
-		bare.scopes.includes('variable.other.reference.purebasic'),
+		bare.scopes.includes('constant.other.reference.purebasic'),
 		`a bare @ should be scoped, got ${bare.scopes.join(' ') || 'no scope'}`,
 	);
 	const beforePointer = lines[3]!.find((t) => t.text === '@');
-	assert.ok(beforePointer?.scopes.includes('variable.other.reference.purebasic'));
+	assert.ok(beforePointer?.scopes.includes('constant.other.reference.purebasic'));
 
 	// the multiplication sign is an operator, never a pointer or a reference
 	const multiply = lines[4]!.filter((t) => t.text === '*' || t.text === '@');
@@ -375,7 +375,7 @@ test('a member read is code, a member declaration is not', { skip }, async () =>
 	}
 
 	// a `*` field is a pointer, as it is anywhere else
-	assert.equal(innermost(6, '*Entry'), 'variable.other.pointer.purebasic');
+	assert.equal(innermost(6, '*Entry'), 'constant.other.pointer.purebasic');
 
 	// the block markers stay structure keywords, nested or not
 	for (const [line, text] of [
@@ -434,14 +434,14 @@ test('a multiplication sign is not a pointer', { skip }, async () => {
 
 	for (const line of [0, 1, 2]) {
 		assert.ok(
-			!lines[line]!.some((t) => t.scopes.includes('variable.other.pointer.purebasic')),
+			!lines[line]!.some((t) => t.scopes.includes('constant.other.pointer.purebasic')),
 			`line ${line + 1} is a multiplication`,
 		);
 	}
 	const pointer = lines[3]!.find((t) => t.text.includes('*Memory'));
-	assert.ok(pointer?.scopes.includes('variable.other.pointer.purebasic'), 'a real pointer keeps its scope');
+	assert.ok(pointer?.scopes.includes('constant.other.pointer.purebasic'), 'a real pointer keeps its scope');
 	const declared = lines[4]!.find((t) => t.text.includes('*Buffer'));
-	assert.ok(declared?.scopes.includes('variable.other.pointer.purebasic'));
+	assert.ok(declared?.scopes.includes('constant.other.pointer.purebasic'));
 });
 
 test('symbolic operators are scoped, the sigils are not', { skip }, async () => {
@@ -467,7 +467,7 @@ test('symbolic operators are scoped, the sigils are not', { skip }, async () => 
 
 	// a `*` glued to a name is still a pointer, not an operator
 	const pointer = lines[2]!.find((t) => t.text === '*p');
-	assert.ok(pointer?.scopes.includes('variable.other.pointer.purebasic'));
+	assert.ok(pointer?.scopes.includes('constant.other.pointer.purebasic'));
 });
 
 test('a name is left to the theme unless it is taking a type', { skip }, async () => {
@@ -517,5 +517,5 @@ test('a member access is one piece of code, element form included', { skip }, as
 	assert.ok(scopesOf('If').startsWith('keyword.control'));
 	assert.equal(scopesOf('FindMapElement'), 'support.function.purebasic');
 	assert.equal(scopesOf('Str'), 'support.function.purebasic');
-	assert.equal(scopesOf('*module'), 'variable.other.pointer.purebasic');
+	assert.equal(scopesOf('*module'), 'constant.other.pointer.purebasic');
 });
