@@ -1,0 +1,198 @@
+/*
+ * Tokenization tests for the TextMate grammar.
+ *
+ * Syntax highlighting is the grammar's whole job: a theme can only colour what
+ * the grammar scopes, so a token that matches no rule silently falls back to
+ * the editor's default foreground.  These tests tokenize real PureBasic with
+ * the same engine the editor uses.
+ *
+ * Needs vscode-textmate/vscode-oniguruma, so they are skipped when
+ * devDependencies are not installed.
+ */
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const require = createRequire(import.meta.url);
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+interface OnigLib {
+	loadWASM(data: ArrayBuffer): Promise<void>;
+	OnigScanner: new (patterns: string[]) => unknown;
+	OnigString: new (s: string) => unknown;
+}
+interface Textmate {
+	INITIAL: unknown;
+	Registry: new (options: unknown) => { loadGrammar(scope: string): Promise<Grammar> };
+	parseRawGrammar(text: string, name: string): unknown;
+}
+interface Grammar {
+	tokenizeLine(
+		line: string,
+		stack: unknown,
+	): { tokens: { startIndex: number; endIndex: number; scopes: string[] }[]; ruleStack: unknown };
+}
+
+let onig: OnigLib | undefined;
+let vsctm: Textmate | undefined;
+try {
+	onig = require('vscode-oniguruma') as OnigLib;
+	vsctm = require('vscode-textmate') as Textmate;
+} catch {
+	onig = undefined;
+}
+
+interface Token {
+	text: string;
+	scopes: string[];
+}
+
+async function tokenize(text: string): Promise<Token[][]> {
+	await onig!.loadWASM(
+		readFileSync(require.resolve('vscode-oniguruma/release/onig.wasm')).buffer,
+	);
+	const registry = new vsctm!.Registry({
+		onigLib: Promise.resolve({
+			createOnigScanner: (patterns: string[]) => new onig!.OnigScanner(patterns),
+			createOnigString: (s: string) => new onig!.OnigString(s),
+		}),
+		loadGrammar: async (scopeName: string) =>
+			scopeName === 'source.purebasic'
+				? vsctm!.parseRawGrammar(
+						readFileSync(join(root, 'syntaxes', 'purebasic.tmLanguage.json'), 'utf8'),
+						'purebasic.tmLanguage.json',
+					)
+				: null,
+	});
+	const grammar = await registry.loadGrammar('source.purebasic');
+
+	const lines = text.split('\n');
+	const out: Token[][] = [];
+	let stack = vsctm!.INITIAL;
+	for (const line of lines) {
+		const result = grammar.tokenizeLine(line, stack);
+		stack = result.ruleStack;
+		out.push(
+			result.tokens.map((t) => ({
+				text: line.slice(t.startIndex, t.endIndex),
+				scopes: t.scopes.filter((s: string) => s !== 'source.purebasic'),
+			})),
+		);
+	}
+	return out;
+}
+
+/** Every token whose text contains `needle`, as line/token pairs. */
+function occurrences(lines: Token[][], needle: string): { line: number; token: Token }[] {
+	const found: { line: number; token: Token }[] = [];
+	lines.forEach((tokens, line) => {
+		for (const token of tokens) {
+			if (token.text.includes(needle)) found.push({ line, token });
+		}
+	});
+	return found;
+}
+
+const skip = !onig && 'vscode-textmate not installed';
+
+function assertScoped(lines: Token[][], needle: string, expected: RegExp, label: string): void {
+	const hits = occurrences(lines, needle).filter(({ token }) => token.text.trim() === needle);
+	assert.ok(hits.length > 0, `${label}: "${needle}" did not tokenize at all`);
+	for (const { line, token } of hits) {
+		assert.ok(
+			token.scopes.some((s) => expected.test(s)),
+			`${label}: line ${line + 1} "${needle}" has ${token.scopes.join(' ') || 'no scope'}`,
+		);
+	}
+}
+
+test('comments, strings and numbers are scoped', { skip }, async () => {
+	const lines = await tokenize(
+		[
+			'; a note about Procedure',
+			'MessageRequester("endprocedure", "x")',
+			's = ~"a \\" b"',
+			'n = $FF + %1010 + 12',
+		].join('\n'),
+	);
+
+	const comment = occurrences(lines, '; a note about Procedure')[0]?.token;
+	assert.ok(comment?.scopes.includes('comment.line.semicolon.purebasic'), 'a ; comment');
+
+	// the contents of a string are a string, even when they spell a keyword
+	const string = occurrences(lines, 'endprocedure').find(({ line }) => line === 1)?.token;
+	assert.ok(string?.scopes.includes('string.quoted.double.purebasic'), 'a plain string');
+	assert.ok(
+		!string?.scopes.some((sc) => sc.startsWith('keyword')),
+		'a keyword inside a string stays a string',
+	);
+
+	const escape = occurrences(lines, '~"').find(({ line }) => line === 2)?.token;
+	assert.ok(
+		escape?.scopes.includes('string.quoted.double.escape.purebasic'),
+		'an escape string opens a string',
+	);
+	const escaped = occurrences(lines, '\\"').find(({ line }) => line === 2)?.token;
+	assert.ok(
+		escaped?.scopes.includes('constant.character.escape.purebasic'),
+		'an escaped quote is an escape',
+	);
+
+	for (const number of ['$FF', '%1010', '12']) {
+		assertScoped(lines, number, /^constant\.numeric/, 'number');
+	}
+});
+
+test('constants and keywords are scoped', { skip }, async () => {
+	const lines = await tokenize(['#MAX = 10', 'x = #PB_Event_CloseWindow', 'EndProcedure', 'ReDim a.i(2)', 'ForEach x()'].join('\n'));
+
+	assertScoped(lines, '#MAX', /^constant\.other/, 'user constant');
+	assertScoped(lines, '#PB_Event_CloseWindow', /^support\.constant/, 'library constant');
+	assertScoped(lines, 'EndProcedure', /^keyword\./, 'a terminator');
+	assertScoped(lines, 'ReDim', /^keyword\./, 'ReDim');
+	assertScoped(lines, 'ForEach', /^keyword\.control/, 'ForEach');
+});
+
+test('library commands keep their own scope, user calls are functions', { skip }, async () => {
+	const lines = await tokenize(['MessageRequester("t", "m")', 'r = Abs(-1)', 'MyUserProc(1)'].join('\n'));
+
+	assertScoped(lines, 'MessageRequester', /^support\.function\./, 'a library command');
+	assertScoped(lines, 'Abs', /^support\.function\.math/, 'a command from a known library');
+	assertScoped(lines, 'MyUserProc', /^entity\.name\.function/, 'an unknown call');
+});
+
+test('declarations name their procedure, structure and module', { skip }, async () => {
+	const lines = await tokenize(
+		['Procedure.d Area(w.d, h.d)', 'Structure Point', 'EndStructure', 'Module Helper'].join('\n'),
+	);
+	assertScoped(lines, 'Area', /^entity\.name\.function/, 'a procedure name');
+	assertScoped(lines, 'Point', /^entity\.name\.type/, 'a structure name');
+	assertScoped(lines, 'Helper', /^entity\.name\.type/, 'a module name');
+});
+
+test('members, sigils and labels are scoped', { skip }, async () => {
+	const lines = await tokenize(
+		['pt\\x = 1', 'Helper::DoIt()', '*pBuffer = AllocateMemory(4)', 'p = @MyProc()', 'd = ?data', 'top:', '! mov eax, 1'].join(
+			'\n',
+		),
+	);
+	assertScoped(lines, '\\x', /^variable\.other\.member/, 'member access');
+	assertScoped(lines, '*pBuffer', /^variable\.other\.pointer/, 'pointer variable');
+	assertScoped(lines, '@MyProc', /^variable\.other\.reference/, 'procedure address');
+	assertScoped(lines, '?data', /^variable\.other\.label-reference/, 'data label reference');
+	assertScoped(lines, 'top', /^entity\.name\.label/, 'a label');
+	assertScoped(lines, '! mov eax, 1', /^meta\.embedded\.asm/, 'inline assembly');
+
+	assertScoped(lines, 'Helper', /^entity\.name\.namespace/, 'a module qualifier');
+	assertScoped(lines, '::DoIt', /^variable\.other\.member/, 'a module member');
+});
+
+test('a type suffix is scoped as a type, a decimal point is a number', { skip }, async () => {
+	const lines = await tokenize(['x.d = 1.5', 'name$ = "hi"'].join('\n'));
+	assertScoped(lines, 'd', /^storage\.type/, 'the .d suffix');
+	assertScoped(lines, '1.5', /^constant\.numeric/, 'a decimal literal');
+});

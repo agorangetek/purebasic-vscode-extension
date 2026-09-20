@@ -1,0 +1,11 @@
+node_modules
+*.vsix
+dist
+out
+.npm-cache
+
+# .github/workflows/ci.yml is on disk but not in the repository yet: pushing a
+# workflow file needs a token with the "workflow" scope, which the stored
+# credential does not carry.  Remove this line once it does -- or add the file
+# through the GitHub web UI -- and CI will run as written.
+.github/workflows/ci.yml

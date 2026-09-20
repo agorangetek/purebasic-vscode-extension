@@ -1,0 +1,4 @@
+{
+	"//": "Marks the sources as ES modules so node can run the .ts files directly (type stripping) without a module-type warning. The extension itself is bundled to CommonJS by esbuild, so the root package stays CommonJS.",
+	"type": "module"
+}

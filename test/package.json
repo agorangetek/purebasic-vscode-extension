@@ -1,0 +1,4 @@
+{
+	"//": "Marks the tests as ES modules so node --test can run the .ts files directly (type stripping) without a module-type warning.",
+	"type": "module"
+}

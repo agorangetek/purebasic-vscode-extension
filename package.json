@@ -1,0 +1,156 @@
+{
+	"name": "purebasic",
+	"displayName": "PureBasic",
+	"description": "PureBasic language support for Visual Studio Code: code completion, hover, signature help and document outline.",
+	"version": "0.1.0",
+	"publisher": "agorangetek",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.75.0",
+		"node": ">=18"
+	},
+	"categories": [
+		"Programming Languages"
+	],
+	"keywords": [
+		"purebasic",
+		"basic",
+		"pb",
+		"pbcompiler",
+		"fantaisie"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/agorangetek/purebasic-vscode-extension"
+	},
+	"main": "./dist/extension.js",
+	"activationEvents": [
+		"onLanguage:purebasic"
+	],
+	"contributes": {
+		"languages": [
+			{
+				"id": "purebasic",
+				"aliases": [
+					"PureBasic",
+					"purebasic",
+					"pb"
+				],
+				"extensions": [
+					".pb",
+					".pbi",
+					".pbf"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "purebasic",
+				"scopeName": "source.purebasic",
+				"path": "./syntaxes/purebasic.tmLanguage.json"
+			}
+		],
+		"configuration": {
+			"title": "PureBasic",
+			"properties": {
+				"purebasic.completion.enable": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable PureBasic code completion."
+				},
+				"purebasic.completion.keywords": {
+					"type": "boolean",
+					"default": true,
+					"description": "Offer language keywords (Procedure, If, ForEach, ...) in completion."
+				},
+				"purebasic.completion.builtins": {
+					"type": "boolean",
+					"default": true,
+					"description": "Offer built-in library commands (MessageRequester, AddElement, ...) in completion."
+				},
+				"purebasic.completion.snippets": {
+					"type": "boolean",
+					"default": true,
+					"description": "Insert a call snippet with parameter placeholders for commands that have parameters."
+				},
+				"purebasic.index.workspace": {
+					"type": "boolean",
+					"default": true,
+					"description": "Index .pb/.pbi files across the workspace so symbols from other modules are completed too."
+				},
+				"purebasic.index.maxFiles": {
+					"type": "number",
+					"default": 400,
+					"description": "Maximum number of workspace files to index."
+				},
+				"purebasic.format.canonicalCase": {
+					"type": "boolean",
+					"default": true,
+					"description": "When formatting, restore the manual's spelling of keywords and library commands (EndProcedure, ReDim, ForEach) and leave your own names as written."
+				},
+				"purebasic.trace.server": {
+					"type": "string",
+					"enum": [
+						"off",
+						"messages",
+						"verbose"
+					],
+					"default": "off",
+					"description": "Trace language service activity to the PureBasic output channel (for troubleshooting)."
+				}
+			}
+		},
+		"commands": [
+			{
+				"command": "purebasic.reindex",
+				"title": "PureBasic: Rebuild Symbol Index"
+			},
+			{
+				"command": "purebasic.showIndexStats",
+				"title": "PureBasic: Show Symbol Index Statistics"
+			},
+			{
+				"command": "purebasic.formatText",
+				"title": "PureBasic: Format Text (Canonical Case)",
+				"category": "PureBasic"
+			}
+		],
+		"menus": {
+			"editor/context": [
+				{
+					"command": "purebasic.formatText",
+					"when": "editorLangId == purebasic",
+					"group": "1_modification@10"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "purebasic.formatText",
+					"when": "editorLangId == purebasic"
+				}
+			]
+		}
+	},
+	"scripts": {
+		"gen-data": "node tools/gen-data.mjs",
+		"gen-grammar": "node tools/gen-grammar.mjs",
+		"generate": "npm run gen-data && npm run gen-grammar",
+		"build": "node esbuild.mjs",
+		"watch": "node esbuild.mjs --watch",
+		"typecheck": "tsc --noEmit",
+		"test": "node --experimental-strip-types --test test/*.test.ts",
+		"check": "npm run typecheck && npm run test && npm run build",
+		"vscode:prepublish": "npm run build",
+		"package": "vsce package"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"@types/vscode": "^1.75.0",
+		"@vscode/vsce": "^3.2.1",
+		"esbuild": "^0.24.2",
+		"typescript": "^5.7.2",
+		"vscode-oniguruma": "^2.0.1",
+		"vscode-textmate": "^9.3.2"
+	}
+}

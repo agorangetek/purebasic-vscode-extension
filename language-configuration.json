@@ -1,0 +1,35 @@
+{
+	"comments": {
+		"lineComment": ";"
+	},
+	"brackets": [
+		["(", ")"],
+		["[", "]"]
+	],
+	"autoClosingPairs": [
+		{ "open": "(", "close": ")" },
+		{ "open": "[", "close": "]" },
+		{ "open": "\"", "close": "\"", "notIn": ["string"] }
+	],
+	"surroundingPairs": [
+		["(", ")"],
+		["[", "]"],
+		["\"", "\""]
+	],
+	"folding": {
+		"markers": {
+			"start": "^\\s*;\\s*\\{\\{\\{",
+			"end": "^\\s*;\\s*\\}\\}\\}"
+		}
+	},
+	"wordPattern": "(\\*|@|\\?)?[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*|\\$)?",
+	"indentationRules": {
+		"increaseIndentPattern": "^(?i)\\s*(?:Procedure|ProcedureDLL|ProcedureC|ProcedureCDLL|Structure|StructureUnion|Interface|Module|DeclareModule|Enumeration|EnumerationBinary|Macro|DataSection|Import|ImportC|CompilerIf|CompilerSelect|HeaderSection|With|If|Select|For|ForEach|While|Repeat)\\b.*$",
+		"decreaseIndentPattern": "^(?i)\\s*(?:EndProcedure|EndStructure|EndStructureUnion|EndInterface|EndModule|EndDeclareModule|EndEnumeration|EndMacro|EndDataSection|EndImport|CompilerEndIf|CompilerEndSelect|EndHeaderSection|EndWith|EndIf|EndSelect|Next|Wend|Until|Forever|Case|Default|Else|ElseIf|CompilerCase|CompilerDefault|CompilerElse|CompilerElseIf)\\b"
+	},
+	"onEnterRules": [
+		{
+			"beforeText": "^(?i)\\s*(?:Procedure|ProcedureDLL|ProcedureC|ProcedureCDLL|Structure|StructureUnion|Interface|Module|DeclareModule|Enumeration|EnumerationBinary|Macro|DataSection|Import|ImportC|CompilerIf|CompilerSelect|HeaderSection|With)\\b.*$"
+		}
+	]
+}

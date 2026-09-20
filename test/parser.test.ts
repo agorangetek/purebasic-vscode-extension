@@ -1,0 +1,144 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import {
+	callContextAt,
+	maskSource,
+	parameterNames,
+	parseDocument,
+	statementContextAt,
+	wordAt,
+} from '../src/service/parser.ts';
+
+const SAMPLE = [
+	'; a module comment',
+	'IncludeFile "shared.pbi"',
+	'',
+	'Structure Point',
+	'\tx.i',
+	'\ty.i',
+	'\t*next.Point',
+	'EndStructure',
+	'',
+	'Enumeration',
+	'\t#Red',
+	'\t#Green',
+	'EndEnumeration',
+	'',
+	'#MAX = 10',
+	'Global Dim scores.i(10)',
+	'Global counter.i = 0',
+	'',
+	'Procedure.d Add(a.d, b.d)',
+	'\tProtected result.d',
+	'\tresult = a + b',
+	'\tProcedureReturn result',
+	'EndProcedure',
+	'',
+	'Declare Test(*p, name$)',
+	'Module Helper',
+	'\tProcedure Greet(who$)',
+	'\t\tDebug who$',
+	'\tEndProcedure',
+	'EndModule',
+	'',
+	'finish:',
+	'Data.i 1, 2, 3',
+].join('\n');
+
+test('maskSource blanks comments, strings and asm but keeps offsets', () => {
+	const lines = SAMPLE.split('\n');
+	const masked = maskSource(SAMPLE);
+	assert.equal(masked.length, lines.length);
+	for (let i = 0; i < lines.length; i++) {
+		assert.equal(masked[i]!.length, lines[i]!.length, `line ${i} length changed`);
+	}
+
+	const extra = 'a = "text" ; note';
+	const [only] = maskSource(extra);
+	assert.ok(!only!.includes('text'), 'string contents should be blanked');
+	assert.ok(!only!.includes('note'), 'the comment should be blanked');
+	assert.ok(only!.startsWith('a = '), 'real code must survive masking');
+
+	assert.ok(!maskSource('! mov eax, 1')[0]!.includes('mov'), 'asm lines are not PureBasic');
+	assert.ok(
+		!maskSource('s = ~"a\\"b"')[0]!.includes('b'),
+		'the escape string ends after the escaped quote',
+	);
+});
+
+test('parseDocument finds procedures, structures, enums, constants and includes', () => {
+	const doc = parseDocument('file:///t.pb', SAMPLE);
+	const byName = new Map(doc.symbols.map((s) => [s.name, s]));
+
+	assert.equal(byName.get('Point')?.kind, 'structure');
+	assert.equal(byName.get('x')?.kind, 'field');
+	assert.equal(byName.get('x')?.scope, 'Point', 'fields belong to their structure');
+	assert.equal(byName.get('*next')?.kind, 'field', 'the * is part of the name');
+
+	assert.equal(byName.get('Red')?.kind, 'enummember');
+	assert.equal(byName.get('#MAX')?.kind, 'constant');
+	assert.equal(byName.get('scores')?.kind, 'array');
+	assert.equal(byName.get('scores')?.type, 'i');
+	assert.equal(byName.get('counter')?.kind, 'variable');
+
+	assert.equal(byName.get('Add')?.kind, 'procedure');
+	assert.equal(byName.get('Add')?.returns, 'd');
+	assert.equal(byName.get('Add')?.params, 'a.d, b.d');
+	assert.equal(byName.get('result')?.kind, 'variable');
+	assert.equal(byName.get('result')?.scope, 'Add', 'locals belong to their procedure');
+
+	assert.equal(byName.get('Test')?.kind, 'declare');
+	assert.equal(byName.get('Helper')?.kind, 'module');
+	assert.equal(byName.get('Greet')?.kind, 'procedure');
+
+	assert.equal(byName.get('finish')?.kind, 'label');
+	assert.deepEqual(doc.includes, ['shared.pbi']);
+	assert.ok(!byName.has('Data'), 'a Data line is not a variable');
+});
+
+test('a procedure records the line its body ends on', () => {
+	const doc = parseDocument('file:///t.pb', SAMPLE);
+	assert.equal(doc.symbols.find((s) => s.name === 'Add')?.endLine, 22);
+	assert.equal(doc.symbols.find((s) => s.name === 'Greet')?.endLine, 28);
+
+	// a prototype has no body, so it has no closing line
+	const prototype = parseDocument('file:///t.pb', 'Declare Foo(x.i)');
+	assert.equal(prototype.symbols[0]?.kind, 'declare');
+	assert.equal(prototype.symbols[0]?.endLine, undefined);
+});
+
+test('parameterNames reads sigils and types', () => {
+	assert.deepEqual(parameterNames('*p, name$, x.d'), ['*p', 'name$', 'x']);
+	assert.deepEqual(parameterNames('a.d'), ['a']);
+	assert.deepEqual(parameterNames(''), []);
+	assert.deepEqual(parameterNames(undefined), []);
+});
+
+test('wordAt returns the identifier under the cursor, sigil and suffix included', () => {
+	const text = 'a = myVar$';
+	const found = wordAt(text, { line: 0, character: 8 });
+	assert.equal(found?.word, 'myVar$');
+	assert.equal(found?.startChar, 4);
+	assert.equal(found?.endChar, 10);
+});
+
+test('callContextAt reports the callee and the active parameter', () => {
+	const text = 'MessageRequester("title", ';
+	const context = callContextAt(text, { line: 0, character: text.length });
+	assert.equal(context?.callee, 'MessageRequester');
+	assert.equal(context?.activeParameter, 1);
+
+	const nested = 'Foo(Bar(1, 2), ';
+	const outer = callContextAt(nested, { line: 0, character: nested.length });
+	assert.equal(outer?.callee, 'Foo');
+	assert.equal(outer?.activeParameter, 1);
+});
+
+test('statementContextAt classifies the cursor position', () => {
+	assert.equal(statementContextAt('  Pro', { line: 0, character: 5 }, 'Pro').kind, 'start');
+	assert.equal(statementContextAt('  x = ', { line: 0, character: 6 }, '').kind, 'expression');
+	assert.equal(statementContextAt('  a + ', { line: 0, character: 6 }, '').kind, 'expression');
+	assert.equal(statementContextAt('  x = 1 : ', { line: 0, character: 10 }, '').kind, 'start');
+	// a comment is not code
+	assert.equal(statementContextAt('; Dim ', { line: 0, character: 6 }, '').kind, 'start');
+});
