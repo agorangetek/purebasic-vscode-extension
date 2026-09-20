@@ -275,7 +275,7 @@
 					"match": "(?i)\\b(?:ArraySize|CompareArray|CopyArray|FreeArray)\\b"
 				},
 				{
-					"name": "support.function.string.purebasic",
+					"name": "support.function.stringlib.purebasic",
 					"match": "(?i)\\b(?:Asc|Ascii|Bin|Chr|CountString|EscapeString|FindString|FormatNumber|Hex|InsertString|LCase|Left|Len|LSet|LTrim|Mid|RemoveString|ReplaceString|ReverseString|Right|RSet|RTrim|Space|Str|StrD|StrF|StringByteLength|StringField|StrU|Trim|UCase|UnescapeString|Unicode|UTF8|Val|ValD|ValF)\\b"
 				},
 				{

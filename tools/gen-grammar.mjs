@@ -33,6 +33,23 @@ const slug = (text) =>
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-|-$/g, '');
 
+/*
+ * The editor decides which editor.quickSuggestions entry applies to a keystroke
+ * by deriving a "standard token type" from a token's INNERMOST scope name, with
+ * /\b(comment|string|regex|regexp)\b/ (getStandardTokenType in the editor's
+ * tokenMetadata).  Both strings and comments default to "off", so a *code* scope
+ * containing one of those words as a whole word silently stops the suggestion
+ * widget from opening while you type: PureBasic's String library is exactly that
+ * trap -- `str` scoped as support.function.string.purebasic was classified as a
+ * string, so typing it never popped up the list.
+ *
+ * Keep code scopes free of those words by gluing a suffix onto the offending
+ * segment (`string` -> `stringlib`).  The literal scopes emitted by the #strings
+ * and #comments rules are the only ones allowed to match.
+ */
+const RESERVED_TOKEN_TYPE = /\b(comment|string|regex|regexp)\b/;
+const codeScope = (name) => (RESERVED_TOKEN_TYPE.test(name) ? `${name}lib` : name);
+
 /** Keyword categories, in the order the grammar lists them. */
 const KEYWORD_SCOPES = {
 	'Control Flow': 'keyword.control',
@@ -58,10 +75,19 @@ for (const item of data.items) {
 	keywordsByCategory.get(scope).push(item.name);
 }
 
+// Hard-coded scopes: a collision here is a bug in this file, not in the data.
+for (const [category, scope] of Object.entries(KEYWORD_SCOPES)) {
+	if (RESERVED_TOKEN_TYPE.test(scope)) {
+		throw new Error(
+			`keyword scope '${scope}' (${category}) would classify code as a string or comment token`,
+		);
+	}
+}
+
 const commandsByLibrary = new Map();
 for (const item of data.items) {
 	if (item.kind === 'keyword') continue;
-	const library = slug(item.library ?? item.category ?? 'library');
+	const library = codeScope(slug(item.library ?? item.category ?? 'library'));
 	if (!commandsByLibrary.has(library)) commandsByLibrary.set(library, []);
 	commandsByLibrary.get(library).push(item.name);
 }

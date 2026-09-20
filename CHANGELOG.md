@@ -4,6 +4,21 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.2] - 2026-09-20
+
+### Fixed
+
+- **Typing `str` -- or any other String library command -- never brought up the completion
+  list.** Those commands were scoped `support.function.string.purebasic`, and VS Code picks
+  the `editor.quickSuggestions` entry that applies to a keystroke from the *innermost scope*
+  of the token at the caret, matching `/\b(comment|string|regex|regexp)\b/`. The bare word
+  `string` made the editor treat a code token as a string literal, and string suggestions
+  default to off, so it never asked the extension. The library scope is now
+  `support.function.stringlib.purebasic`: `str`, `strd`, `left`, `mid`, `len`, ... pop up
+  like every other command. A theme that targeted the old scope needs the new name; a
+  regression test now tokenizes all 1999 built-in names and fails if any is classified as a
+  string or a comment.
+
 ## [0.1.1] - 2026-09-20
 
 ### Fixed

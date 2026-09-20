@@ -2,7 +2,7 @@
 	"name": "purebasic",
 	"displayName": "PureBasic",
 	"description": "PureBasic language support for Visual Studio Code: code completion, hover, signature help and document outline.",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"publisher": "agorangetek",
 	"license": "MIT",
 	"engines": {

@@ -35,7 +35,7 @@ scope below is specific to PureBasic:
 | procedures, declared and called | `entity.name.function.purebasic` |
 | structures, interfaces, modules | `entity.name.type.purebasic` |
 | a type suffix or return type (`.d`, `.i`) | `storage.type.purebasic` |
-| library commands (`MessageRequester`, …) | `support.function.<library>.purebasic` |
+| library commands (`MessageRequester`, …) | `support.function.<library>.purebasic` (String library: `stringlib`) |
 | library constants (`#PB_Event_CloseWindow`) | `support.constant.purebasic` |
 | your constants (`#MaxPoints`) | `constant.other.purebasic` |
 | pointers (`*pBuffer`) | `variable.other.pointer.purebasic` |
@@ -44,6 +44,11 @@ scope below is specific to PureBasic:
 | a data label (`?data`) | `variable.other.label-reference.purebasic` |
 | labels (`top:`) | `entity.name.label.purebasic` |
 | inline assembly (`! mov …`) | `meta.embedded.asm.purebasic` |
+
+A library's name is used as-is, except the String library, whose segment is `stringlib`.
+VS Code reads the suggestions category of the token under the caret from its innermost
+scope with `/\b(comment|string|regex|regexp)\b/`; a bare `string` segment would make it
+treat a command as a string literal, and typing it would never pop up the list.
 
 To colour one of them differently, target it from your settings:
 

@@ -9,3 +9,6 @@ out
 # credential does not carry.  Remove this line once it does -- or add the file
 # through the GitHub web UI -- and CI will run as written.
 .github/workflows/ci.yml
+
+# throwaway run artifacts (e2e launches, scratch dirs)
+.tmp-*/

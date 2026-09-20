@@ -226,3 +226,76 @@ test('a procedure return type is coloured as a type, not as the name', { skip },
 	assertScoped(lines, 'Test', /^entity\.name\.function/, 'a declared name');
 	assertScoped(lines, 'Callback', /^entity\.name\.function/, 'a prototype name');
 });
+
+/*
+ * VS Code chooses which editor.quickSuggestions entry applies to a keystroke by
+ * deriving a "standard token type" from the INNERMOST scope of the token at the
+ * caret, matching /\b(comment|string|regex|regexp)\b/ (getStandardTokenType in
+ * the editor's tokenMetadata).  Strings and comments default to "off", so a code
+ * scope that contains one of those words as a whole word stops the suggestion
+ * widget from opening while typing.  The String library used to be scoped
+ * support.function.string.purebasic, so typing `str` classified the caret as a
+ * string and the list never appeared -- while `procedure` (keyword, "other")
+ * worked.  These tests keep every code scope out of that trap.
+ */
+const RESERVED_TOKEN_TYPE = /\b(comment|string|regex|regexp)\b/;
+
+/** The scope VS Code reads the quickSuggestions category from. */
+function quickSuggestionsCategory(token: Token): string {
+	const innermost = token.scopes[token.scopes.length - 1] ?? 'source.purebasic';
+	return innermost.match(RESERVED_TOKEN_TYPE)?.[1] ?? 'other';
+}
+
+test('no built-in command or keyword is tokenized as a string or a comment', { skip }, async () => {
+	const data = JSON.parse(
+		readFileSync(join(root, 'src', 'data', 'pb-builtins.json'), 'utf8'),
+	) as { items: { name: string }[]; keywords: string[] };
+	const names = [...data.items.map((item) => item.name), ...data.keywords];
+
+	const lines = await tokenize(names.join('\n'));
+	const offenders: string[] = [];
+	lines.forEach((tokens, line) => {
+		for (const token of tokens) {
+			if (token.text.trim() !== names[line]) continue;
+			const category = quickSuggestionsCategory(token);
+			if (category !== 'other') offenders.push(`${names[line]} -> ${token.scopes.join(' ')}`);
+		}
+	});
+
+	assert.deepEqual(
+		offenders,
+		[],
+		`typing these names would suppress the suggestion popup: ${offenders.join(', ')}`,
+	);
+});
+
+test('a String library command prefix still pops up suggestions', { skip }, async () => {
+	const lines = await tokenize(
+		['Procedure Test()', '\tstr', '\tstrd', '\tleft', '\tmid', '\tlen', 'EndProcedure'].join('\n'),
+	);
+
+	for (const name of ['str', 'strd', 'left', 'mid', 'len']) {
+		const token = occurrences(lines, name).find(({ token }) => token.text.trim() === name)?.token;
+		assert.ok(token, `${name} did not tokenize`);
+		assert.equal(
+			quickSuggestionsCategory(token),
+			'other',
+			`"${name}" scopes as ${token.scopes.join(' ')}, so the editor would treat it as a string/comment and never pop up`,
+		);
+		assert.ok(
+			token.scopes.some((s) => s.startsWith('support.function.')),
+			`"${name}" should still be a library command, got ${token.scopes.join(' ') || 'no scope'}`,
+		);
+	}
+});
+
+test('string and comment literals are still classified as such', { skip }, async () => {
+	const lines = await tokenize(['Debug "MessageRequester"', '; MessageRequester'].join('\n'));
+
+	const literal = occurrences(lines, 'MessageRequester').find(({ line }) => line === 0)?.token;
+	const comment = occurrences(lines, 'MessageRequester').find(({ line }) => line === 1)?.token;
+	assert.ok(literal && comment, 'the sample did not tokenize');
+
+	assert.equal(quickSuggestionsCategory(literal), 'string');
+	assert.equal(quickSuggestionsCategory(comment), 'comment');
+});
