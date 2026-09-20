@@ -97,10 +97,6 @@ whatever theme you run, paste the rules from
 nothing is left half-coloured. Any customisation you add overrides the theme for the scopes it
 names, which is how VS Code layers them.
 
-`node tools/theme-audit.mjs <theme.json>` prints what a given theme renders each scope as, and
-`node tools/theme-audit.mjs --palette docs/purebasic-ide-monokai.jsonc` checks that palette
-against the grammar and the IDE's own values.
-
 A code scope must never contain the word `string` or `comment`: VS Code reads the
 suggestions category of the token under the caret from its innermost scope with
 `/\b(comment|string|regex|regexp)\b/`, and a code token that reads as a string
@@ -317,22 +313,22 @@ leaves everything already known alone, so running it twice changes nothing.
 src/extension.ts    the only file that imports 'vscode'; translates between
                     the editor API and plain objects
 src/service/        the language service: parser, completion, hover, signature,
-                    casing, blocks, index. No 'vscode' import, so it is tested
-                    with plain node
+                    casing, blocks, index -- no 'vscode' import
 syntaxes/           the generated TextMate grammar
-src/data/           the generated keyword and command database
-tools/              the two generators
+src/data/           the generated command database
+tools/              the three generators: the database, the grammar and the
+                    bundled data
 ```
 
-Because `src/service/` never imports `vscode`, the whole language service runs
-under `node --test`. If an LSP wrapper is ever wanted, this layer becomes the
+Because `src/service/` never imports `vscode`, the language service is plain data
+in, plain data out. If an LSP wrapper is ever wanted, this layer becomes the
 server's core unchanged.
 
 ## Building from source
 
 ```sh
 npm install
-npm run check     # typecheck + unit tests + bundle
+npm run check     # typecheck, the generated-file checks, then the bundle
 npm run package   # produces purebasic-<version>.vsix
 ```
 
@@ -351,9 +347,9 @@ command, with the manual's signature and library) and
 the folding pairs and the type suffixes). The grammar's word lists come from
 the result, so highlighting and completion can never drift apart.
 
-The language service is written in "erasable syntax only" TypeScript (no enums,
-no parameter properties), so node can run the `.ts` sources directly. `npm test`
-passes `--experimental-strip-types`, so it works on Node 22.6 and newer.
+The language service is written in "erasable syntax only" TypeScript -- no enums,
+no parameter properties -- so the sources stay plain modules that any tool can
+read, and esbuild bundles them into the CommonJS file the editor loads.
 
 ## Requirements
 

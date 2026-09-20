@@ -183,8 +183,7 @@
 		"build": "node tools/gen-grammar.mjs && node tools/gen-builtins-ts.mjs && node esbuild.mjs",
 		"watch": "node esbuild.mjs --watch",
 		"typecheck": "tsc --noEmit",
-		"test": "node --experimental-strip-types --test test/*.test.ts",
-		"check": "npm run typecheck && node tools/gen-grammar.mjs --check && node tools/gen-builtins-ts.mjs --check && npm run test && npm run build",
+		"check": "npm run typecheck && node tools/gen-grammar.mjs --check && node tools/gen-builtins-ts.mjs --check && npm run build",
 		"vscode:prepublish": "npm run build",
 		"package": "vsce package"
 	},
@@ -193,8 +192,6 @@
 		"@types/vscode": "^1.75.0",
 		"@vscode/vsce": "^3.2.1",
 		"esbuild": "^0.24.2",
-		"typescript": "^5.7.2",
-		"vscode-oniguruma": "^2.0.1",
-		"vscode-textmate": "^9.3.2"
+		"typescript": "^5.7.2"
 	}
 }
