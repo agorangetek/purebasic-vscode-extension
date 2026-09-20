@@ -578,6 +578,35 @@ test('integration: extension host wiring', { skip }, async (t) => {
 		}
 	});
 
+	await t.test('a space capitalises the keyword it finishes', () => {
+		const provider = registrations.onType[0]!.provider;
+		const at = (text: string) =>
+			provider.provideOnTypeFormattingEdits(
+				new TextDocument('/ws/space.pb', text),
+				new Position(0, text.length),
+				' ',
+			) as { range: Range; newText: string }[] | undefined;
+
+		// only the word the space finished is replaced
+		const typed = at('procedure ');
+		assert.equal(typed?.length, 1);
+		assert.equal(typed![0]!.newText, 'Procedure');
+		assert.equal(typed![0]!.range.start.character, 0);
+		assert.equal(typed![0]!.range.end.character, 9);
+
+		assert.equal(at('  if ')![0]!.newText, 'If', 'the indentation is left alone');
+		assert.equal(at('  foreach ')![0]!.newText, 'ForEach');
+		assert.equal(at('if x = 1 and ')![0]!.newText, 'And');
+
+		// already canonical, not a keyword, or not code at all
+		assert.equal(at('If '), undefined);
+		assert.equal(at('x '), undefined);
+		assert.equal(at('print '), undefined, 'a library command is not re-cased as you type');
+		assert.equal(at('; if '), undefined, 'a comment is not code');
+		assert.equal(at('s = "if '), undefined, 'nor is a string');
+		assert.equal(at('foo() '), undefined);
+	});
+
 	await t.test('a closing paren re-cases the line it finishes', () => {
 		const provider = registrations.onType[0]!.provider;
 		const doc = new TextDocument('/ws/paren.pb', ['procedure test()', ''].join('\n'));

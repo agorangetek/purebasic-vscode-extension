@@ -5,10 +5,10 @@
  * this file only translates between those plain objects and the vscode API.
  */
 import * as vscode from 'vscode';
-import { allBlocks, builtinCount, builtinSource } from './service/builtins.ts';
+import { allBlocks, builtinCount, builtinSource, canonicalKeyword } from './service/builtins.ts';
 import { blockOpenerAt } from './service/blocks.ts';
 import { canonicalizeIdentifiers } from './service/casing.ts';
-import { parseDocument } from './service/parser.ts';
+import { maskSource, parseDocument, wordBefore } from './service/parser.ts';
 import { buildCompletions } from './service/completion.ts';
 import { getHover } from './service/hover.ts';
 import { PbIndex } from './service/index.ts';
@@ -375,22 +375,52 @@ export function activate(context: vscode.ExtensionContext): void {
 		return true;
 	}
 
-	// typing ')' re-cases the line it finishes, so a signature is fixed as soon
-	// as it is written.  This rides on editor.formatOnType, on for PureBasic by
-	// default; the caret is not in play here, so a provider is enough.
+	/*
+	 * A space re-cases the word it finishes -- `procedure ` becomes `Procedure `
+	 * as it is typed -- and ')' re-cases the whole line it closes, so a
+	 * signature is fixed the moment the parenthesis ends it.
+	 *
+	 * Both edits end before the caret, which is why they can be formatting edits
+	 * where Enter needed a command: nothing here can move the caret.
+	 *
+	 * A space only touches reserved words.  A library command can also be a
+	 * variable name (`left`, `open`, `print`), so re-casing one as you type
+	 * could rewrite a name the author chose, and with implicit variables the
+	 * name may not even have been declared yet.  Commands are still re-cased
+	 * when the call closes on ')', on Enter, and by Format Text, where the
+	 * declared names are known.
+	 */
 	context.subscriptions.push(
 		vscode.languages.registerOnTypeFormattingEditProvider(
 			LANGUAGE,
 			{
-				provideOnTypeFormattingEdits(document, position) {
+				provideOnTypeFormattingEdits(document, position, ch) {
 					if (!config().canonicalCase) return undefined;
 					const line = document.lineAt(position.line);
+
+					if (ch === ' ') {
+						const finished = wordBefore(line.text, position.character - 1);
+						if (!finished) return undefined;
+						const canonical = canonicalKeyword(finished.word);
+						if (!canonical || canonical === finished.word) return undefined;
+						// a keyword written in a comment or a string stays as written
+						const masked = maskSource(line.text)[0] ?? '';
+						if (masked.slice(finished.start, finished.end) !== finished.word) return undefined;
+						return [
+							vscode.TextEdit.replace(
+								new vscode.Range(position.line, finished.start, position.line, finished.end),
+								canonical,
+							),
+						];
+					}
+
 					const recased = canonicalizeIdentifiers(line.text, indexOf(document).symbols);
 					if (recased.changes === 0) return undefined;
 					return [vscode.TextEdit.replace(line.range, recased.text)];
 				},
 			},
 			')',
+			' ',
 		),
 	);
 

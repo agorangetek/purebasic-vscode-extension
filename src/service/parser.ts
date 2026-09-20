@@ -483,6 +483,22 @@ export function parseDocument(uri: string, text: string): PbDocument {
 	return { uri, text, symbols, includes };
 }
 
+/**
+ * The word ending just before `end` (exclusive), if there is one.
+ *
+ * A character typed at the caret finishes the word to its left, which is what
+ * the auto-capitalisation looks at.
+ */
+export function wordBefore(
+	text: string,
+	end: number,
+): { word: string; start: number; end: number } | undefined {
+	let start = Math.max(0, Math.min(end, text.length));
+	while (start > 0 && /[A-Za-z0-9_$]/.test(text[start - 1]!)) start--;
+	if (start >= end) return undefined;
+	return { word: text.slice(start, end), start, end };
+}
+
 /* ------------------------------------------------------------- cursor views */
 
 /** The identifier at a position, with its range and any leading sigil. */

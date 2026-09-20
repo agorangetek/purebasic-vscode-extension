@@ -7,6 +7,7 @@ import {
 	parseDocument,
 	statementContextAt,
 	wordAt,
+	wordBefore,
 } from '../src/service/parser.ts';
 
 const SAMPLE = [
@@ -141,4 +142,14 @@ test('statementContextAt classifies the cursor position', () => {
 	assert.equal(statementContextAt('  x = 1 : ', { line: 0, character: 10 }, '').kind, 'start');
 	// a comment is not code
 	assert.equal(statementContextAt('; Dim ', { line: 0, character: 6 }, '').kind, 'start');
+});
+
+test('wordBefore finds the word a typed character just finished', () => {
+	assert.deepEqual(wordBefore('if ', 2), { word: 'if', start: 0, end: 2 });
+	assert.deepEqual(wordBefore('  procedure ', 11), { word: 'procedure', start: 2, end: 11 });
+	assert.deepEqual(wordBefore('name$ ', 5), { word: 'name$', start: 0, end: 5 });
+	// nothing to the left: a space at the start of a line, or after punctuation
+	assert.equal(wordBefore(' ', 0), undefined);
+	assert.equal(wordBefore('x = ', 4), undefined);
+	assert.equal(wordBefore('foo() ', 6), undefined);
 });

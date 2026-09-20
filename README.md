@@ -97,6 +97,12 @@ another keyword.
   by the character itself, so those appear straight away. VS Code's own
   word-based suggestions are turned off for PureBasic, because otherwise they
   would open the popup on the first keystroke regardless.
+* **Keywords are re-cased as you type** — a space re-cases the word it finishes
+  (`procedure ` → `Procedure `, `foreach ` → `ForEach `, `and ` → `And `), and
+  typing `)` re-cases the whole line it closes. Reserved words only: a library
+  command can also be a variable name (`left`, `open`, `print`), so those are
+  left to the `)`, to Enter, and to Format Text, where the declared names are
+  known. Both edits end before the caret, so neither moves it.
 * **Enter closes what you opened** — pressing Enter at the end of an opener line
   re-cases that line and puts its terminator on the next one, indented like the
   opener, leaving the cursor on the body line:
@@ -157,7 +163,7 @@ files.
 | `purebasic.index.workspace` | `true` | Index `.pb`/`.pbi` files across the workspace. |
 | `purebasic.index.maxFiles` | `400` | Cap on indexed workspace files. |
 | `purebasic.format.canonicalCase` | `true` | Restore canonical spelling when formatting and on Enter. |
-| `editor.formatOnType` (per language) | `true` | On for PureBasic: re-cases the line when you type `)`. |
+| `editor.formatOnType` (per language) | `true` | On for PureBasic: the switch for the as-you-type re-casing above. |
 | `purebasic.trace.server` | `"off"` | Log language service activity to the *PureBasic* output channel. |
 
 ## Commands

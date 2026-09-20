@@ -33,6 +33,11 @@ extension — plain VS Code providers, in-process, no language server.
   popup. A type or member list after `.` or `\` still appears immediately, and
   VS Code's word-based suggestions are off for PureBasic so they cannot open the
   popup early themselves. Set the setting to 0 for the previous behaviour.
+- **Keywords are re-cased as you type**: a space restores the manual's spelling
+  of the word it finishes (`procedure ` -> `Procedure `, `foreach ` ->
+  `ForEach `), and `)` re-cases the whole line it closes. Reserved words only --
+  a library command can also be a variable name, so those wait for `)`, Enter or
+  Format Text, where the declared names are known.
 - **Enter finishes a block**: pressing Enter at the end of an opener line
   re-cases it and puts its terminator on the next line, indented like the opener,
   with the caret left on the body line (`procedure test()` + Enter gives

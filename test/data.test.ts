@@ -7,6 +7,7 @@ import {
 	builtinCount,
 	builtinMarkdown,
 	builtinSource,
+	canonicalKeyword,
 	isCompletableName,
 	lookupBuiltin,
 } from '../src/service/builtins.ts';
@@ -144,4 +145,20 @@ test('names that cannot be typed are kept out of completion', () => {
 	assert.equal(isCompletableName('MessageRequester'), true);
 	assert.equal(isCompletableName('Debug Expression'), false);
 	assert.equal(isCompletableName(''), false);
+});
+
+test('a reserved word has a canonical spelling, a library command does not', () => {
+	assert.equal(canonicalKeyword('if'), 'If');
+	assert.equal(canonicalKeyword('PROCEDURE'), 'Procedure');
+	assert.equal(canonicalKeyword('redim'), 'ReDim');
+	assert.equal(canonicalKeyword('foreach'), 'ForEach');
+
+	// a command can also be a variable name, so it is not re-cased on a space
+	for (const command of ['print', 'left', 'open', 'abs', 'MessageRequester']) {
+		assert.equal(canonicalKeyword(command), undefined, `${command} is not a keyword`);
+	}
+	assert.equal(canonicalKeyword('x'), undefined);
+	// and no false positive from the prototype chain
+	assert.equal(canonicalKeyword('constructor'), undefined);
+	assert.equal(canonicalKeyword('toString'), undefined);
 });

@@ -51,6 +51,20 @@ export function builtinTypeSuffixes(): readonly string[] {
 }
 
 /**
+ * The manual's spelling of a reserved word, or undefined when `word` is not one.
+ *
+ * Reserved words only: a library command can also be a variable name
+ * (`left`, `open`, `print`), so re-casing one as you type could rewrite a name
+ * the author chose.  A keyword cannot be a variable name, so re-casing it is
+ * always safe.
+ */
+export function canonicalKeyword(word: string): string | undefined {
+	const lower = word.toLowerCase();
+	if (!Object.hasOwn(PB_BUILTINS.keywordCanonical, lower)) return undefined;
+	return PB_BUILTINS.keywordCanonical[lower];
+}
+
+/**
  * Whether a built-in's name can be typed as a bare word.  A handful of manual
  * entries name a syntax form rather than a token (`Debug Expression`,
  * `Operator []`), and those have no business in a completion list.
