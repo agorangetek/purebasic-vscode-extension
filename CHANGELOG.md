@@ -4,6 +4,29 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.5] - 2026-09-20
+
+### Fixed
+
+- **A structure field whose name began with a directive keyword was dropped.** The guard that
+  keeps `Import`/`Compiler…`/`Data` lines out of a structure block matched on a bare prefix, so
+  `ImportedDllName$` was read as an `Import` and never became a field -- and neither did a
+  `List Items.Inner()` or `Map Lookup.Inner()` field, which the same guard rejected as a bare
+  `List`/`Map`. Directives are now matched as whole keywords, which is the difference between
+  `Imported…` and `Import`. Found with a real 1154-line library (`MemDll.pb`).
+- **A variable declared as `x.MyStruct`, with no `Define`, was not recognised.** `pbcompiler`
+  accepts the bare form (its own `x.MyStruct = 3` is rejected as "Can't assign a value to a
+  structure"), so it now declares a variable of that type like the `Define` form does; `x.i` and
+  `*p.MyStruct` too.
+
+### Changed
+
+- Members offered after a `\` are the fields of the structure the variable is declared as,
+  instead of every field of every known structure; a file with many structures no longer mixes
+  them. A member that comes from an included file names that file, as does a structure offered
+  after a `.`. When the type cannot be told from the declaration, every field is still offered
+  rather than showing an empty list.
+
 ## [0.1.4] - 2026-09-20
 
 ### Fixed

@@ -153,3 +153,64 @@ test('wordBefore finds the word a typed character just finished', () => {
 	assert.equal(wordBefore('x = ', 4), undefined);
 	assert.equal(wordBefore('foo() ', 6), undefined);
 });
+
+test('a field may be named anything, including after a directive keyword', () => {
+	// pbcompiler accepts these; a prefix match on Import/List/Map once dropped them
+	const doc = parseDocument(
+		'file:///p.pb',
+		[
+			'Structure Outer',
+			'\tList Items.Inner()',
+			'\tMap Lookup.Inner()',
+			'\tArray Slots.Inner(8)',
+			'\tImportedDllName$',
+			'\tImportedDllHandle.i',
+			'\tCompilerVersion.i',
+			'\t*EntryPoint',
+			'EndStructure',
+		].join('\n'),
+	);
+	const fields = doc.symbols.filter((s) => s.kind === 'field').map((s) => s.name);
+
+	assert.deepEqual(fields, [
+		'Items',
+		'Lookup',
+		'Slots',
+		'ImportedDllName$',
+		'ImportedDllHandle',
+		'CompilerVersion',
+		'*EntryPoint',
+	]);
+});
+
+test('the directives between fields are still not fields', () => {
+	const doc = parseDocument(
+		'file:///p.pb',
+		[
+			'Structure Outer',
+			'\tExtends Base',
+			'\tAlign 4',
+			'\ta.i',
+			'\tCompilerIf #PB_Compiler_64',
+			'\tb.i',
+			'\tCompilerEndIf',
+			'EndStructure',
+			'Import "user32.lib"',
+			'EndImport',
+		].join('\n'),
+	);
+	const fields = doc.symbols.filter((s) => s.kind === 'field').map((s) => s.name);
+	assert.deepEqual(fields, ['a', 'b']);
+});
+
+test('a bare name.Type line declares the variable, as pbcompiler accepts', () => {
+	const doc = parseDocument(
+		'file:///p.pb',
+		['Structure MyStruct', '\ta.i', 'EndStructure', '', 'x.MyStruct', '*p.MyStruct', 'y.i'].join('\n'),
+	);
+	const declared = doc.symbols
+		.filter((s) => s.kind === 'variable')
+		.map((s) => `${s.name}:${s.type ?? ''}${s.pointer ? ':pointer' : ''}`);
+
+	assert.deepEqual(declared, ['x:MyStruct', '*p:MyStruct:pointer', 'y:i']);
+});

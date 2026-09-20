@@ -171,6 +171,58 @@ function allFields(document: PbDocument, workspaceSymbols: readonly PbSymbol[]):
 	return [...document.symbols, ...workspaceSymbols].filter((s) => s.kind === 'field');
 }
 
+/** The variable before a trailing `\`, whose members are being typed. */
+function memberOwner(before: string): string | undefined {
+	return /([*@?]?[A-Za-z_]\w*)\\\s*$/.exec(before)?.[1];
+}
+
+/**
+ * The structure a variable is declared with, when that can be told.  The
+ * nearest declaration in the enclosing procedure wins over a module-level one,
+ * and only a name that really is a structure or interface counts: an unresolved
+ * or native type leaves the member list open instead of empty.
+ */
+function declaredStructureOf(
+	document: PbDocument,
+	workspaceSymbols: readonly PbSymbol[],
+	name: string,
+	position: PbPosition,
+): string | undefined {
+	const known = new Set(
+		[...document.symbols, ...workspaceSymbols]
+			.filter((symbol) => symbol.kind === 'structure' || symbol.kind === 'interface')
+			.map((symbol) => symbol.name),
+	);
+	const bare = name.replace(/^[*@?]/, '');
+	const declared = document.symbols.filter(
+		(symbol) => symbol.name === bare && symbol.type !== undefined && known.has(symbol.type),
+	);
+	const scope = enclosingProcedure(document, position)?.name;
+	return (
+		declared.find((symbol) => symbol.scope === scope)?.type ??
+		declared.find((symbol) => symbol.scope === '')?.type
+	);
+}
+
+/**
+ * The members to offer after a `\`: the fields of the structure the variable is
+ * declared as, so a file with many structures shows the right ones.  When the
+ * type is unknown, or the structure brings no fields of its own, every known
+ * field is offered rather than nothing.
+ */
+function memberItems(
+	document: PbDocument,
+	workspaceSymbols: readonly PbSymbol[],
+	before: string,
+	position: PbPosition,
+): PbSymbol[] {
+	const fields = allFields(document, workspaceSymbols);
+	const owner = memberOwner(before);
+	const type = owner ? declaredStructureOf(document, workspaceSymbols, owner, position) : undefined;
+	const own = type === undefined ? [] : fields.filter((field) => field.scope === type);
+	return own.length > 0 ? own : fields;
+}
+
 /**
  * Build the completion list for a position.  Higher-priority sources come
  * first (locals, then this document, then the workspace, then the language),
@@ -213,16 +265,16 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 				});
 			}
 			for (const symbol of [...document.symbols, ...workspaceSymbols]) {
-				if (symbol.kind === 'structure' || symbol.kind === 'interface') {
-					push(symbolToCompletionItem(symbol, RANK.document, false));
-				}
+				if (symbol.kind !== 'structure' && symbol.kind !== 'interface') continue;
+				const from = symbol.file === document.uri ? undefined : fileNameOf(symbol.file);
+				push(symbolToCompletionItem(symbol, RANK.document, false, '', from));
 			}
 		} else {
-			for (const field of allFields(document, workspaceSymbols)) {
-				push({
-					...symbolToCompletionItem(field, RANK.local, false),
-					documentation: field.scope ? `member of ${field.scope}` : undefined,
-				});
+			for (const field of memberItems(document, workspaceSymbols, context.before, position)) {
+				const from = field.file === document.uri ? undefined : fileNameOf(field.file);
+				const item = symbolToCompletionItem(field, RANK.local, false, '', from);
+				item.documentation = field.scope ? `member of ${field.scope}` : undefined;
+				push(item);
 			}
 		}
 		return filterByPrefix(items, word);

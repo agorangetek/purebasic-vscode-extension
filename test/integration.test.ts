@@ -832,6 +832,8 @@ test('integration: only files joined by IncludeFile share symbols', { skip }, as
 
 		assert.ok(labels.includes('width'), `expected width among ${labels.join(', ')}`);
 		assert.ok(labels.includes('height'), `expected height among ${labels.join(', ')}`);
+		const width = items.find((i) => shownLabel(i) === 'width');
+		assert.equal(shownDescription(width!), 'helpers.pb', 'a member says which file it came from');
 		assert.ok(
 			!labels.includes('WsHelperGreet'),
 			'a member list holds members, not the names you type anywhere',

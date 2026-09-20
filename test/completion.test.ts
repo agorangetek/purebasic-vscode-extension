@@ -281,3 +281,61 @@ test('a structure from another file gives its fields after a backslash', () => {
 	});
 	assert.deepEqual(plain.map((i) => i.label), [], 'a field is not a name you can type anywhere');
 });
+
+test('members are the fields of the structure the variable is declared as', () => {
+	const source = [
+		'Structure Point',
+		'\tx.i',
+		'\ty.i',
+		'EndStructure',
+		'Structure Shape',
+		'\twidth.i',
+		'\theight.i',
+		'EndStructure',
+		'',
+		'pt.Point',
+		'\tpt\\',
+	].join('\n');
+	const document = parseDocument('file:///m.pb', source);
+
+	const at = (word = '') =>
+		buildCompletions({
+			document,
+			position: { line: 10, character: 4 },
+			word,
+			options: OPTIONS,
+		}).map((i) => i.label);
+
+	assert.deepEqual(at(), ['x', 'y'], 'only the fields of Point');
+	assert.match(
+		buildCompletions({
+			document,
+			position: { line: 10, character: 4 },
+			word: '',
+			options: OPTIONS,
+		})[0]!.documentation ?? '',
+		/member of Point/,
+	);
+
+	// a structure offered after a dot names the file it comes from
+	const other = parseDocument('file:///ws/shapes.pbi', 'Structure Cube\n\tside.i\nEndStructure');
+	const dotted = buildCompletions({
+		document: parseDocument('file:///ws/use.pb', 'floor.Cu'),
+		workspaceSymbols: other.symbols,
+		position: { line: 0, character: 8 },
+		word: 'Cu',
+		options: OPTIONS,
+	});
+	assert.equal(dotted[0]?.label, 'Cube');
+	assert.equal(dotted[0]?.labelDescription, 'shapes.pbi');
+
+	// an unknown owner keeps every field rather than showing nothing
+	const loose = parseDocument('file:///m2.pb', source.replace('pt.Point', 'mystery.Point'));
+	const looseItems = buildCompletions({
+		document: loose,
+		position: { line: 10, character: 4 },
+		word: '',
+		options: OPTIONS,
+	}).map((i) => i.label);
+	assert.deepEqual(looseItems, ['x', 'y', 'width', 'height'], 'no owner, every field');
+});

@@ -230,6 +230,25 @@ const INCLUDE_DIR_RE = /^\s*include\s*path\s+"([^"]+)"/i;
 const CONST_RE = /^\s*(#[A-Za-z_]\w*\$?)\s*(?:=|\+)/;
 const NEWCONTAINER_RE =
 	/^\s*(?:(?:global|protected|static|threaded)\s+)?(newlist|newmap)\b\s*[A-Za-z_]\w*\s*(?:\.([A-Za-z_]\w*))?\s*\(/i;
+/*
+ * Directives that can sit between structure fields.  Each is matched as a whole
+ * keyword, because a field may be named anything: `ImportedDllName$` is a field
+ * and not an `Import`, and the compiler accepts it (checked with pbcompiler).
+ */
+const FIELD_IGNORE_RE =
+	/^(?:Compiler(?:If|ElseIf|Else|EndIf|Select|Case|Default|EndSelect|Error|Warning)\b|ImportC?\b|Data\b)/i;
+
+/** Field-shaped lines that are really block markers or modifiers. */
+const FIELD_RESERVED_RE =
+	/^(?:EndStructure|EndStructureUnion|EndInterface|Structure|StructureUnion|Interface|Extends|Align|Static)\b|^(?:List|Array|Map)$/i;
+
+/**
+ * `x.MyStruct`, `*p.MyStruct` or `x.i` on a line of its own: the bare form is a
+ * declaration too -- pbcompiler accepts it -- and it is how a structured
+ * variable is usually introduced.
+ */
+const BARE_DECL_RE = /^\s*(\*?[A-Za-z_]\w*)\s*\.\s*([A-Za-z_]\w*)\s*$/;
+
 const FIELD_RE =
 	/^\s*(?:list\s+|array\s+|map\s+)?(\*?[A-Za-z_]\w*\$?)(?:\.([A-Za-z_]\w*))?(?:\s*(?:\[\s*\w+\s*\]|\([^)]*\)))?\s*$/i;
 const LABEL_RE = /^\s*([A-Za-z_]\w*)\s*:(?!:)/;
@@ -415,13 +434,11 @@ export function parseDocument(uri: string, text: string): PbDocument {
 		const structIndex = [...stack].reverse().findIndex(
 			(b) => b.kind === 'structure' || b.kind === 'structureunion' || b.kind === 'interface',
 		);
-		if (structIndex >= 0 && !/^(Compiler|Import|Data\b)/i.test(trimmed)) {
+		if (structIndex >= 0 && !FIELD_IGNORE_RE.test(trimmed)) {
 			const scopeBlock = stack[stack.length - 1 - structIndex]!;
 			if (scopeBlock.kind !== 'enumeration') {
 				const field = FIELD_RE.exec(trimmed);
-				const reserved =
-					/^(EndStructure|EndStructureUnion|EndInterface|Structure|StructureUnion|Interface|Extends|Align|Static|List|Array|Map)\b/i;
-				if (field && !reserved.test(trimmed) && !/^\*?\w+\s*\(/.test(trimmed)) {
+				if (field && !FIELD_RESERVED_RE.test(trimmed) && !/^\*?\w+\s*\(/.test(trimmed)) {
 					add(field[1]!, 'field', i, source, {
 						type: field[2],
 						pointer: field[1]!.startsWith('*') || undefined,
@@ -463,6 +480,17 @@ export function parseDocument(uri: string, text: string): PbDocument {
 					detail: source.trim(),
 				});
 			}
+			continue;
+		}
+
+		// a bare `name.Type` declaration, which pbcompiler accepts on its own
+		const typed = inside('datasection') ? null : BARE_DECL_RE.exec(line);
+		if (typed) {
+			add(typed[1]!, 'variable', i, source, {
+				type: typed[2],
+				pointer: typed[1]!.startsWith('*') || undefined,
+				detail: source.trim(),
+			});
 			continue;
 		}
 
