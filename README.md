@@ -49,6 +49,14 @@ scope below is specific to PureBasic:
 | symbolic operators (`=`, `+`, `<=`, `<>`) | `keyword.operator.symbol.purebasic` |
 | inline assembly (`! mov …`) | `meta.embedded.asm.purebasic` |
 
+Colours come from the theme: the grammar emits only standard TextMate scopes, so switching
+theme switches them and nothing is pinned. If you want the PureBasic IDE's own Monokai scheme
+whatever theme you run, paste the rules from
+[docs/purebasic-ide-monokai.jsonc](docs/purebasic-ide-monokai.jsonc) into
+`editor.tokenColorCustomizations.textMateRules` -- they name every scope the grammar emits, so
+nothing is left half-coloured. Any customisation you add overrides the theme for the scopes it
+names, which is how VS Code layers them.
+
 A library's name is used as-is, except the String library, whose segment is `stringlib`.
 VS Code reads the suggestions category of the token under the caret from its innermost
 scope with `/\b(comment|string|regex|regexp)\b/`; a bare `string` segment would make it

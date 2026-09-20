@@ -1,0 +1,128 @@
+{
+	"_comment": "The PureBasic IDE's Monokai scheme (/Applications/PureBasic.app/Contents/Resources/colorschemes/Monokai.prefs, and the live values in ~/.purebasic/purebasic.prefs) mapped onto this grammar's scopes. Paste into  editor.tokenColorCustomizations.textMateRules  to pin these colours over any theme; note the scope prefix, because a [purebasic] block is ignored for token colours. Anything omitted follows the theme.",
+	"textMateRules": [
+		{
+			"_": "NormalTextColor: identifiers, punctuation",
+			"scope": [
+				"source.purebasic"
+			],
+			"settings": {
+				"foreground": "#F8F8F2"
+			}
+		},
+		{
+			"_": "BasicKeywordColor and OperatorColor",
+			"scope": [
+				"source.purebasic keyword.control.purebasic",
+				"source.purebasic keyword.other.procedure.purebasic",
+				"source.purebasic keyword.other.data.purebasic",
+				"source.purebasic keyword.other.declaration.purebasic",
+				"source.purebasic keyword.other.structure.purebasic",
+				"source.purebasic keyword.other.module.purebasic",
+				"source.purebasic keyword.other.macro.purebasic",
+				"source.purebasic keyword.other.compiler.purebasic",
+				"source.purebasic keyword.other.include.purebasic",
+				"source.purebasic keyword.other.enumeration.purebasic",
+				"source.purebasic keyword.other.container.purebasic",
+				"source.purebasic keyword.operator.word.purebasic",
+				"source.purebasic keyword.operator.symbol.purebasic"
+			],
+			"settings": {
+				"foreground": "#F92672"
+			}
+		},
+		{
+			"_": "PureKeywordColor: library commands and procedure names",
+			"scope": [
+				"source.purebasic support.function",
+				"source.purebasic entity.name.function.purebasic"
+			],
+			"settings": {
+				"foreground": "#A6E22E"
+			}
+		},
+		{
+			"_": "StringColor, escape included",
+			"scope": [
+				"source.purebasic string",
+				"source.purebasic constant.character.escape.purebasic"
+			],
+			"settings": {
+				"foreground": "#E6DB74"
+			}
+		},
+		{
+			"_": "CommentColor",
+			"scope": [
+				"source.purebasic comment"
+			],
+			"settings": {
+				"foreground": "#75715E"
+			}
+		},
+		{
+			"_": "ASMKeywordColor",
+			"scope": [
+				"source.purebasic meta.embedded.asm.purebasic"
+			],
+			"settings": {
+				"foreground": "#66D9EF"
+			}
+		},
+		{
+			"_": "LabelColor",
+			"scope": [
+				"source.purebasic variable.other.label-reference.purebasic",
+				"source.purebasic entity.name.label.purebasic"
+			],
+			"settings": {
+				"foreground": "#E69F66"
+			}
+		},
+		{
+			"_": "ConstantColor, NumberColor and PointerColor are one value here",
+			"scope": [
+				"source.purebasic constant.other.purebasic",
+				"source.purebasic support.constant.purebasic",
+				"source.purebasic constant.numeric.purebasic",
+				"source.purebasic variable.other.reference.purebasic",
+				"source.purebasic variable.other.pointer.purebasic"
+			],
+			"settings": {
+				"foreground": "#AE81FF"
+			}
+		},
+		{
+			"_": "Code colour: what comes off a structure, ModuleColor included",
+			"scope": [
+				"source.purebasic variable.other.typed.purebasic",
+				"source.purebasic variable.other.member.purebasic",
+				"source.purebasic entity.name.type.reference.purebasic",
+				"source.purebasic entity.name.namespace.purebasic"
+			],
+			"settings": {
+				"foreground": "#A6E22E"
+			}
+		},
+		{
+			"_": "A variable on its own is plain text",
+			"scope": [
+				"source.purebasic variable.other.purebasic",
+				"source.purebasic punctuation.separator.label.purebasic"
+			],
+			"settings": {
+				"foreground": "#F8F8F2"
+			}
+		},
+		{
+			"_": "A declaration is normal text: `Structure Point`, a field line, a native suffix",
+			"scope": [
+				"source.purebasic storage.type.purebasic",
+				"source.purebasic entity.name.type.purebasic"
+			],
+			"settings": {
+				"foreground": "#F8F8F2"
+			}
+		}
+	]
+}
