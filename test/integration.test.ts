@@ -56,6 +56,33 @@ class Range {
 	}
 }
 
+/*
+ * Files the extension indexes at activation: a chain (/ws/scratch.pb ->
+ * lib/helpers.pb -> lib/deeper/more.pbi), a file nothing includes, and one
+ * outside the workspace folder that only the include walk can reach.  Seeded
+ * before `activate` runs so the real index and the real include walk are both
+ * exercised, and named so they cannot collide with built-ins other tests assert.
+ */
+const workspaceFiles = new Map<string, string>([
+	[
+		'/ws/lib/helpers.pb',
+		[
+			'IncludeFile "deeper/more.pbi"',
+			'Procedure WsHelperGreet(name$)',
+			'\tDebug name$',
+			'EndProcedure',
+			'WsHelperVersion.d = 1.0',
+		].join('\n'),
+	],
+	['/ws/lib/deeper/more.pbi', ['Procedure WsDeepThing(x.i)', '\tProcedureReturn x', 'EndProcedure'].join('\n')],
+	['/ws/other.pb', ['Procedure WsOtherThing(x.i)', '\tProcedureReturn x', 'EndProcedure'].join('\n')],
+]);
+
+/** Not returned by findFiles: only an IncludeFile chain can discover these. */
+const outsideFiles = new Map<string, string>([
+	['/shared/common.pbi', ['Procedure WsOutside()', '\tProcedureReturn 1', 'EndProcedure'].join('\n')],
+]);
+
 class Uri {
 	path: string;
 	constructor(path: string) {
@@ -152,18 +179,35 @@ class MarkdownString {
 	}
 }
 
-class CompletionItem {
+interface CompletionItemLabel {
 	label: string;
+	detail?: string;
+	description?: string;
+}
+
+class CompletionItem {
+	/** The API accepts both forms; `new CompletionItem('x')` and the object form. */
+	label: string | CompletionItemLabel;
 	kind?: number;
 	detail?: string;
 	sortText?: string;
 	filterText?: string;
 	insertText?: unknown;
 	documentation?: unknown;
-	constructor(label: string, kind?: number) {
+	constructor(label: string | CompletionItemLabel, kind?: number) {
 		this.label = label;
 		this.kind = kind;
 	}
+}
+
+/** The text VS Code shows for an item, from either label form. */
+function shownLabel(item: CompletionItem): string {
+	return typeof item.label === 'string' ? item.label : item.label.label;
+}
+
+/** The dimmed text after the label, or undefined when there is none. */
+function shownDescription(item: CompletionItem): string | undefined {
+	return typeof item.label === 'string' ? undefined : item.label.description;
 }
 
 class Hover {
@@ -298,8 +342,14 @@ const vscodeMock = {
 		getConfiguration: () => ({
 			get: (key: string, fallback: unknown) => (key in DEFAULT_CONFIG ? DEFAULT_CONFIG[key] : fallback),
 		}),
-		findFiles: async () => [],
-		fs: { readFile: async () => new Uint8Array() },
+		findFiles: async () => [...workspaceFiles.keys()].map((path) => Uri.file(path)),
+		fs: {
+			readFile: async (uri: Uri) => {
+				const text = workspaceFiles.get(uri.path) ?? outsideFiles.get(uri.path);
+				if (text === undefined) throw new Error(`no such file: ${uri.path}`);
+				return new TextEncoder().encode(text);
+			},
+		},
 		onDidOpenTextDocument: () => disposable,
 		onDidChangeTextDocument: () => disposable,
 		onDidCloseTextDocument: () => disposable,
@@ -676,5 +726,101 @@ test('integration: extension host wiring', { skip }, async (t) => {
 			['Procedure.d area(w.d, h.d)', '\tProcedureReturn w * h', 'EndProcedure'].join('\n'),
 		);
 		assert.ok(statusMessages.some((m) => /re-cased/.test(m)));
+	});
+});
+
+test('integration: only files joined by IncludeFile share symbols', { skip }, async (t) => {
+	// the mock has workspace indexing off; this is the feature that needs it
+	DEFAULT_CONFIG['index.workspace'] = true;
+	activation ??= loadExtension();
+	await activation;
+
+	const at = (document: TextDocument, line: number, character: number) =>
+		registrations.completion[0]!.provider.provideCompletionItems(
+			document,
+			new Position(line, character),
+		) as CompletionItem[];
+	const labels = (items: CompletionItem[]) => items.map(shownLabel).join(', ');
+	const lineFor = (word: string) => `\t${word}`;
+
+	// /ws/scratch.pb includes lib/helpers.pb, which includes lib/deeper/more.pbi
+	const scratch = new TextDocument(
+		'/ws/scratch.pb',
+		[
+			'IncludeFile "lib/helpers.pb"',
+			'IncludeFile "../shared/common.pbi"',
+			'Procedure ScratchMain()',
+			lineFor('WsHel'),
+			lineFor('WsDee'),
+			lineFor('WsOth'),
+			lineFor('WsOut'),
+			'EndProcedure',
+		].join('\n'),
+	);
+
+	await t.test('a file named by IncludeFile contributes, with its file on the item', async () => {
+		// the include walk starts from the open documents, so scratch is one
+		if (!vscodeMock.workspace.textDocuments.includes(scratch)) {
+			vscodeMock.workspace.textDocuments.push(scratch);
+		}
+		await commands.get('purebasic.reindex')!();
+
+		const items = at(scratch, 3, 7);
+		const greet = items.find((i) => shownLabel(i) === 'WsHelperGreet');
+
+		assert.ok(greet, `expected WsHelperGreet among ${labels(items)}`);
+		assert.equal(
+			shownDescription(greet),
+			'helpers.pb',
+			'the file that defines the symbol is shown after the label',
+		);
+		assert.match(String(greet.sortText), /^2helpers\.pb/, 'the file name keeps one file together');
+	});
+
+	await t.test('the chain is followed in both directions and transitively', async () => {
+		// scratch -> helpers.pb -> deeper/more.pbi
+		const deep = at(scratch, 4, 7);
+		assert.ok(
+			deep.some((i) => shownLabel(i) === 'WsDeepThing'),
+			`an included file contributes through the chain, got ${labels(deep)}`,
+		);
+
+		// editing the deepest file, whose symbols come from the file that includes it
+		const more = new TextDocument(
+			'/ws/lib/deeper/more.pbi',
+			['Procedure WsDeepThing(x.i)', lineFor('WsHelperGreet'), 'EndProcedure'].join('\n'),
+		);
+		const up = at(more, 1, 15);
+		assert.ok(
+			up.some((i) => shownLabel(i) === 'WsHelperGreet'),
+			`a file included by another sees that file, got ${labels(up)}`,
+		);
+	});
+
+	await t.test('a file no include reaches is not offered', async () => {
+		const items = at(scratch, 5, 7);
+		assert.ok(
+			!items.some((i) => shownLabel(i) === 'WsOtherThing'),
+			`/ws/other.pb is not included, got ${labels(items)}`,
+		);
+
+		// the file is indexed all the same: a file that includes it does see it
+		const other = new TextDocument(
+			'/ws/usesother.pb',
+			['IncludeFile "other.pb"', 'Procedure UsesOther()', lineFor('WsOth'), 'EndProcedure'].join('\n'),
+		);
+		const viaInclude = at(other, 2, 7);
+		assert.ok(
+			viaInclude.some((i) => shownLabel(i) === 'WsOtherThing'),
+			`including /ws/other.pb makes it contribute, got ${labels(viaInclude)}`,
+		);
+	});
+
+	await t.test('an included file outside the workspace folder is read from disk', async () => {
+		const items = at(scratch, 6, 7);
+		const outside = items.find((i) => shownLabel(i) === 'WsOutside');
+
+		assert.ok(outside, `expected WsOutside among ${labels(items)}`);
+		assert.equal(shownDescription(outside), 'common.pbi');
 	});
 });

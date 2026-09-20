@@ -4,6 +4,29 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.3] - 2026-09-20
+
+### Changed
+
+- **Cross-file completion now follows `IncludeFile`/`XIncludeFile` instead of the whole
+  folder.** PureBasic compiles one translation unit, so a procedure in another file only
+  exists for the compiler when an include chain reaches it; offering every `.pb`/`.pbi`
+  file in the folder suggested names that would not compile. A file now contributes only
+  when it shares the current file's translation unit, and the chain is followed in both
+  directions and transitively: in `main.pb` -> `lib/helpers.pbi` -> `lib/deeper/more.pbi`,
+  all three files suggest each other's symbols. Targets resolve the way `pbcompiler`
+  resolves them -- relative to the file that writes the statement, then through
+  `IncludePath` directories, each relative to the file that declares it -- including
+  targets outside the workspace folder, which are read from disk.
+- An item offered from another file now shows that file after its label
+  (`LoadConfig   config.pbi`) and sorts with the rest of its file. VS Code has no row for
+  a group heading in the popup, so the file name rides on each item.
+
+### Added
+
+- `IncludePath` directives are parsed and used to resolve includes, and
+  `test/includes.test.ts` covers the resolution rules and the shape of the graph.
+
 ## [0.1.2] - 2026-09-20
 
 ### Fixed

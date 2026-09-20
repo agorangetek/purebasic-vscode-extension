@@ -4,6 +4,7 @@
  */
 import { allBlocks, allBuiltins, builtinMarkdown, isCompletableName } from './builtins.ts';
 import { blockBody, blockContinuations, expectsName, isDeclarationPrefix } from './blocks.ts';
+import { baseNameOf, pathOfUri } from './includes.ts';
 import { memberContextAt, parameterNames, statementContextAt } from './parser.ts';
 import type {
 	PbBuiltin,
@@ -73,10 +74,18 @@ function symbolDetail(symbol: PbSymbol): string {
 	return symbol.detail || `${symbol.kind} ${symbol.name}`;
 }
 
+/** The file name part of a uri, for the label of a symbol from another file. */
+export function fileNameOf(uri: string): string {
+	const path = uri.split('#')[0] ?? uri;
+	return baseNameOf(pathOfUri(path)) || uri;
+}
+
 export function symbolToCompletionItem(
 	symbol: PbSymbol,
 	rank: string,
 	allowSnippet = true,
+	group = '',
+	labelDescription?: string,
 ): PbCompletionItem {
 	const isCallable =
 		symbol.kind === 'procedure' || symbol.kind === 'declare' || symbol.kind === 'prototype';
@@ -92,12 +101,15 @@ export function symbolToCompletionItem(
 
 	return {
 		label: symbol.name,
+		labelDescription,
 		kind: symbolKindToCompletion(symbol.kind),
 		detail: symbolDetail(symbol),
 		documentation: symbol.doc,
 		insertText,
 		isSnippet,
-		sortText: rank + symbol.name.toLowerCase(),
+		// `group` keeps the symbols of one file together; the editor sorts by
+		// match quality first, so it only decides between equally good matches.
+		sortText: rank + group + symbol.name.toLowerCase(),
 	};
 }
 
@@ -247,10 +259,21 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 		if (symbol.scope === '') push(symbolToCompletionItem(symbol, RANK.document, false));
 	}
 
-	// 3. symbols from other files in the workspace
+	/*
+	 * 3. symbols from other files in the workspace.  The popup has no row for a
+	 * group heading, so every item carries the file that defines it after its
+	 * label (CompletionItemLabel.description, the field VS Code documents for a
+	 * file path) and the file name doubles as the sort key that keeps the
+	 * symbols of one file together.
+	 */
 	for (const symbol of workspaceSymbols) {
 		if (symbol.file === document.uri) continue;
-		push(symbolToCompletionItem(symbol, RANK.workspace, false));
+		const file = fileNameOf(symbol.file);
+		const item = symbolToCompletionItem(symbol, RANK.workspace, false, file, file);
+		item.documentation = item.documentation
+			? `${item.documentation}\n\n---\n\nFrom \`${file}\``
+			: `From \`${file}\``;
+		push(item);
 	}
 
 	// a fresh statement, with nothing on the line yet: where a block belongs

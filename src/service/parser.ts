@@ -224,6 +224,8 @@ const CLOSE_RE = /^\s*(endprocedure|endstructureunion|endstructure|endinterface|
 // directive alone is what is found here; the path comes from the source line
 const INCLUDE_RE = /\b(?:xinclude|include)\s*file\b/gi;
 const INCLUDE_PATH_RE = /\b(?:xinclude|include)\s*file\s+"([^"]+)"/i;
+/** `IncludePath "dir"`, the search path the compiler adds while including. */
+const INCLUDE_DIR_RE = /^\s*include\s*path\s+"([^"]+)"/i;
 
 const CONST_RE = /^\s*(#[A-Za-z_]\w*\$?)\s*(?:=|\+)/;
 const NEWCONTAINER_RE =
@@ -271,6 +273,7 @@ export function parseDocument(uri: string, text: string): PbDocument {
 	const masked = maskSource(text);
 	const symbols: PbSymbol[] = [];
 	const includes: string[] = [];
+	const includePaths: string[] = [];
 
 	// The blocks we are inside, outermost first.
 	const stack: { kind: BlockKind; name: string; symbol?: PbSymbol }[] = [];
@@ -324,6 +327,11 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			const found = INCLUDE_PATH_RE.exec(source.slice(inc.index));
 			if (found) includes.push(found[1]!);
 		}
+
+		// IncludePath "dir": adds a directory to the search path for the includes
+		// that follow it, which is how a project keeps its sources in a tree.
+		const dir = INCLUDE_DIR_RE.exec(source);
+		if (dir) includePaths.push(dir[1]!);
 
 		// a block terminator
 		const close = CLOSE_RE.exec(line);
@@ -480,7 +488,7 @@ export function parseDocument(uri: string, text: string): PbDocument {
 		}
 	}
 
-	return { uri, text, symbols, includes };
+	return { uri, text, symbols, includes, includePaths };
 }
 
 /**

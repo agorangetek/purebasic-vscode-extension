@@ -64,6 +64,8 @@ export interface PbDocument {
 	symbols: PbSymbol[];
 	/** Raw IncludeFile/XIncludeFile targets, in order. */
 	includes: string[];
+	/** Raw IncludePath directories, in order; they extend the search path. */
+	includePaths: string[];
 }
 
 export interface PbBuiltinParam {
@@ -133,6 +135,12 @@ export type PbCompletionKind =
 
 export interface PbCompletionItem {
 	label: string;
+	/**
+	 * Rendered dimmed after the label. Set to the file that defines the symbol
+	 * when it comes from another file, so a popup full of workspace symbols says
+	 * where each one lives.
+	 */
+	labelDescription?: string;
 	kind: PbCompletionKind;
 	detail: string;
 	/** Markdown documentation, shown in the completion popup and on hover. */

@@ -87,14 +87,14 @@ another keyword.
   `ForEach`, `CompilerEndIf`).
 * **Your own symbols** — procedures, structures, interfaces, modules,
   enumerations, macros, constants, `NewList`/`NewMap` containers, fields,
-  arrays, labels and parameters, indexed from the current file and (optionally)
-  from every `.pb`/`.pbi` file in the workspace.
+  arrays, labels and parameters, from the current file and from the files the
+  current one is joined to by `IncludeFile`/`XIncludeFile` (see below).
 * **Blocks that close themselves** — accepting `Procedure`, `Structure`,
   `Module`, `If`, `Select`, `ForEach`, `Repeat`, `CompilerIf`, … at the start of
   a statement inserts the whole skeleton with its terminator.
 * **Type awareness** — after a `.` you get the built-in type suffixes (`.i`,
   `.d`, `.s`, …) with what each one means, plus every structure and interface in
-  the workspace; after a `\` you get structure members.
+  the include group; after a `\` you get structure members.
 * **Prefix filtering, in any case** — typing a character offers only the names
   that *start* with it, whatever case you type.
 * **It waits for you** — nothing pops up until three characters of the name are
@@ -152,9 +152,31 @@ nothing the second time.
 ### Outline
 
 `Go to Symbol` lists procedures, structures, interfaces, modules, enumerations,
-macros, constants and labels. With `purebasic.index.workspace` enabled,
-symbols from every `.pb`/`.pbi` file in the workspace are completed across
-files.
+macros, constants and labels.
+
+### Across files
+
+PureBasic compiles one translation unit, so another file's procedures only exist
+for the compiler when an `IncludeFile` or `XIncludeFile` chain reaches that
+file. Completion, hover and signature help follow the same rule with
+`purebasic.index.workspace` enabled:
+
+* a file joined to the current one, directly or through any number of further
+  includes, contributes its module-level symbols;
+* the chain is followed in **both** directions, so in `main.pb` →
+  `lib/helpers.pbi` → `lib/deeper/more.pbi` all three files suggest each other's
+  symbols;
+* a target is resolved the way `pbcompiler` resolves it — relative to the file
+  that writes the statement, then through any `IncludePath` directories (each
+  relative to the file that declares it);
+* symbols from another file carry that file's name after the label
+  (`LoadConfig   config.pbi`), and the defining file is the sort key that keeps
+  one file's symbols together. The popup has no row of its own for a heading, so
+  the file name rides on each item instead;
+* files no include reaches are not offered at all, even though they are indexed.
+
+Included files are read even when they live outside the folder (the include walk
+reads them from disk), and `PureBasic: Reindex Workspace` redoes the whole scan.
 
 ## Settings
 
@@ -165,8 +187,8 @@ files.
 | `purebasic.completion.builtins` | `true` | Offer built-in library commands. |
 | `purebasic.completion.snippets` | `true` | Insert call snippets with parameter placeholders. |
 | `purebasic.completion.minChars` | `3` | Characters to type before the popup appears (`0` = as soon as you type). |
-| `purebasic.index.workspace` | `true` | Index `.pb`/`.pbi` files across the workspace. |
-| `purebasic.index.maxFiles` | `400` | Cap on indexed workspace files. |
+| `purebasic.index.workspace` | `true` | Offer symbols across files, following `IncludeFile`/`XIncludeFile`. |
+| `purebasic.index.maxFiles` | `400` | Cap on indexed workspace files and on the include group. |
 | `purebasic.format.canonicalCase` | `true` | Restore canonical spelling when formatting and on Enter. |
 | `editor.formatOnType` (per language) | `true` | On for PureBasic: the switch for the as-you-type re-casing above. |
 | `purebasic.trace.server` | `"off"` | Log language service activity to the *PureBasic* output channel. |
@@ -232,6 +254,8 @@ language service only.
 
 * No diagnostics; `pbcompiler` is not run in the background.
 * No go-to-definition, references or rename yet.
+* Cross-file symbols stop at the include graph: a file that is not reachable
+  through `IncludeFile`/`XIncludeFile` contributes nothing, by design.
 * Workspace indexing is capped (`purebasic.index.maxFiles`) and re-runs on demand.
 * Only the text form of `.pbf` form files is treated as PureBasic.
 

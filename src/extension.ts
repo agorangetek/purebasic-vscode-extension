@@ -11,6 +11,13 @@ import { canonicalizeIdentifiers } from './service/casing.ts';
 import { maskSource, parseDocument, wordBefore } from './service/parser.ts';
 import { buildCompletions } from './service/completion.ts';
 import { getHover } from './service/hover.ts';
+import {
+	includeGroup,
+	includeSearchPaths,
+	pathOfUri,
+	resolveIncludeTargets,
+	uriForPath,
+} from './service/includes.ts';
 import { PbIndex } from './service/index.ts';
 import { getSignatureHelp } from './service/signature.ts';
 import type { PbCompletionItem, PbCompletionKind, PbDocument, PbSymbol } from './service/types.ts';
@@ -43,6 +50,20 @@ function trace(message: string): void {
 /** Parse a document and add it to the index. */
 function indexOf(document: vscode.TextDocument): PbDocument {
 	return index.index(document.uri.toString(), document.getText());
+}
+
+/**
+ * The module-level symbols this document may use from other files.
+ *
+ * PureBasic only sees another file's procedures when an IncludeFile or
+ * XIncludeFile chain reaches it, so the workspace index is filtered down to the
+ * files that share the document's translation unit -- in both directions, so a
+ * file deeper in the chain still sees the symbols of the file that includes it.
+ */
+function usableSymbols(document: PbDocument): PbSymbol[] {
+	if (!config().workspace) return [];
+	const group = includeGroup(document.uri, index, config().maxFiles);
+	return index.symbols(document.uri).filter((symbol) => group.has(symbol.file));
 }
 
 function toCompletionKind(kind: PbCompletionKind): vscode.CompletionItemKind {
@@ -88,7 +109,13 @@ function withTypedCase(label: string, typed: string): string {
 }
 
 function toCompletionItem(item: PbCompletionItem, typed = ''): vscode.CompletionItem {
-	const result = new vscode.CompletionItem(item.label, toCompletionKind(item.kind));
+	// The object form of the label is what renders the trailing file name: VS Code
+	// shows `description` dimmed right after the label, with no way to draw a row
+	// of its own for a group heading.
+	const label = item.labelDescription
+		? { label: item.label, description: item.labelDescription }
+		: item.label;
+	const result = new vscode.CompletionItem(label, toCompletionKind(item.kind));
 	result.detail = item.detail;
 	result.sortText = item.sortText;
 	result.filterText = withTypedCase(item.filterText ?? item.label, typed);
@@ -154,6 +181,57 @@ async function indexWorkspace(): Promise<void> {
 		}
 	}
 	trace(`index: ${JSON.stringify(index.stats())}`);
+
+	/*
+	 * An IncludeFile may name a file the glob never saw: outside the folder, or
+	 * reachable only from an open document.  A suggestion is only correct when an
+	 * include chain leads to the file, so walk the chain from the open documents
+	 * and read whatever is still missing.
+	 */
+	const seeds = vscode.workspace.textDocuments
+		.filter((doc) => doc.languageId === LANGUAGE)
+		.map((doc) => doc.uri.toString());
+	await indexIncludedFiles(seeds);
+}
+
+/** Read and index the files the given documents include, transitively. */
+async function indexIncludedFiles(seeds: readonly string[]): Promise<void> {
+	const limit = config().maxFiles;
+	const searchPaths = includeSearchPaths(index);
+	const seen = new Set(seeds);
+	const queue = [...seeds];
+
+	while (queue.length > 0 && seen.size <= limit) {
+		const uri = queue.shift()!;
+		const parsed = index.get(uri);
+		if (!parsed) continue;
+
+		for (const target of parsed.includes) {
+			for (const candidate of resolveIncludeTargets(pathOfUri(uri), target, searchPaths)) {
+				const existing = uriForPath(index, candidate);
+				if (existing !== undefined) {
+					if (!seen.has(existing)) {
+						seen.add(existing);
+						queue.push(existing);
+					}
+					break;
+				}
+
+				const file = vscode.Uri.file(candidate);
+				try {
+					const bytes = await vscode.workspace.fs.readFile(file);
+					const added = file.toString();
+					index.index(added, Buffer.from(bytes).toString('utf8'));
+					seen.add(added);
+					queue.push(added);
+					trace(`indexed included file ${candidate}`);
+				} catch {
+					// not there (or not readable): the compiler would not find it either
+				}
+				break;
+			}
+		}
+	}
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -193,7 +271,7 @@ export function activate(context: vscode.ExtensionContext): void {
 			const cfg = config();
 			const items = buildCompletions({
 				document: indexOf(document),
-				workspaceSymbols: cfg.workspace ? index.symbols(document.uri.toString()) : [],
+				workspaceSymbols: usableSymbols(indexOf(document)),
 				position: { line: position.line, character: position.character },
 				word,
 				options: {
@@ -483,7 +561,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
 					const items = buildCompletions({
 						document: parsed,
-						workspaceSymbols: cfg.workspace ? index.symbols(parsed.uri) : [],
+						workspaceSymbols: usableSymbols(parsed),
 						position: { line: position.line, character: position.character },
 						word,
 						options: {
@@ -513,7 +591,7 @@ export function activate(context: vscode.ExtensionContext): void {
 				const hover = getHover(
 					parsed,
 					{ line: position.line, character: position.character },
-					index.symbols(parsed.uri),
+					usableSymbols(parsed),
 				);
 				if (!hover) return undefined;
 
@@ -540,7 +618,7 @@ export function activate(context: vscode.ExtensionContext): void {
 					const info = getSignatureHelp(
 						parsed,
 						{ line: position.line, character: position.character },
-						index.symbols(parsed.uri),
+						usableSymbols(parsed),
 					);
 					if (!info) return undefined;
 

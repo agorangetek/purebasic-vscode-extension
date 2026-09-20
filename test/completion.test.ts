@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildCompletions, enclosingProcedure } from '../src/service/completion.ts';
+import { buildCompletions, enclosingProcedure, fileNameOf } from '../src/service/completion.ts';
 import { getHover } from '../src/service/hover.ts';
 import { parseDocument } from '../src/service/parser.ts';
 import { getSignatureHelp } from '../src/service/signature.ts';
@@ -189,4 +189,63 @@ test('nothing is offered until enough of the name has been typed', () => {
 		options: { ...OPTIONS, minChars: 3 },
 	});
 	assert.ok(members.length > 0, 'the type list after a dot is offered straight away');
+});
+
+test('fileNameOf reads the file name out of a uri', () => {
+	assert.equal(fileNameOf('file:///ws/lib/helpers.pb'), 'helpers.pb');
+	assert.equal(fileNameOf('file:///ws/helpers.pb#L3'), 'helpers.pb');
+	assert.equal(fileNameOf('/ws/lib/helpers.pb'), 'helpers.pb');
+	assert.equal(fileNameOf('c:\\ws\\helpers.pb'), 'helpers.pb');
+	assert.equal(fileNameOf('helpers.pb'), 'helpers.pb');
+});
+
+test('a symbol from another file says which file, one from this file does not', () => {
+	const doc = parseDocument('file:///ws/main.pb', ['Add(1, 2)'].join('\n'));
+	const workspaceSymbols = [
+		{
+			name: 'Helper',
+			kind: 'procedure' as const,
+			scope: '',
+			file: 'file:///ws/lib/helpers.pb',
+			line: 0,
+			detail: 'Procedure Helper(x.i)',
+			params: 'x.i',
+		},
+		{
+			name: 'Shared',
+			kind: 'variable' as const,
+			scope: '',
+			file: 'file:///ws/other.pb',
+			line: 2,
+			detail: 'Shared.i = 0',
+		},
+		{
+			name: 'Add',
+			kind: 'procedure' as const,
+			scope: '',
+			file: 'file:///ws/main.pb',
+			line: 0,
+			detail: 'Procedure Add(a.d, b.d)',
+		},
+	];
+
+	const items = buildCompletions({
+		document: doc,
+		workspaceSymbols,
+		position: { line: 0, character: 0 },
+		word: '',
+		options: OPTIONS,
+	});
+	const byLabel = new Map(items.map((i) => [i.label, i]));
+
+	assert.equal(byLabel.get('Helper')?.labelDescription, 'helpers.pb', 'the popup names the file');
+	assert.equal(byLabel.get('Shared')?.labelDescription, 'other.pb');
+	assert.match(byLabel.get('Helper')?.documentation ?? '', /From `helpers\.pb`/);
+	// a symbol of the document being completed in is not "from another file"
+	assert.equal(byLabel.get('Add')?.labelDescription, undefined);
+	assert.doesNotMatch(byLabel.get('Add')?.documentation ?? '', /From `/);
+
+	// the file name is the sort key, so one file's symbols stay together
+	assert.match(byLabel.get('Helper')?.sortText ?? '', /^2helpers\.pb/);
+	assert.match(byLabel.get('Shared')?.sortText ?? '', /^2other\.pb/);
 });
