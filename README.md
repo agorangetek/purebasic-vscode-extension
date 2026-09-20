@@ -36,8 +36,8 @@ scope below is specific to PureBasic:
 | operators, words and symbols (`And`, `=`, `<=`) | `keyword.operator.purebasic` |
 | procedures and library commands, declared or called (`MessageRequester`, `MyProc(1)`) | `entity.name.function.purebasic` |
 | structures, interfaces, modules (declared) | `entity.name.type.purebasic` |
-| a type name after a `.` (used) | `entity.name.type.reference.purebasic` |
-| a native type suffix or return type (`.d`, `.i`) | `storage.type.purebasic` |
+| a structure name after a `.` (used) | `entity.name.type.reference.purebasic` |
+| a built-in type (`.i`, `.s`, `.l`, `.d`, `p-ascii`) and the name in front of it | *no scope* — plain normal text, as the IDE draws it |
 | constants (`#MaxPoints`, `#PB_Event_CloseWindow`) | `constant.other.predefined.purebasic` |
 | `True` / `False`, `Null` | `constant.language.boolean\|null.purebasic` |
 | numbers (`12`, `$FF`, `%1010`, `1.5`) | `constant.numeric.decimal\|hex\|bin\|float.purebasic` |
@@ -50,9 +50,19 @@ scope below is specific to PureBasic:
 | a statement separator (`:`) | `punctuation.separator.statement.purebasic` |
 | inline assembly (`! mov …`) | `meta.embedded.asm.purebasic` |
 
-Two of those are worth explaining, because they are where the PureBasic IDE and
-VS Code's own vocabulary disagree:
+Three of those are worth explaining, because they are where the PureBasic IDE
+and VS Code's own vocabulary disagree:
 
+* **A built-in type has no colour at all.** The IDE has no "type" category in
+  its preferences: its highlighter
+  ([`HighlightingEngine.pb`](https://github.com/fantaisie-software/purebasic/blob/master/PureBasicIDE/HighlightingEngine.pb))
+  upper-cases the word after a `.` and asks whether it is one character of
+  `#BasicTypeChars = "ABCUWLSFDQI"` — `a b c u w l s f d q i`. If it is, the
+  type *and* the name in front of it are painted with the normal text colour;
+  anything longer is a structure name and gets the Structures colour. So
+  `test.i` is plain end to end and `test.my_test` is green end to end. Rather
+  than invent a type colour the IDE does not have, those tokens are left with
+  no scope, and your theme paints them its normal text.
 * **A member wears a type scope.** The IDE paints `pt\x` with its Structures
   colour, and a `variable.other.*` scope would instead get whatever the theme
   gives a variable. `entity.name.type.member.purebasic` puts it in the same
@@ -63,10 +73,11 @@ VS Code's own vocabulary disagree:
   `entity.name.function.purebasic`; splitting them would buy a distinction no
   scheme can show.
 
-A name that takes a type (`test.my_test`, `name.s`, the `pt` of `pt\x`) is scoped
-too, which is what makes it the same colour as the member after it. A name on its
-own is deliberately left unscoped, so the theme paints it its normal text -- which
-is what the IDE does.
+A name that takes a *structure* type (`test.my_test`, the `pt` of `pt\x`) is
+scoped too, which is what makes it the same colour as the member after it. A name
+on its own, and one whose dot is followed by a built-in type (`name.s`), is
+deliberately left unscoped, so the theme paints it its normal text — which is what
+the IDE does.
 
 The scope vocabulary follows [duty1g/vscode-purebasic](https://github.com/duty1g/vscode-purebasic) (MIT).
 
@@ -96,8 +107,8 @@ To colour one of them differently, target it from your settings:
     "textMateRules": [
         {
             "scope": [
-                "source.purebasic storage.type.purebasic",
-                "source.purebasic entity.name.type.purebasic"
+                "source.purebasic entity.name.type.purebasic",
+                "source.purebasic entity.name.type.reference.purebasic"
             ],
             "settings": { "foreground": "#9CDCFE" }
         }

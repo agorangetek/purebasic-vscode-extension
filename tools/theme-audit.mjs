@@ -122,6 +122,12 @@ const CORPUS = [
 	'data:',
 	'top:',
 	'pt.Point',
+	'test.i',
+	'test.my_test',
+	'name.s',
+	'x.p-ascii',
+	'Procedure.d Area(w.d, h.d)',
+	'Procedure.MyStruct Make()',
 	'test\\age = 1',
 	'test\\ImportedList()',
 	'OBJ_MEMDLL\\ModulesMap()',
@@ -277,7 +283,8 @@ if (args[0] === '--palette') {
 		'entity.name.type.member.purebasic': '#A6E22E',
 		'entity.name.namespace.purebasic': '#A6E22E',
 		'entity.name.type.purebasic': '#F8F8F2',
-		'storage.type.purebasic': '#F8F8F2',
+		// no entry for a built-in type: the IDE has no type colour, so `.i` and
+		// friends carry no scope and fall to the base NormalText rule above
 		'punctuation.separator.statement.purebasic': '#F8F8F0',
 		'source.purebasic': '#F8F8F2',
 	};

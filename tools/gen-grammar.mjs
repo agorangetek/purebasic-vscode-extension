@@ -114,6 +114,24 @@ for (const item of data.items) {
 	commandsByLibrary.get(library).push(item.name);
 }
 
+/*
+ * The type in `name.type`, read off the IDE's own highlighter
+ * (PureBasicIDE/HighlightingEngine.pb).  It has NO type colour: after a dot it
+ * upper-cases the word and asks whether it is ONE character of
+ * #BasicTypeChars = "ABCUWLSFDQI" -- a b c u w l s f d q i, the built-in types --
+ * and paints it *NormalTextColor; anything else is a structure name and gets
+ * *StructureColor.  It does the same to the NAME in front of the dot, so
+ * `test.i` is normal text end to end while `test.my_test` is green end to end.
+ * (The five `.p-*` string forms are spelled out there too, and are normal text.)
+ *
+ * There is therefore no scope to invent here: a built-in type is normal text,
+ * which is what a token with no scope of its own already gets from any theme.
+ * These two fragments exist so the SUFFIX and the NAME before it cannot drift
+ * apart, and so nothing accidental claims `i` as a structure name.
+ */
+const BUILTIN_TYPE = '(?i:(?:[bawculifqds]|p-(?:ascii|unicode|bstr|variant|utf8)))(?![A-Za-z0-9_])';
+const TYPE_NAME = '([A-Za-z_]\\w*)';
+
 export const grammar = {
 	$schema: 'https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json',
 	name: 'PureBasic',
@@ -196,10 +214,16 @@ export const grammar = {
 		 */
 		structures: {
 			begin:
-				'(?i)\\b(StructureUnion|Structure|Interface)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s*([A-Za-z_]\\w*)?',
+				'(?i)\\b(StructureUnion|Structure|Interface)\\b(?:\\s*\\.\\s*(?:' +
+				BUILTIN_TYPE +
+				'|' +
+				TYPE_NAME +
+				'))?\\s*([A-Za-z_]\\w*)?',
 			beginCaptures: {
 				1: { name: 'keyword.control.purebasic' },
-				2: { name: 'storage.type.purebasic' },
+				// group 2 is the structure of `Structure.Point`, never a built-in
+				// type: a built-in one belongs to the non-capturing branch above
+				2: { name: 'entity.name.type.reference.purebasic' },
 				3: { name: 'entity.name.type.purebasic' },
 			},
 			end: '(?i)\\b(EndStructureUnion|EndStructure|EndInterface)\\b',
@@ -224,23 +248,31 @@ export const grammar = {
 			patterns: [
 				{
 					comment:
-						'Procedure[.type] Name(...) and its Declare/Prototype forms.  The type is its own group: captured as part of the name it took the function colour and left the return type uncoloured.',
+						'Procedure[.type] Name(...) and its Declare/Prototype forms.  The type is its own group: captured as part of the name it took the function colour and left the return type uncoloured.  A built-in return type has no scope at all, so it stays normal text the way the IDE shows it.',
 					match:
-						'(?i)\\b(Procedure(?:DLL|C|CDLL)?|Declare(?:DLL|C|CDLL)?|PrototypeC?|Runtime\\s+Procedure)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s+([A-Za-z_]\\w*)',
+						'(?i)\\b(Procedure(?:DLL|C|CDLL)?|Declare(?:DLL|C|CDLL)?|PrototypeC?|Runtime\\s+Procedure)\\b(?:\\s*\\.\\s*(?:' +
+						BUILTIN_TYPE +
+						'|' +
+						TYPE_NAME +
+						'))?\\s+([A-Za-z_]\\w*)',
 					captures: {
 						1: { name: 'keyword.control.purebasic' },
-						2: { name: 'storage.type.purebasic' },
+						2: { name: 'entity.name.type.reference.purebasic' },
 						3: { name: 'entity.name.function.purebasic' },
 					},
 				},
 				{
 					comment:
-						'Structure / Interface / Module / Enumeration declarations.  Enumeration[.type] with no name of its own is left to the keyword and type-suffix rules.',
+						'Structure / Interface / Module / Enumeration declarations.  Enumeration[.type] with no name of its own is left to the keyword and type-suffix rules; `Enumeration.i` is a built-in type and so has no scope.',
 					match:
-						'(?i)\\b(DeclareModule|Module|EnumerationBinary|Enumeration)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s+([A-Za-z_]\\w*)',
+						'(?i)\\b(DeclareModule|Module|EnumerationBinary|Enumeration)\\b(?:\\s*\\.\\s*(?:' +
+						BUILTIN_TYPE +
+						'|' +
+						TYPE_NAME +
+						'))?\\s+([A-Za-z_]\\w*)',
 					captures: {
 						1: { name: 'keyword.control.purebasic' },
-						2: { name: 'storage.type.purebasic' },
+						2: { name: 'entity.name.type.reference.purebasic' },
 						3: { name: 'entity.name.type.purebasic' },
 					},
 				},
@@ -318,10 +350,19 @@ export const grammar = {
 		 * of `*p` is still a pointer and only a lone `*` is an operator.
 		 */
 		identifiers: {
-			comment:
-				'A name that goes on to a type or a member -- `test.my_test`, `OBJ_MEMDLL\\ModulesMap()` -- is what a variable wears code colour for.  A name on its own is left unscoped, so the theme paints it its normal text, which is what the PureBasic IDE does.',
-			name: 'entity.name.type.member.purebasic',
-			match: '[A-Za-z_]\\w*(?=\\s*[.\\\\])',
+			patterns: [
+				{
+					comment:
+						'A name in front of a BUILT-IN type -- `test.i`, `name.s` -- is normal text in the IDE, on both sides of the dot, so this rule matches and scopes nothing.  It has to come first: the next rule would otherwise paint the name as a structure.',
+					match: '[A-Za-z_]\\w*(?=\\s*\\.\\s*' + BUILTIN_TYPE + ')',
+				},
+				{
+					comment:
+						'A name that goes on to a STRUCTURE or a member -- `test.my_test`, `OBJ_MEMDLL\\ModulesMap()` -- is what a variable wears code colour for, because the IDE colours the whole expression with its Structures colour.  A name on its own is left unscoped, so the theme paints it its normal text, which is what the IDE does too.',
+					name: 'entity.name.type.member.purebasic',
+					match: '[A-Za-z_]\\w*(?=\\s*[.\\\\])',
+				},
+			],
 		},
 		operators: {
 			// after #specials, so the `*` of `*p` is still a pointer
@@ -342,17 +383,17 @@ export const grammar = {
 			})),
 		},
 		/*
-		 * The .i / .TypeName after a name.  A native suffix is a storage type,
-		 * like the PB IDE's own `type` colour; any other name is a type of its
-		 * own, scoped like the name where it is declared so that `test.Point`
-		 * and `Structure Point` agree whatever the theme.
+		 * The .i / .TypeName after a name.  A built-in suffix is NORMAL TEXT in
+		 * the IDE -- it has no type colour -- so it is matched with no scope at
+		 * all.  Matching it also stops the rule below from reading `i` as the
+		 * name of a structure, which is what a bare `[A-Za-z_]\\w*` would do.
 		 */
 		'type-suffix': {
 			patterns: [
 				{
-					comment: 'The native single-letter suffixes, which pbcompiler reserves as structure names.',
-					match: '(?<=\\b[A-Za-z_]\\w*)\\.([bawculifqds])(?![A-Za-z0-9_])',
-					captures: { 1: { name: 'storage.type.purebasic' } },
+					comment:
+						'The built-in types.  No scope on purpose: the IDE paints these with its normal text, so a theme should paint them with its own.',
+					match: '(?<=\\b[A-Za-z_]\\w*)\\.' + BUILTIN_TYPE,
 				},
 				{
 					// a use of a type, not its declaration: `test.my_test`.  The

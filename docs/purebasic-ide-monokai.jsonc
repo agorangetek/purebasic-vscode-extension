@@ -99,10 +99,9 @@
 			}
 		},
 		{
-			"_": "A declaration is normal text in the IDE: `Structure Point`, the name of a Module, a native `.i` suffix",
+			"_": "A declaration is normal text in the IDE: `Structure Point` and the name of a Module. A built-in type needs no rule here -- `.i`, `.s`, `.l` and the rest have no scope at all, exactly as the IDE gives them its normal text rather than any type colour.",
 			"scope": [
-				"source.purebasic entity.name.type.purebasic",
-				"source.purebasic storage.type.purebasic"
+				"source.purebasic entity.name.type.purebasic"
 			],
 			"settings": {
 				"foreground": "#F8F8F2"

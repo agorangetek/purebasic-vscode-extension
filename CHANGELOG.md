@@ -4,6 +4,46 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.21] - 2026-09-20
+
+### Changed
+
+- **A built-in type is plain normal text, the way the PureBasic IDE draws it.** This releases the
+  type suffix from `storage.type.purebasic`, which was an invention: the IDE has no "type" colour
+  at all. Its highlighter,
+  [`PureBasicIDE/HighlightingEngine.pb`](https://github.com/fantaisie-software/purebasic/blob/master/PureBasicIDE/HighlightingEngine.pb),
+  upper-cases the word after a `.` and asks whether it is ONE character of
+  `#BasicTypeChars = "ABCUWLSFDQI"`:
+  ```purebasic
+  If OldSeparatorChar = '.'
+    WordStart$ = UCase(WordStart$)
+    If Len(WordStart$) = 1 And FindString(#BasicTypeChars, WordStart$, 1) ; check for the basic types
+      Callback(*StringStart, *Cursor-*StringStart, *NormalTextColor, 0, TextChanged)
+    Else
+      Callback(*StringStart, *Cursor-*StringStart, *StructureColor, 0, TextChanged)
+    EndIf
+  ```
+  So `i l s a b c w u f d q` -- and their capitals, and the `.p-ascii` / `.p-utf8` / `.p-bstr` /
+  `.p-variant` / `.p-unicode` string forms -- are normal text, and **anything longer is a structure
+  name** and keeps the Structures colour. `test.i` is now plain end to end; `test.my_test` is still
+  green end to end. The same rule covers a return type, so `Procedure.d`, `Declare.i` and
+  `Prototype.i` no longer colour the type: the IDE paints those NormalText too.
+- **The name in front of a built-in type is plain as well**, because the IDE treats it that way
+  (`p` and `Point` in `Define p.Point` are green, but `n` and `d` in `n.d = 1` are both normal
+  text). This is narrower than "a dot turns the name green": the dot only does that when what
+  follows it is a structure.
+- No scope was invented to replace `storage.type.purebasic`. Those tokens carry no scope, so each
+  theme paints them with its own normal text -- there is no colour override anywhere in the
+  package, neither in the grammar nor in the extension's settings.
+
+### Verified
+
+- Every built-in type, in both cases, through a declaration, a parameter, a return type and a
+  structure field, is confirmed unscoped under the tokenizer the editor uses.
+- `docs/purebasic-ide-monokai.jsonc` drops the now-meaningless `storage.type.purebasic` rule; its
+  26 selectors all name a scope the grammar emits, and all 27 scopes it covers render the exact
+  colour the IDE's own Monokai scheme uses.
+
 ## [0.1.20] - 2026-09-20
 
 ### Fixed

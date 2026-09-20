@@ -195,40 +195,104 @@ test('members, sigils and labels are scoped', { skip }, async () => {
 	assertScoped(lines, '::DoIt()', /^entity\.name\.type\.member/, 'a module member');
 });
 
-test('a type suffix is scoped as a type, a decimal point is a number', { skip }, async () => {
-	const lines = await tokenize(['x.d = 1.5', 'name$ = "hi"'].join('\n'));
-	assertScoped(lines, 'd', /^storage\.type/, 'the .d suffix');
+/*
+ * The PureBasic IDE has no type colour.  HighlightingEngine.pb upper-cases the
+ * word after a `.` and asks whether it is ONE character of
+ * #BasicTypeChars = "ABCUWLSFDQI" (a b c u w l s f d q i); if it is it paints it
+ * *NormalTextColor, and it gives the name in front of the dot the same
+ * treatment.  Anything longer is a structure name and gets *StructureColor.
+ * So `test.i` is normal text end to end and `test.my_test` is code end to end:
+ * the type suffix is deliberately left with NO scope, so each theme shows it as
+ * the normal text it is rather than as some type colour of the extension's
+ * invention.  There is no colour rule for this anywhere -- not in the grammar,
+ * not in the package -- which is why these tests assert the ABSENCE of a scope.
+ */
+test('a built-in type is normal text, on both sides of the dot', { skip }, async () => {
+	// every built-in type, in both cases, and the five `.p-*` string forms
+	const builtins = 'i l s a b c w u f d q I L S A B C W U F D Q'.split(' ');
+	const lines = await tokenize([
+		...builtins.map((t) => `test.${t}`),
+		'name.p-ascii',
+		'name.p-utf8',
+		'name.p-bstr',
+		'name.p-variant',
+		'name.p-unicode',
+		'Procedure.d Area(w.d, h.d)',
+		'Declare.i Test(x.i)',
+		'Prototype.i Callback(x.i)',
+		'Enumeration.i',
+		'x.d = 1.5',
+	].join('\n'));
+
+	// A token merges with the whitespace around it, so compare on the trimmed
+	// text; every token matching `text` on that line must carry no scope.
+	const unscoped = (line: number, text: string) => {
+		const tokens = lines[line]!.filter((t) => t.text.trim() === text);
+		if (line === 0) {
+			assert.ok(tokens.length > 0, `line ${line + 1}: "${text}" did not tokenize`);
+		}
+		for (const token of tokens) {
+			assert.equal(
+				token.scopes.join(' '),
+				'',
+				`line ${line + 1}: "${text}" must be plain normal text, got ${token.scopes.join(' ')}`,
+			);
+		}
+	};
+
+	builtins.forEach((t, line) => {
+		unscoped(line, 'test');
+		unscoped(line, `.${t}`);
+	});
+	for (const [offset, form] of ['p-ascii', 'p-utf8', 'p-bstr', 'p-variant', 'p-unicode'].entries()) {
+		const line = builtins.length + offset;
+		unscoped(line, 'name');
+		unscoped(line, `.${form}`);
+	}
+	// a return type of a built-in type is normal text too, never the function colour
+	const firstReturn = builtins.length + 5;
+	for (const line of [0, 1, 2, 3].map((n) => firstReturn + n)) {
+		unscoped(line, '.d');
+		unscoped(line, '.i');
+	}
+	// and the fractional part of a number is still a number, not a type
 	assertScoped(lines, '1.5', /^constant\.numeric/, 'a decimal literal');
 });
 
-test('a procedure return type is coloured as a type, not as the name', { skip }, async () => {
+test('a structure type is code, on both sides of the dot', { skip }, async () => {
 	const lines = await tokenize(
-		['Procedure.d Area(w.d, h.d)', 'Declare.i Test(*p.Point)', 'Prototype.i Callback(x.i)'].join('\n'),
+		['test.my_test', 'pt.Point', 'Procedure.MyStruct Make()', 'Structure Point', '\tx.i'].join('\n'),
 	);
 
-	// the suffix after Procedure/Declare/Prototype is the return type
-	for (const [line, suffix] of [
-		[0, 'd'],
-		[1, 'i'],
-		[2, 'i'],
+	// a `.` followed by anything that is not a built-in type is a structure use,
+	// and the name in front of it is part of the same expression
+	for (const [line, text] of [
+		[0, 'test'],
+		[0, 'my_test'],
+		[1, 'pt'],
+		[1, 'Point'],
+		[2, 'MyStruct'],
 	] as const) {
-		const tokens = lines[line]!.filter((t) => t.text === suffix);
-		assert.ok(tokens.length > 0, `line ${line + 1}: no "${suffix}" token`);
-		for (const token of tokens) {
-			assert.ok(
-				token.scopes.includes('storage.type.purebasic'),
-				`line ${line + 1}: ".${suffix}" should be a type, got ${token.scopes.join(' ') || 'no scope'}`,
-			);
-			assert.ok(
-				!token.scopes.some((sc) => sc.startsWith('entity.name')),
-				`line ${line + 1}: ".${suffix}" must not be coloured like the procedure name`,
-			);
-		}
+		const token = lines[line]!.find((t) => t.text.trim() === text);
+		assert.ok(token, `line ${line + 1}: "${text}" did not tokenize`);
+		assert.ok(
+			token.scopes.some((s) => s.startsWith('entity.name.type')),
+			`line ${line + 1}: "${text}" is a structure, got ${token.scopes.join(' ') || 'no scope'}`,
+		);
 	}
 
-	assertScoped(lines, 'Area', /^entity\.name\.function/, 'a procedure name');
-	assertScoped(lines, 'Test', /^entity\.name\.function/, 'a declared name');
-	assertScoped(lines, 'Callback', /^entity\.name\.function/, 'a prototype name');
+	// the procedure name after a structure return type is still a function
+	assertScoped(lines, 'Make', /^entity\.name\.function/, 'a procedure name');
+
+	// the declaration itself stays normal text, and so does a field with a
+	// built-in type -- the IDE does not colour a field either
+	const point = lines[3]!.find((t) => t.text.trim() === 'Point');
+	assert.ok(point?.scopes.some((s) => s.startsWith('entity.name.type')), 'Structure Point names a type');
+	for (const text of ['x', '.i']) {
+		const token = lines[4]!.find((t) => t.text.trim() === text);
+		assert.ok(token, `line 5: "${text}" did not tokenize`);
+		assert.equal(token.scopes.join(' '), '', `line 5: "${text}" should be plain`);
+	}
 });
 
 /*
@@ -417,19 +481,24 @@ test('a type use is scoped apart from its declaration', { skip }, async () => {
 		return token.scopes[token.scopes.length - 1] ?? '';
 	};
 
-	// the declaration is a type name; the use is code, like the IDE
+	// the declaration names a type; a USE of a structure type is code, like the IDE
 	assert.equal(innermost(0, 'Point'), 'entity.name.type.purebasic');
 	assert.equal(innermost(3, 'Point'), 'entity.name.type.reference.purebasic');
 	assert.equal(innermost(4, 'ScreenBuffer'), 'entity.name.type.reference.purebasic');
-	// a native suffix is neither: it is a storage type
-	assert.equal(innermost(5, 'd'), 'storage.type.purebasic');
-	assert.equal(innermost(6, 'i'), 'storage.type.purebasic');
 
-	// a plain name is normal text; only one taking a type wears code colour
-	assert.equal(innermost(5, 'n'), 'entity.name.type.member.purebasic');
-	// `localVar.i` takes a type, so it is the typed scope; `globalVar.i` likewise
-	assert.equal(innermost(8, 'localVar'), 'entity.name.type.member.purebasic');
-	assert.equal(innermost(6, 'globalVar'), 'entity.name.type.member.purebasic');
+	// a built-in type is neither, and the name in front of it is not to blame:
+	// both sides are plain normal text, which is how the IDE draws `n.d`
+	// the suffix is one token, dot included, now that no capture splits it off
+	for (const [line, text] of [
+		[5, '.d'],
+		[5, 'n'],
+		[6, '.i'],
+		[6, 'globalVar'],
+		[8, '.i'],
+		[8, 'localVar'],
+	] as const) {
+		assert.equal(innermost(line, text), '', `line ${line + 1}: ${text} should be plain`);
+	}
 });
 
 test('a multiplication sign is not a pointer', { skip }, async () => {
@@ -474,7 +543,7 @@ test('symbolic operators are scoped, the sigils are not', { skip }, async () => 
 	assert.ok(pointer?.scopes.includes('constant.other.pointer.purebasic'));
 });
 
-test('a name is left to the theme unless it is taking a type', { skip }, async () => {
+test('a name is left to the theme unless it is taking a structure', { skip }, async () => {
 	const lines = await tokenize(
 		[
 			'Define p.Point',
@@ -492,15 +561,18 @@ test('a name is left to the theme unless it is taking a type', { skip }, async (
 		return token.scopes[token.scopes.length - 1] ?? '';
 	};
 
-	// a name with a `.` after it is the one that turns
-	for (const [line, text] of [[0, 'p'], [2, 'p2'], [3, 'test'], [5, 'name']] as const) {
+	// a name with a STRUCTURE after the dot is the one that turns
+	for (const [line, text] of [[0, 'p'], [2, 'p2'], [3, 'test']] as const) {
 		assert.equal(innermost(line, text), 'entity.name.type.member.purebasic', `line ${line + 1}: ${text}`);
 	}
 	// a member read is the member scope, and the name it comes off takes the code
 	// colour with it: `p\x` is one expression
 	assert.equal(innermost(1, 'x'), 'entity.name.type.member.purebasic');
 	assert.equal(innermost(1, 'p'), 'entity.name.type.member.purebasic');
+	// a name on its own is left to the theme, and so is one whose dot is followed
+	// by a built-in type: the IDE paints both with its normal text
 	assert.equal(innermost(4, 'count'), '', 'a name on its own is left to the theme');
+	assert.equal(innermost(5, 'name'), '', 'a built-in type leaves its name plain');
 });
 
 test('a member access is one piece of code, element form included', { skip }, async () => {
