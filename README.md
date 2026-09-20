@@ -33,13 +33,13 @@ scope below is specific to PureBasic:
 | --- | --- |
 | keywords (`Procedure`, `EndProcedure`, `ReDim`, `If`, …) | `keyword.control\|other\|operator.*.purebasic` |
 | procedures, declared and called | `entity.name.function.purebasic` |
-| structures, interfaces, modules | `entity.name.type.purebasic` |
-| a type suffix or return type (`.d`, `.i`) | `storage.type.purebasic` |
+| structures, interfaces, modules, and a type name after a `.` | `entity.name.type.purebasic` |
+| a native type suffix or return type (`.d`, `.i`) | `storage.type.purebasic` |
 | library commands (`MessageRequester`, …) | `support.function.<library>.purebasic` (String library: `stringlib`) |
 | library constants (`#PB_Event_CloseWindow`) | `support.constant.purebasic` |
 | your constants (`#MaxPoints`) | `constant.other.purebasic` |
 | pointers (`*pBuffer`) | `variable.other.pointer.purebasic` |
-| structure members (`pt\x`) | `variable.other.member.purebasic` |
+| structure members, declared and read (`x.i` in a `Structure`, `pt\x`) | `variable.other.member.purebasic` |
 | a procedure address (`@MyProc`) | `variable.other.reference.purebasic` (bare `@` too) |
 | a data label (`?data`) | `variable.other.label-reference.purebasic` |
 | labels (`top:`) | `entity.name.label.purebasic` |

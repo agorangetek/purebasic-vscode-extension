@@ -21,6 +21,9 @@
 			"include": "#numbers"
 		},
 		{
+			"include": "#structures"
+		},
+		{
 			"include": "#declarations"
 		},
 		{
@@ -83,6 +86,70 @@
 			"name": "constant.numeric.purebasic",
 			"match": "(?i)(?<![A-Za-z0-9_])(?:\\$[0-9a-f]+|%[01]+|\\d+\\.\\d*(?:e[+-]?\\d+)?|\\d+(?:e[+-]?\\d+)?)(?![A-Za-z0-9_])"
 		},
+		"structures": {
+			"begin": "(?i)\\b(StructureUnion|Structure|Interface)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s*([A-Za-z_]\\w*)?",
+			"beginCaptures": {
+				"1": {
+					"name": "keyword.other.structure.purebasic"
+				},
+				"2": {
+					"name": "storage.type.purebasic"
+				},
+				"3": {
+					"name": "entity.name.type.purebasic"
+				}
+			},
+			"end": "(?i)\\b(EndStructureUnion|EndStructure|EndInterface)\\b",
+			"endCaptures": {
+				"0": {
+					"name": "keyword.other.structure.purebasic"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#structures"
+				},
+				{
+					"include": "#field"
+				},
+				{
+					"include": "#comments"
+				},
+				{
+					"include": "#strings"
+				},
+				{
+					"include": "#numbers"
+				},
+				{
+					"include": "#keywords"
+				},
+				{
+					"include": "#sigils"
+				},
+				{
+					"include": "#type-suffix"
+				},
+				{
+					"include": "#members"
+				},
+				{
+					"include": "#constants"
+				},
+				{
+					"include": "#builtins"
+				}
+			]
+		},
+		"field": {
+			"comment": "A member declaration -- `x.i`, `*Entry`, `List Items.Inner()` -- scoped like the `\\x` reading it, so both ends of a member look the same.",
+			"match": "(?i)^(\\s*)(?!(?:StructureUnion|Structure|Interface|EndStructureUnion|EndStructure|EndInterface|Extends|Align|Static|Compiler[A-Za-z]*|ImportC?|Data)\\b)(?!(?:List|Array|Map)\\s*$)(?:(?:List|Array|Map)\\s+)?(\\*?[A-Za-z_]\\w*\\$?)(?=\\s*(?:\\.|\\[|\\(|$))",
+			"captures": {
+				"2": {
+					"name": "variable.other.member.purebasic"
+				}
+			}
+		},
 		"declarations": {
 			"patterns": [
 				{
@@ -102,7 +169,7 @@
 				},
 				{
 					"comment": "Structure / Interface / Module / Enumeration declarations.  Enumeration[.type] with no name of its own is left to the keyword and type-suffix rules.",
-					"match": "(?i)\\b(StructureUnion|Structure|Interface|DeclareModule|Module|EnumerationBinary|Enumeration)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s+([A-Za-z_]\\w*)",
+					"match": "(?i)\\b(DeclareModule|Module|EnumerationBinary|Enumeration)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s+([A-Za-z_]\\w*)",
 					"captures": {
 						"1": {
 							"name": "keyword.other.structure.purebasic"
@@ -517,7 +584,7 @@
 			"patterns": [
 				{
 					"name": "variable.other.pointer.purebasic",
-					"match": "\\*[A-Za-z_]\\w*"
+					"match": "(?<![A-Za-z0-9_])\\*[A-Za-z_]\\w*"
 				},
 				{
 					"name": "variable.other.reference.purebasic",
@@ -598,13 +665,25 @@
 			]
 		},
 		"type-suffix": {
-			"comment": "The .i / .d / .TypeName that follows a name.",
-			"match": "(?<=\\b[A-Za-z_]\\w*)\\.([A-Za-z]\\w*)",
-			"captures": {
-				"1": {
-					"name": "storage.type.purebasic"
+			"patterns": [
+				{
+					"comment": "The native single-letter suffixes, which pbcompiler reserves as structure names.",
+					"match": "(?<=\\b[A-Za-z_]\\w*)\\.([bawculifqds])(?![A-Za-z0-9_])",
+					"captures": {
+						"1": {
+							"name": "storage.type.purebasic"
+						}
+					}
+				},
+				{
+					"match": "(?<=\\b[A-Za-z_]\\w*)\\.([A-Za-z_]\\w*)",
+					"captures": {
+						"1": {
+							"name": "entity.name.type.purebasic"
+						}
+					}
 				}
-			}
+			]
 		}
 	}
 }

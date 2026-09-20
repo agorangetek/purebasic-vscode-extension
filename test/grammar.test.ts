@@ -327,3 +327,110 @@ test('a reference carries its sigil, even before the name is typed', { skip }, a
 	const multiply = lines[4]!.filter((t) => t.text === '*' || t.text === '@');
 	assert.deepEqual(multiply, [], 'neither @ nor * appears in a multiplication');
 });
+
+/*
+ * The PureBasic IDE colours a member the same where it is declared and where it
+ * is read (both plain identifiers), and gives only the *native* type suffixes
+ * its `type` colour; a structure name is an identifier wherever it appears.
+ * These tests keep the two ends of each of those pairs on one TextMate scope, so
+ * a theme colours them alike -- and leave a local or module-level declaration of
+ * the same shape alone.
+ */
+test('a structure member is scoped the same where it is declared and read', { skip }, async () => {
+	const lines = await tokenize(
+		[
+			'Structure IMAGE_THUNK_DATA',
+			'\tStructureUnion',
+			'\t\tFunction.i',
+			'\t\tOrdinal.i',
+			'\tEndStructureUnion',
+			'\tList Items.Inner()',
+			'\t*Entry',
+			'EndStructure',
+			'test\\Function',
+			'test\\Entry',
+		].join('\n'),
+	);
+
+	const innermost = (line: number, text: string) => {
+		const token = lines[line]!.find((t) => t.text.trim() === text);
+		assert.ok(token, `line ${line + 1}: ${text} did not tokenize`);
+		return token.scopes[token.scopes.length - 1];
+	};
+
+	// the declaration and the read share one scope
+	assert.equal(innermost(2, 'Function'), 'variable.other.member.purebasic');
+	assert.equal(innermost(8, '\\Function'), innermost(2, 'Function'));
+	assert.equal(innermost(6, '*Entry'), 'variable.other.member.purebasic');
+	assert.equal(innermost(9, '\\Entry'), innermost(6, '*Entry'));
+	assert.equal(innermost(5, 'Items'), 'variable.other.member.purebasic');
+
+	// the block markers stay structure keywords, nested or not
+	for (const [line, text] of [
+		[0, 'Structure'],
+		[1, 'StructureUnion'],
+		[4, 'EndStructureUnion'],
+		[7, 'EndStructure'],
+	] as const) {
+		assert.ok(
+			innermost(line, text).startsWith('keyword.other.structure'),
+			`line ${line + 1}: ${text} should stay a structure keyword`,
+		);
+	}
+});
+
+test('a type name is scoped the same where it is declared and used', { skip }, async () => {
+	const lines = await tokenize(
+		[
+			'Structure Point',
+			'\tx.i',
+			'EndStructure',
+			'pt.Point',
+			'*Buffer.ScreenBuffer',
+			'n.d = 1',
+			'globalVar.i',
+			'Procedure P()',
+			'\tlocalVar.i',
+			'EndProcedure',
+		].join('\n'),
+	);
+
+	const innermost = (line: number, text: string) => {
+		const token = lines[line]!.find((t) => t.text.trim() === text);
+		assert.ok(token, `line ${line + 1}: ${text} did not tokenize`);
+		return token.scopes[token.scopes.length - 1] ?? '';
+	};
+
+	// a structure name is a type wherever it appears
+	assert.equal(innermost(0, 'Point'), 'entity.name.type.purebasic');
+	assert.equal(innermost(3, 'Point'), 'entity.name.type.purebasic');
+	assert.equal(innermost(4, 'ScreenBuffer'), 'entity.name.type.purebasic');
+	// a native suffix is a storage type, never a type name
+	assert.equal(innermost(5, 'd'), 'storage.type.purebasic');
+	assert.equal(innermost(6, 'i'), 'storage.type.purebasic');
+
+	// a declaration of the same shape outside a structure is not a member:
+	// `x.i` above is a field, but these are variables
+	for (const [line, text] of [[5, 'n'], [6, 'globalVar'], [8, 'localVar']] as const) {
+		assert.ok(
+			!innermost(line, text).includes('member'),
+			`line ${line + 1}: ${text} is a variable, not a member`,
+		);
+	}
+});
+
+test('a multiplication sign is not a pointer', { skip }, async () => {
+	// the PB IDE's own highlighter test asserts these are symbols
+	const lines = await tokenize(['a * b', 'a*b', '2*3', 'x = *Memory', '*Buffer.ScreenBuffer'].join('\n'));
+
+	for (const line of [0, 1, 2]) {
+		assert.ok(
+			!lines[line]!.some((t) => t.scopes.includes('variable.other.pointer.purebasic')),
+			`line ${line + 1} is a multiplication`,
+		);
+	}
+	const pointer = lines[3]!.find((t) => t.text.includes('*Memory'));
+	assert.ok(pointer?.scopes.includes('variable.other.pointer.purebasic'), 'a real pointer keeps its scope');
+	const declared = lines[4]!.find((t) => t.text.includes('*Buffer'));
+	assert.ok(declared?.scopes.includes('variable.other.pointer.purebasic'));
+});

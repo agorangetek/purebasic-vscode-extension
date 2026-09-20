@@ -4,6 +4,26 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.13] - 2026-09-20
+
+### Changed
+
+- **A structure member is scoped the same where it is declared and where it is read.** A field line
+  in a `Structure`, `Interface` or `StructureUnion` was unscoped, so `Function.i` came out
+  uncoloured while `test\Function` was `variable.other.member.purebasic`; both sides now share
+  that scope, which is how the PureBasic IDE colours them (as one). This needed the structure body
+  to become a real block in the grammar, so a nested `StructureUnion` keeps its own block and its
+  keyword colour, and a bare `x.i` inside a procedure or at module level stays an ordinary
+  variable, not a member.
+- **A type name after a dot is scoped like the name where it is declared.** `test.IMAGE_THUNK_DATA`
+  is `entity.name.type.purebasic`, the same as `Structure IMAGE_THUNK_DATA`, instead of
+  `storage.type.purebasic` -- under a default theme the two used to differ (blue against teal).
+  Only the native single-letter suffixes stay `storage.type.purebasic`, which is the IDE's own
+  `type` colour; pbcompiler reserves those letters as structure names, so there is no ambiguity.
+- **A `*` is a pointer only when it is glued to the name and not glued to what precedes it.** `a*b`,
+  `a * b` and `2*3` are multiplications, which the PB IDE's own highlighter test asserts; `*p`
+  after `=`, `(` or the start of a line keeps `variable.other.pointer.purebasic`.
+
 ## [0.1.12] - 2026-09-20
 
 ### Changed

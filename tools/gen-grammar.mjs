@@ -102,6 +102,7 @@ const grammar = {
 		{ include: '#comments' },
 		{ include: '#strings' },
 		{ include: '#numbers' },
+		{ include: '#structures' },
 		{ include: '#declarations' },
 		{ include: '#builtins' },
 		{ include: '#members' },
@@ -145,6 +146,53 @@ const grammar = {
 			match:
 				'(?i)(?<![A-Za-z0-9_])(?:\\$[0-9a-f]+|%[01]+|\\d+\\.\\d*(?:e[+-]?\\d+)?|\\d+(?:e[+-]?\\d+)?)(?![A-Za-z0-9_])',
 		},
+		/*
+		 * The body of a Structure, Interface or StructureUnion is a block, not a
+		 * flat match, because a field name means nothing outside it: `x.i` inside
+		 * a structure declares a member, while the same line in a procedure
+		 * declares a local.  Only with the block open can a field be scoped like
+		 * the `\x` that reads it -- the PureBasic IDE colours the two alike, and
+		 * this is how a VS Code theme can.
+		 */
+		structures: {
+			begin:
+				'(?i)\\b(StructureUnion|Structure|Interface)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s*([A-Za-z_]\\w*)?',
+			beginCaptures: {
+				1: { name: 'keyword.other.structure.purebasic' },
+				2: { name: 'storage.type.purebasic' },
+				3: { name: 'entity.name.type.purebasic' },
+			},
+			end: '(?i)\\b(EndStructureUnion|EndStructure|EndInterface)\\b',
+			endCaptures: { 0: { name: 'keyword.other.structure.purebasic' } },
+			patterns: [
+				// a nested StructureUnion must open its own block before the
+				// field rule can mistake it for a member
+				{ include: '#structures' },
+				{ include: '#field' },
+				{ include: '#comments' },
+				{ include: '#strings' },
+				{ include: '#numbers' },
+				{ include: '#keywords' },
+				{ include: '#sigils' },
+				{ include: '#type-suffix' },
+				{ include: '#members' },
+				{ include: '#constants' },
+				{ include: '#builtins' },
+			],
+		},
+		field: {
+			comment:
+				'A member declaration -- `x.i`, `*Entry`, `List Items.Inner()` -- scoped like the `\\x` reading it, so both ends of a member look the same.',
+			match:
+				'(?i)^(\\s*)' +
+				// the block markers and directives that also sit on a line of
+				// their own are not members, and a bare List/Array/Map is not one
+				// either; the block rule has to see those before this one does
+				'(?!(?:StructureUnion|Structure|Interface|EndStructureUnion|EndStructure|EndInterface|Extends|Align|Static|Compiler[A-Za-z]*|ImportC?|Data)\\b)' +
+				'(?!(?:List|Array|Map)\\s*$)' +
+				'(?:(?:List|Array|Map)\\s+)?(\\*?[A-Za-z_]\\w*\\$?)(?=\\s*(?:\\.|\\[|\\(|$))',
+			captures: { 2: { name: 'variable.other.member.purebasic' } },
+		},
 		declarations: {
 			patterns: [
 				{
@@ -162,7 +210,7 @@ const grammar = {
 					comment:
 						'Structure / Interface / Module / Enumeration declarations.  Enumeration[.type] with no name of its own is left to the keyword and type-suffix rules.',
 					match:
-						'(?i)\\b(StructureUnion|Structure|Interface|DeclareModule|Module|EnumerationBinary|Enumeration)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s+([A-Za-z_]\\w*)',
+						'(?i)\\b(DeclareModule|Module|EnumerationBinary|Enumeration)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s+([A-Za-z_]\\w*)',
 					captures: {
 						1: { name: 'keyword.other.structure.purebasic' },
 						2: { name: 'storage.type.purebasic' },
@@ -211,7 +259,10 @@ const grammar = {
 		},
 		specials: {
 			patterns: [
-				{ name: 'variable.other.pointer.purebasic', match: '\\*[A-Za-z_]\\w*' },
+				// `*p` is a pointer only when the `*` is glued to the name and not
+				// glued to what comes before it: `a*b`, `2*3` and `a * b` are
+				// multiplications, which the PB IDE colours as symbols.
+				{ name: 'variable.other.pointer.purebasic', match: '(?<![A-Za-z0-9_])\\*[A-Za-z_]\\w*' },
 				{ name: 'variable.other.reference.purebasic', match: '@[A-Za-z_]\\w*' },
 				// a `@` with no name yet -- `@` on its own, or `@` before
 				// something other than a name -- still wears the sigil's colour,
@@ -234,10 +285,24 @@ const grammar = {
 				match: `(?i)\\b(?:${alternation(names)})\\b`,
 			})),
 		},
+		/*
+		 * The .i / .TypeName after a name.  A native suffix is a storage type,
+		 * like the PB IDE's own `type` colour; any other name is a type of its
+		 * own, scoped like the name where it is declared so that `test.Point`
+		 * and `Structure Point` agree whatever the theme.
+		 */
 		'type-suffix': {
-			comment: 'The .i / .d / .TypeName that follows a name.',
-			match: '(?<=\\b[A-Za-z_]\\w*)\\.([A-Za-z]\\w*)',
-			captures: { 1: { name: 'storage.type.purebasic' } },
+			patterns: [
+				{
+					comment: 'The native single-letter suffixes, which pbcompiler reserves as structure names.',
+					match: '(?<=\\b[A-Za-z_]\\w*)\\.([bawculifqds])(?![A-Za-z0-9_])',
+					captures: { 1: { name: 'storage.type.purebasic' } },
+				},
+				{
+					match: '(?<=\\b[A-Za-z_]\\w*)\\.([A-Za-z_]\\w*)',
+					captures: { 1: { name: 'entity.name.type.purebasic' } },
+				},
+			],
 		},
 	},
 };
