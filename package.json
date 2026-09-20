@@ -126,6 +126,18 @@
 				"command": "purebasic.formatText",
 				"title": "PureBasic: Format Text (Canonical Case)",
 				"category": "PureBasic"
+			},
+			{
+				"command": "purebasic.newline",
+				"title": "PureBasic: New Line (Smart)",
+				"category": "PureBasic"
+			}
+		],
+		"keybindings": [
+			{
+				"command": "purebasic.newline",
+				"key": "enter",
+				"when": "editorTextFocus && editorLangId == purebasic && !suggestWidgetVisible && !editorHasMultipleSelections && !editorReadonly && !inDebugRepl"
 			}
 		],
 		"menus": {
@@ -140,6 +152,10 @@
 				{
 					"command": "purebasic.formatText",
 					"when": "editorLangId == purebasic"
+				},
+				{
+					"command": "purebasic.newline",
+					"when": "false"
 				}
 			]
 		}

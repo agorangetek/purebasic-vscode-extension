@@ -112,6 +112,8 @@ class TextDocument {
 	lineAt(line: number) {
 		const text = this.lines()[line] ?? '';
 		return {
+			// vscode's TextLine.number is 1-based, like this
+			lineNumber: line + 1,
 			text,
 			range: new Range(new Position(line, 0), new Position(line, text.length)),
 		};
@@ -211,6 +213,18 @@ class DocumentSymbol {
 	}
 }
 
+class Selection {
+	anchor: Position;
+	active: Position;
+	constructor(anchor: Position, active: Position) {
+		this.anchor = anchor;
+		this.active = active;
+	}
+	get isEmpty() {
+		return this.anchor.line === this.active.line && this.anchor.character === this.active.character;
+	}
+}
+
 const disposable = { dispose() {} };
 
 const registrations: Record<string, { selector: string; provider: any }[]> = {
@@ -223,6 +237,7 @@ const registrations: Record<string, { selector: string; provider: any }[]> = {
 	onType: [],
 };
 const commands = new Map<string, (...args: unknown[]) => unknown>();
+const executed: { id: string; args: unknown[] }[] = [];
 const statusMessages: string[] = [];
 
 const DEFAULT_CONFIG: Record<string, unknown> = {
@@ -248,6 +263,7 @@ const vscodeMock = {
 	SignatureInformation,
 	ParameterInformation,
 	DocumentSymbol,
+	Selection,
 	TextEdit: {
 		replace: (range: unknown, newText: string) => ({ range, newText }),
 		insert: (position: Position, newText: string) => ({ range: new Range(position, position), newText }),
@@ -298,6 +314,10 @@ const vscodeMock = {
 		registerCommand: (id: string, handler: (...args: unknown[]) => unknown) => {
 			commands.set(id, handler);
 			return disposable;
+		},
+		executeCommand: async (id: string, ...args: unknown[]) => {
+			executed.push({ id, args });
+			return undefined;
 		},
 	},
 	languages: {
@@ -358,11 +378,33 @@ const SAMPLE = [
 const document = new TextDocument('/ws/main.pb', SAMPLE);
 const appliedEdits: { range: unknown; newText: string }[] = [];
 
+const selections: Selection[] = [new Selection(new Position(0, 0), new Position(0, 0))];
+
 const editor = {
 	document: document as TextDocument,
-	selections: [{ isEmpty: true }],
-	edit: async (callback: (builder: { replace: (r: unknown, t: string) => void }) => void) => {
-		callback({ replace: (range, newText) => appliedEdits.push({ range, newText }) });
+	options: { insertSpaces: true, tabSize: 2 },
+	get selection(): Selection {
+		return selections[0]!;
+	},
+	get selections(): Selection[] {
+		return selections;
+	},
+	set selections(value: Selection[]) {
+		selections.length = 0;
+		selections.push(...value);
+	},
+	edit: async (callback: (builder: { replace: (r: Range, t: string) => void }) => void) => {
+		callback({
+			replace: (range, newText) => {
+				appliedEdits.push({ range, newText });
+				// apply it, so the tests can see the document and caret the user
+				// would be left with
+				const start = editor.document.offsetAt(range.start);
+				const end = editor.document.offsetAt(range.end);
+				editor.document.text =
+					editor.document.text.slice(0, start) + newText + editor.document.text.slice(end);
+			},
+		});
 		return true;
 	},
 };
@@ -495,35 +537,43 @@ test('integration: extension host wiring', { skip }, async (t) => {
 		assert.ok(!names.includes('result'), 'locals stay out of the outline');
 	});
 
-	await t.test('Enter finishes a block opener: re-cased, with its terminator', () => {
-		const provider = registrations.onType[0]!.provider;
-		assert.equal(registrations.onType[0]!.selector, 'purebasic');
+	await t.test('Enter finishes a block opener and leaves the caret in the body', async () => {
+		const doc = new TextDocument('/ws/enter.pb', 'procedure test()');
+		editor.document = doc;
+		editor.selections = [new Selection(new Position(0, 16), new Position(0, 16))];
+		executed.length = 0;
 
-		// what the editor looks like just after Enter: the opener above, and an
-		// auto-indented empty line with the cursor on it
-		const doc = new TextDocument(
-			'/ws/enter.pb',
-			['Procedure Outer()', '\tprocedure test()', '\t\t', ''].join('\n'),
-		);
-		const edits = provider.provideOnTypeFormattingEdits(doc, new Position(2, 2), '\n') as {
-			newText: string;
-		}[];
+		await commands.get('purebasic.newline')!();
 
-		assert.ok(edits, 'expected edits when Enter finishes the line');
-		assert.equal(edits.length, 2, 'a re-case and a terminator');
-		assert.equal(edits[0]!.newText, '\tProcedure test()', 'the opener is re-cased');
-		assert.equal(edits[1]!.newText, '\n\tEndProcedure', 'the terminator is indented like the opener');
+		assert.equal(doc.text, 'Procedure test()\n  \nEndProcedure');
+		assert.equal(editor.selections[0]!.active.line, 1, 'the caret is on the body line');
+		assert.equal(editor.selections[0]!.active.character, 2, 'past the indentation');
+		assert.deepEqual(executed, [], 'the editor\'s own Enter is not used');
 	});
 
-	await t.test('a line that opens nothing gets no terminator', () => {
-		const provider = registrations.onType[0]!.provider;
-		const doc = new TextDocument('/ws/if.pb', ['if x > 1 : y = 2 : EndIf', '\t', ''].join('\n'));
-		const edits = provider.provideOnTypeFormattingEdits(doc, new Position(1, 1), '\n') as {
-			newText: string;
-		}[];
+	await t.test('Enter anywhere else falls through to the editor', async () => {
+		// a declaration with no parentheses yet: re-cased, but not expanded
+		const half = new TextDocument('/ws/half.pb', 'procedure test');
+		editor.document = half;
+		editor.selections = [new Selection(new Position(0, 14), new Position(0, 14))];
+		executed.length = 0;
+		await commands.get('purebasic.newline')!();
+		assert.equal(half.text, 'Procedure test', 'no terminator before the signature is closed');
+		assert.deepEqual(executed.map((e) => e.id), ['default:type']);
 
-		assert.equal(edits?.length, 1, 'only the re-case');
-		assert.equal(edits![0]!.newText, 'If x > 1 : y = 2 : EndIf');
+		// a line that opens nothing, and the middle of a line
+		for (const [text, column] of [
+			['x = 1', 5],
+			['Procedure test()', 10],
+		] as const) {
+			const doc = new TextDocument('/ws/plain.pb', text);
+			editor.document = doc;
+			editor.selections = [new Selection(new Position(0, column), new Position(0, column))];
+			executed.length = 0;
+			await commands.get('purebasic.newline')!();
+			assert.deepEqual(executed.map((e) => e.id), ['default:type'], text);
+			assert.equal(doc.text, text, 'nothing was rewritten');
+		}
 	});
 
 	await t.test('a closing paren re-cases the line it finishes', () => {

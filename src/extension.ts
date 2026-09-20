@@ -307,53 +307,87 @@ export function activate(context: vscode.ExtensionContext): void {
 	);
 
 	/*
-	 * Enter after a block opener puts the terminator on the next line, and the
-	 * line that was just finished is re-cased in the same keystroke -- the two
-	 * halves of what the PureBasic IDE calls a smart newline.
+	 * Enter is bound to a command of ours for PureBasic, because the caret is
+	 * the point: finishing a block opener has to leave the caret on the body
+	 * line, and an edit that lands on the caret takes the caret with it -- a
+	 * formatting provider has no way to put it back.  A command can.
 	 *
-	 * On-type formatting is the only way an extension can act on a keystroke
-	 * without taking over typing itself, so this rides on editor.formatOnType
-	 * (on for PureBasic by default).  The edits are all after the cursor, so the
-	 * cursor stays where the user put it, in the body.
+	 * Everything else, and every case this has no business in, falls through to
+	 * the editor's own Enter, so auto-indent, multi-cursor and the suggest
+	 * widget are untouched.
 	 */
+	context.subscriptions.push(
+		vscode.commands.registerCommand('purebasic.newline', async () => {
+			const editor = vscode.window.activeTextEditor;
+			if (editor && editor.document.languageId === LANGUAGE && (await finishBlockLine(editor))) {
+				return;
+			}
+			await vscode.commands.executeCommand('default:type', { text: '\n' });
+		}),
+	);
+
+	/**
+	 * The two halves of a smart newline: the line the caret is on is re-cased,
+	 * and a line that opens a block gets its terminator, with the caret left on
+	 * the body line.  Returns true when the newline has been dealt with here,
+	 * and false when the editor's own Enter should finish the job.
+	 */
+	async function finishBlockLine(editor: vscode.TextEditor): Promise<boolean> {
+		if (!editor.selection.isEmpty) return false;
+		const caret = editor.selection.active;
+		const document = editor.document;
+		const line = document.lineAt(caret.line);
+
+		// only the end of the line: in the middle, Enter just splits it
+		if (caret.character !== line.text.length) return false;
+
+		const lineText = config().canonicalCase
+			? canonicalizeIdentifiers(line.text, indexOf(document).symbols).text
+			: line.text;
+
+		const block = blockOpenerAt(lineText, allBlocks());
+		// a declaration that is not finished yet -- `Procedure test`, with no
+		// parentheses -- is not the head of a block until its signature closes
+		const unfinished =
+			block !== undefined &&
+			/^(?:procedure|declare|prototype)/i.test(block.opener) &&
+			!lineText.includes('(');
+
+		if (!block || unfinished) {
+			// no block to close, but the line is still re-cased
+			if (lineText !== line.text) await editor.edit((b) => b.replace(line.range, lineText));
+			return false;
+		}
+
+		const tabSize = typeof editor.options.tabSize === 'number' ? editor.options.tabSize : 4;
+		const unit = editor.options.insertSpaces === false ? '\t' : ' '.repeat(tabSize);
+		const base = /^\s*/.exec(lineText)?.[0] ?? '';
+		const body = base + unit;
+
+		await editor.edit((b) =>
+			b.replace(line.range, `${lineText}\n${body}\n${base}${block.closers[0]}`),
+		);
+
+		const after = new vscode.Position(line.lineNumber, body.length);
+		editor.selections = [new vscode.Selection(after, after)];
+		return true;
+	}
+
+	// typing ')' re-cases the line it finishes, so a signature is fixed as soon
+	// as it is written.  This rides on editor.formatOnType, on for PureBasic by
+	// default; the caret is not in play here, so a provider is enough.
 	context.subscriptions.push(
 		vscode.languages.registerOnTypeFormattingEditProvider(
 			LANGUAGE,
 			{
-				provideOnTypeFormattingEdits(document, position, ch) {
+				provideOnTypeFormattingEdits(document, position) {
 					if (!config().canonicalCase) return undefined;
-					const edits: vscode.TextEdit[] = [];
-					const parsed = indexOf(document);
-
-					// the line the user just finished: this one for ')', the one
-					// above for Enter, which has already opened a new line
-					const finished = position.line - (ch === '\n' ? 1 : 0);
-					if (finished < 0) return undefined;
-					const line = document.lineAt(finished);
-
-					const recased = canonicalizeIdentifiers(line.text, parsed.symbols);
-					if (recased.changes > 0) {
-						edits.push(vscode.TextEdit.replace(line.range, recased.text));
-					}
-
-					// a block opener gets its terminator, indented like the opener
-					if (ch === '\n' && document.lineAt(position.line).text.trim() === '') {
-						const block = blockOpenerAt(line.text, allBlocks());
-						if (block) {
-							const indent = /^\s*/.exec(line.text)?.[0] ?? '';
-							edits.push(
-								vscode.TextEdit.insert(
-									document.lineAt(position.line).range.end,
-									`\n${indent}${block.closers[0]}`,
-								),
-							);
-						}
-					}
-
-					return edits.length > 0 ? edits : undefined;
+					const line = document.lineAt(position.line);
+					const recased = canonicalizeIdentifiers(line.text, indexOf(document).symbols);
+					if (recased.changes === 0) return undefined;
+					return [vscode.TextEdit.replace(line.range, recased.text)];
 				},
 			},
-			'\n',
 			')',
 		),
 	);

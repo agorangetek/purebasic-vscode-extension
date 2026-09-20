@@ -99,7 +99,7 @@ another keyword.
   would open the popup on the first keystroke regardless.
 * **Enter closes what you opened** — pressing Enter at the end of an opener line
   re-cases that line and puts its terminator on the next one, indented like the
-  opener, leaving the cursor in the body:
+  opener, leaving the cursor on the body line:
 
   ```text
   procedure test()          Procedure test()
@@ -107,10 +107,15 @@ another keyword.
                             EndProcedure
   ```
 
-  A line that opens nothing — `If x : y = 2 : EndIf`, a comment, a plain
-  assignment — is left alone, as is a `Declare` or `Prototype`. This rides on
-  `editor.formatOnType`, which is on for PureBasic by default: it is how an
-  extension can act on a keystroke without taking typing over.
+  A half-written declaration (`Procedure test`, no parentheses yet) is re-cased
+  but not expanded, since it is not the head of a block until its signature
+  closes. A line that opens nothing — `If x : y = 2 : EndIf`, an assignment, a
+  comment — is left to the editor. This is the `purebasic.newline` command,
+  bound to Enter for PureBasic (and hidden from the palette); anything it does
+  not handle falls through to the editor's own Enter, so auto-indent,
+  multi-cursor and the suggest widget are untouched. It is a command rather
+  than on-type formatting because the caret is the point — an edit that lands on
+  the caret takes it along, and a formatting provider cannot put it back.
 
 ### Hover and signature help
 
@@ -152,7 +157,7 @@ files.
 | `purebasic.index.workspace` | `true` | Index `.pb`/`.pbi` files across the workspace. |
 | `purebasic.index.maxFiles` | `400` | Cap on indexed workspace files. |
 | `purebasic.format.canonicalCase` | `true` | Restore canonical spelling when formatting and on Enter. |
-| `editor.formatOnType` (per language) | `true` | On for PureBasic by default; the switch for the Enter behaviour above. |
+| `editor.formatOnType` (per language) | `true` | On for PureBasic: re-cases the line when you type `)`. |
 | `purebasic.trace.server` | `"off"` | Log language service activity to the *PureBasic* output channel. |
 
 ## Commands
