@@ -305,10 +305,11 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 	// Editor-side pacing: while a name is being typed, wait until enough of it
 	// is there before offering anything.  A member list after '.' or '\' is
 	// asked for deliberately -- the editor only triggers it on the character
-	// itself -- so it is never held back.
-	if (members === 'plain' && (options.minChars ?? 0) > 0) {
-		const typed = word.replace(/^[*@?]/, '');
-		if (typed.length < (options.minChars ?? 0)) return [];
+	// itself -- so it is never held back, and neither is a sigil: `@` already
+	// says a procedure address or a variable is wanted, so `@` alone lists them.
+	const sigil = /^[*@?]/.test(word);
+	if (members === 'plain' && !sigil && (options.minChars ?? 0) > 0) {
+		if (word.length < (options.minChars ?? 0)) return [];
 	}
 
 	const push = (item: PbCompletionItem) => {
@@ -401,8 +402,9 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 		push(item);
 	}
 
-	// a fresh statement, with nothing on the line yet: where a block belongs
-	const freshStatement = /^\s*$/.test(context.before);
+	// a fresh statement, with nothing on the line yet: where a block belongs.
+	// A sigil has already started the expression, so `@` alone is not one.
+	const freshStatement = !sigil && /^\s*$/.test(context.before);
 
 	// 4. library commands are valid in any expression
 	if (options.builtins) {
@@ -439,8 +441,9 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 		}
 	}
 
-	// 6. the rest of the language
-	if (options.keywords) {
+	// 6. the rest of the language -- no keywords after a sigil, since `@`, `*`
+	// and `?` all want a name they can point at
+	if (options.keywords && !sigil) {
 		for (const item of allBuiltins()) {
 			if (item.kind !== 'keyword') continue;
 			if (!isCompletableName(item.name)) continue;

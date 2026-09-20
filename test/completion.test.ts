@@ -440,3 +440,28 @@ test('nothing is offered inside a string, a comment, or after a stray dot', () =
 	}).map((i) => i.label);
 	assert.ok(withStructure.includes('Point'), 'and the structures');
 });
+
+test('a sigil opens the list on its own, and only offers names it can point at', () => {
+	const source = ['Procedure.i ThreadProcedure1(param.i)', 'EndProcedure', '@'].join('\n');
+
+	const at = (typed: string) => {
+		const document = parseDocument('file:///t.pb', source.replace(/@[A-Za-z_]*/, typed));
+		return buildCompletions({
+			document,
+			position: { line: 2, character: typed.length },
+			word: typed,
+			options: OPTIONS,
+		}).map((i) => i.label);
+	};
+
+	// `@` alone is a deliberate request, so the minimum does not hold it back
+	const bare = at('@');
+	assert.ok(bare.includes('ThreadProcedure1'), `expected the procedure, got ${bare.length} items`);
+	assert.ok(bare.includes('MessageRequester'), 'a library procedure can be addressed too');
+	assert.ok(!bare.includes('Procedure'), 'a keyword cannot be addressed');
+	assert.ok(!bare.includes('If'), 'and neither can a block keyword');
+
+	// whatever follows the sigil filters as usual
+	assert.deepEqual(at('@ThreadProc'), ['ThreadProcedure1']);
+	assert.deepEqual(at('@ThreadPro'), ['ThreadProcedure1']);
+});

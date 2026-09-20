@@ -4,6 +4,18 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.11] - 2026-09-20
+
+### Fixed
+
+- **Typing `@` offered nothing.** The pacing that waits for three characters stripped the
+  sigil before measuring, so `@` counted as nothing typed, and the pattern the extension read
+  the line with could not report a bare sigil at all. A sigil is a deliberate request, like `.`
+  and `\`: `@` alone now lists what it can point at -- your own procedures and variables first,
+  then the library procedures -- and `@` is registered as a trigger character so the editor asks
+  for it directly. Keywords are left out of that list, since none of them can be addressed, and
+  the block openers no longer appear either: a sigil has already started the expression.
+
 ## [0.1.10] - 2026-09-20
 
 ### Fixed

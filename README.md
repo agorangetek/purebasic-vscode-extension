@@ -102,6 +102,10 @@ another keyword.
 * **Only where a name belongs** — typing `.` offers the type list after `name.` or
   `*name.` and nothing anywhere else (after a member, a call, an index, a number), and
   inside a string or a comment nothing is offered at all, `.` trigger character or not.
+* **A sigil opens the list by itself** — typing `@` lists what it can point at: your
+  procedures and variables first, then the library procedures, with no keywords, since
+  none of them can be addressed. `*name` and `?name` are filtered the same way once the
+  name is under way.
 * **Prefix filtering, in any case** — typing a character offers only the names
   that *start* with it, whatever case you type.
 * **It waits for you** — nothing pops up until three characters of the name are

@@ -281,7 +281,14 @@ class Selection {
 
 const disposable = { dispose() {} };
 
-const registrations: Record<string, { selector: string; provider: any }[]> = {
+// the mock mirrors the API: the provider is registered with its trigger
+// characters, and a test asserts them
+interface Registration {
+	selector: string;
+	provider: any;
+	triggerCharacters?: string[];
+}
+const registrations: Record<string, Registration[]> = {
 	completion: [],
 	hover: [],
 	signature: [],
@@ -385,8 +392,12 @@ const vscodeMock = {
 		},
 	},
 	languages: {
-		registerCompletionItemProvider: (selector: string, provider: unknown) => {
-			registrations.completion!.push({ selector, provider });
+		registerCompletionItemProvider: (
+			selector: string,
+			provider: unknown,
+			...triggerCharacters: string[]
+		) => {
+			registrations.completion!.push({ selector, provider, triggerCharacters });
 			return disposable;
 		},
 		registerHoverProvider: (selector: string, provider: unknown) => {
@@ -522,6 +533,11 @@ test('integration: extension host wiring', { skip }, async (t) => {
 			assert.equal(registrations[group]!.length, 1, `${group} provider`);
 			assert.equal(registrations[group]![0]!.selector, 'purebasic');
 		}
+		assert.deepEqual(
+			registrations.completion![0]!.triggerCharacters,
+			['.', '\\', '@'],
+			'a dot, a member access and a reference open the list by themselves',
+		);
 		assert.ok(commands.has('purebasic.reindex'));
 		assert.ok(commands.has('purebasic.showIndexStats'));
 		assert.ok(commands.has('purebasic.formatText'));
@@ -873,6 +889,24 @@ test('integration: only files joined by IncludeFile share symbols', { skip }, as
 		) as CompletionItem[];
 
 		assert.deepEqual(items.map(shownLabel), [], 'a string has no members to offer');
+	});
+
+	await t.test('a sigil opens the list and offers names it can point at', () => {
+		const document = new TextDocument(
+			'/ws/sigil.pb',
+			['Procedure.i ThreadProcedure1(param.i)', 'EndProcedure', '@'].join('\n'),
+		);
+		const items = registrations.completion[0]!.provider.provideCompletionItems(
+			document,
+			new Position(2, 1),
+			{ triggerCharacter: '@' },
+		) as CompletionItem[];
+
+		const labels = items.map(shownLabel);
+		assert.ok(labels.includes('ThreadProcedure1'), `expected the procedure among ${labels.length} items`);
+		assert.ok(labels.includes('MessageRequester'), 'a library procedure is addressable');
+		assert.ok(!labels.includes('Procedure'), 'a keyword is not');
+		assert.ok(!labels.includes('If'), 'nor a block opener');
 	});
 
 	await t.test('a dot that no type belongs after offers nothing', () => {

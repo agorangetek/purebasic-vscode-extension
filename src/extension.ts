@@ -48,6 +48,15 @@ function trace(message: string): void {
 	output.appendLine(`[${new Date().toISOString()}] ${message}`);
 }
 
+/**
+ * The name being typed at the caret, with its sigil, read from the line itself.
+ * A sigil on its own counts -- `@` already asks for a reference, and the editor
+ * needs to be told that rather than be handed an empty word.
+ */
+function typedWord(line: string, character: number): string {
+	return /(?:[*@?]?[A-Za-z_]\w*\$?|[*@?])$/.exec(line.slice(0, character))?.[0] ?? '';
+}
+
 /** Parse a document and add it to the index. */
 function indexOf(document: vscode.TextDocument): PbDocument {
 	return index.index(document.uri.toString(), document.getText());
@@ -267,8 +276,7 @@ export function activate(context: vscode.ExtensionContext): void {
 			const document = editor.document;
 			const position = editor.selection.active;
 			const line = document.lineAt(position.line).text;
-			const word =
-				/(\*|@|\?)?[A-Za-z_]\w*\$?$/.exec(line.slice(0, position.character))?.[0] ?? '';
+			const word = typedWord(line, position.character);
 			const cfg = config();
 			const items = buildCompletions({
 				document: indexOf(document),
@@ -552,8 +560,7 @@ export function activate(context: vscode.ExtensionContext): void {
 					// inside one -- and how it treats a pattern like this one is the
 					// editor's business, so the text is taken directly instead.
 					const line = document.lineAt(position.line).text;
-					const word =
-						/(\*|@|\?)?[A-Za-z_]\w*\$?$/.exec(line.slice(0, position.character))?.[0] ?? '';
+					const word = typedWord(line, position.character);
 
 					// a type or member list is asked for by the '.' or '\' itself, so the
 					// minimum length does not apply to it
@@ -581,6 +588,10 @@ export function activate(context: vscode.ExtensionContext): void {
 			},
 			'.',
 			'\\',
+			// `@` starts a procedure address or a variable reference; `*` is
+			// also the multiplication sign and `?` needs a label, so neither is
+			// a trigger.
+			'@',
 		),
 	);
 
