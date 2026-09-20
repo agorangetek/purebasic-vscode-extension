@@ -268,6 +268,8 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 	 */
 	for (const symbol of workspaceSymbols) {
 		if (symbol.file === document.uri) continue;
+		// a member is only valid after a `\`, which the branch above handles
+		if (symbol.kind === 'field') continue;
 		const file = fileNameOf(symbol.file);
 		const item = symbolToCompletionItem(symbol, RANK.workspace, false, file, file);
 		item.documentation = item.documentation

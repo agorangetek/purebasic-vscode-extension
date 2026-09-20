@@ -12,6 +12,7 @@ import { maskSource, parseDocument, wordBefore } from './service/parser.ts';
 import { buildCompletions } from './service/completion.ts';
 import { getHover } from './service/hover.ts';
 import {
+	groupSymbols,
 	includeGroup,
 	includeSearchPaths,
 	pathOfUri,
@@ -63,7 +64,7 @@ function indexOf(document: vscode.TextDocument): PbDocument {
 function usableSymbols(document: PbDocument): PbSymbol[] {
 	if (!config().workspace) return [];
 	const group = includeGroup(document.uri, index, config().maxFiles);
-	return index.symbols(document.uri).filter((symbol) => group.has(symbol.file));
+	return groupSymbols(group, index, document.uri);
 }
 
 function toCompletionKind(kind: PbCompletionKind): vscode.CompletionItemKind {

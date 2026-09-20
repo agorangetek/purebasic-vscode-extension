@@ -169,6 +169,8 @@ file. Completion, hover and signature help follow the same rule with
 * a target is resolved the way `pbcompiler` resolves it — relative to the file
   that writes the statement, then through any `IncludePath` directories (each
   relative to the file that declares it);
+* the members of a structure declared in an included file are offered after a
+  `\` (`p\` gives that structure's fields);
 * symbols from another file carry that file's name after the label
   (`LoadConfig   config.pbi`), and the defining file is the sort key that keeps
   one file's symbols together. The popup has no row of its own for a heading, so

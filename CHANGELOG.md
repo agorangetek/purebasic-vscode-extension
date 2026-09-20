@@ -4,6 +4,17 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.4] - 2026-09-20
+
+### Fixed
+
+- **A structure declared in an included file offered none of its members.** The index handed out
+  module-level symbols only, so a field -- which belongs to its structure, not to the file --
+  never crossed a file boundary: `Point` from an included file was completed, but `p\` after
+  `Define p.Point` listed nothing. Fields now travel with the include group, and a field is still
+  never offered as an ordinary name, only where a member is expected. Found by running the
+  extension in a real editor host against two files, one including the other.
+
 ## [0.1.3] - 2026-09-20
 
 ### Changed

@@ -16,7 +16,7 @@
  * file that writes the statement (not the root file), and an IncludePath is
  * relative to the file that declares it.
  */
-import type { PbDocument } from './types.ts';
+import type { PbDocument, PbSymbol } from './types.ts';
 
 /** The documents the include graph is built from. */
 export interface DocumentPool {
@@ -155,4 +155,28 @@ export function includeGroup(root: string, pool: DocumentPool, limit = 400): Set
 		}
 	}
 	return group;
+}
+
+/**
+ * What the files of a group contribute to the document being completed in:
+ * module-level names always, and fields as well, because a structure used across
+ * files needs its members after a `\`.  Fields never show up as ordinary
+ * completions -- buildCompletions only reaches for them in a member context --
+ * and the document itself is left out, since its own symbols are already there.
+ */
+export function groupSymbols(
+	group: Iterable<string>,
+	pool: DocumentPool,
+	excludeUri?: string,
+): PbSymbol[] {
+	const out: PbSymbol[] = [];
+	for (const uri of group) {
+		if (uri === excludeUri) continue;
+		const document = pool.get(uri);
+		if (!document) continue;
+		for (const symbol of document.symbols) {
+			if (symbol.scope === '' || symbol.kind === 'field') out.push(symbol);
+		}
+	}
+	return out;
 }

@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
 	dirOfPath,
+	groupSymbols,
 	includeGroup,
 	pathOfUri,
 	resolveIncludeTargets,
@@ -139,4 +140,28 @@ test('the group is bounded so a huge project cannot stall a keystroke', () => {
 	files['/ws/20.pb'] = '';
 	const group = includeGroup('file:///ws/0.pb', poolOf(files), 5);
 	assert.equal(group.size, 5);
+});
+
+test('a group carries fields as well, but not the document itself', () => {
+	const pool = poolOf({
+		'/ws/main.pb': ['IncludeFile "lib/shapes.pbi"', 'Define p.Shape'].join('\n'),
+		'/ws/lib/shapes.pbi': [
+			'Structure Shape',
+			'\twidth.i',
+			'\theight.i',
+			'EndStructure',
+			'Procedure Draw()',
+			'EndProcedure',
+			'#MAX = 3',
+		].join('\n'),
+	});
+	const group = includeGroup('file:///ws/main.pb', pool);
+	const symbols = groupSymbols(group, pool, 'file:///ws/main.pb');
+	const names = symbols.map((symbol) => symbol.name);
+
+	assert.ok(symbols.some((s) => s.kind === 'field' && s.name === 'width'), 'fields come along');
+	assert.ok(names.includes('Shape'), 'module-level names too');
+	assert.ok(names.includes('Draw'));
+	assert.ok(names.includes('#MAX'), 'constants are module level');
+	assert.ok(!names.includes('p'), 'the document being completed in is left out');
 });

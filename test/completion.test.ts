@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { buildCompletions, enclosingProcedure, fileNameOf } from '../src/service/completion.ts';
 import { getHover } from '../src/service/hover.ts';
+import { groupSymbols } from '../src/service/includes.ts';
 import { parseDocument } from '../src/service/parser.ts';
 import { getSignatureHelp } from '../src/service/signature.ts';
 
@@ -248,4 +249,35 @@ test('a symbol from another file says which file, one from this file does not', 
 	// the file name is the sort key, so one file's symbols stay together
 	assert.match(byLabel.get('Helper')?.sortText ?? '', /^2helpers\.pb/);
 	assert.match(byLabel.get('Shared')?.sortText ?? '', /^2other\.pb/);
+});
+
+test('a structure from another file gives its fields after a backslash', () => {
+	const source = ['Define p.Shape', '\tp\\', 'EndProcedure'].join('\n');
+	const document = parseDocument('file:///ws/main.pb', source);
+	const shapes = parseDocument(
+		'file:///ws/lib/shapes.pbi',
+		['Structure Shape', '\twidth.i', '\theight.i', 'EndStructure'].join('\n'),
+	);
+
+	const items = buildCompletions({
+		document,
+		workspaceSymbols: groupSymbols([shapes.uri], { uris: () => [shapes.uri], get: () => shapes }),
+		position: { line: 1, character: 3 },
+		word: '',
+		options: OPTIONS,
+	});
+	const labels = items.map((i) => i.label);
+
+	assert.deepEqual(labels, ['width', 'height'], 'the members of the other file structure');
+	assert.match(items[0]!.documentation ?? '', /member of Shape/);
+
+	// and the field is never offered as an ordinary name, only after the `\`
+	const plain = buildCompletions({
+		document,
+		workspaceSymbols: groupSymbols([shapes.uri], { uris: () => [shapes.uri], get: () => shapes }),
+		position: { line: 0, character: 0 },
+		word: 'widt',
+		options: OPTIONS,
+	});
+	assert.deepEqual(plain.map((i) => i.label), [], 'a field is not a name you can type anywhere');
 });

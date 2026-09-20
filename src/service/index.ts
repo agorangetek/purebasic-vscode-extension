@@ -3,7 +3,7 @@
  * rest of the workspace.
  */
 import { parseDocument } from './parser.ts';
-import type { PbDocument, PbSymbol } from './types.ts';
+import type { PbDocument } from './types.ts';
 
 export class PbIndex {
 	private documents = new Map<string, PbDocument>();
@@ -36,19 +36,6 @@ export class PbIndex {
 
 	uris(): string[] {
 		return [...this.documents.keys()];
-	}
-
-	/** All symbols from all indexed documents, excluding the given uri. */
-	symbols(excludeUri?: string): PbSymbol[] {
-		const out: PbSymbol[] = [];
-		for (const [uri, doc] of this.documents) {
-			if (excludeUri !== undefined && uri === excludeUri) continue;
-			for (const symbol of doc.symbols) {
-				// only module-level symbols are interesting across files
-				if (symbol.scope === '') out.push(symbol);
-			}
-		}
-		return out;
 	}
 
 	stats(): { files: number; symbols: number; limit: number } {

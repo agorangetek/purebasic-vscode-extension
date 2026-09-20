@@ -68,6 +68,10 @@ const workspaceFiles = new Map<string, string>([
 		'/ws/lib/helpers.pb',
 		[
 			'IncludeFile "deeper/more.pbi"',
+			'Structure WsShape',
+			'\twidth.i',
+			'\theight.i',
+			'EndStructure',
 			'Procedure WsHelperGreet(name$)',
 			'\tDebug name$',
 			'EndProcedure',
@@ -754,6 +758,8 @@ test('integration: only files joined by IncludeFile share symbols', { skip }, as
 			lineFor('WsDee'),
 			lineFor('WsOth'),
 			lineFor('WsOut'),
+			'\tDefine s.WsShape',
+			'\ts\\',
 			'EndProcedure',
 		].join('\n'),
 	);
@@ -813,6 +819,22 @@ test('integration: only files joined by IncludeFile share symbols', { skip }, as
 		assert.ok(
 			viaInclude.some((i) => shownLabel(i) === 'WsOtherThing'),
 			`including /ws/other.pb makes it contribute, got ${labels(viaInclude)}`,
+		);
+	});
+
+	await t.test('the members of a structure from an included file are offered', () => {
+		const items = registrations.completion[0]!.provider.provideCompletionItems(
+			scratch,
+			new Position(8, 3),
+			{ triggerCharacter: '\\' },
+		) as CompletionItem[];
+		const labels = items.map(shownLabel);
+
+		assert.ok(labels.includes('width'), `expected width among ${labels.join(', ')}`);
+		assert.ok(labels.includes('height'), `expected height among ${labels.join(', ')}`);
+		assert.ok(
+			!labels.includes('WsHelperGreet'),
+			'a member list holds members, not the names you type anywhere',
 		);
 	});
 
