@@ -122,9 +122,10 @@ const grammar = {
 		declarations: {
 			patterns: [
 				{
-					comment: 'Procedure[.type] Name(...) and its Declare/Prototype forms.',
+					comment:
+						'Procedure[.type] Name(...) and its Declare/Prototype forms.  The type is its own group: captured as part of the name it took the function colour and left the return type uncoloured.',
 					match:
-						'(?i)\\b(Procedure(?:DLL|C|CDLL)?|Declare(?:DLL|C|CDLL)?|PrototypeC?|Runtime\\s+Procedure)\\b(\\s*\\.?)([A-Za-z_]\\w*)?',
+						'(?i)\\b(Procedure(?:DLL|C|CDLL)?|Declare(?:DLL|C|CDLL)?|PrototypeC?|Runtime\\s+Procedure)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s+([A-Za-z_]\\w*)',
 					captures: {
 						1: { name: 'keyword.other.procedure.purebasic' },
 						2: { name: 'storage.type.purebasic' },
@@ -132,14 +133,14 @@ const grammar = {
 					},
 				},
 				{
-					comment: 'Structure / Interface / Module / Enumeration declarations.',
+					comment:
+						'Structure / Interface / Module / Enumeration declarations.  Enumeration[.type] with no name of its own is left to the keyword and type-suffix rules.',
 					match:
-						'(?i)\\b(StructureUnion|Structure|Interface|DeclareModule|Module|EnumerationBinary|Enumeration)\\b(\\s*\\.?)([A-Za-z_]\\w*)?(\\s+)([A-Za-z_]\\w*)',
+						'(?i)\\b(StructureUnion|Structure|Interface|DeclareModule|Module|EnumerationBinary|Enumeration)\\b(?:\\s*\\.\\s*([A-Za-z_]\\w*))?\\s+([A-Za-z_]\\w*)',
 					captures: {
 						1: { name: 'keyword.other.structure.purebasic' },
 						2: { name: 'storage.type.purebasic' },
-						3: { name: 'storage.type.purebasic' },
-						5: { name: 'entity.name.type.purebasic' },
+						3: { name: 'entity.name.type.purebasic' },
 					},
 				},
 				{

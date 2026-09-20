@@ -196,3 +196,33 @@ test('a type suffix is scoped as a type, a decimal point is a number', { skip },
 	assertScoped(lines, 'd', /^storage\.type/, 'the .d suffix');
 	assertScoped(lines, '1.5', /^constant\.numeric/, 'a decimal literal');
 });
+
+test('a procedure return type is coloured as a type, not as the name', { skip }, async () => {
+	const lines = await tokenize(
+		['Procedure.d Area(w.d, h.d)', 'Declare.i Test(*p.Point)', 'Prototype.i Callback(x.i)'].join('\n'),
+	);
+
+	// the suffix after Procedure/Declare/Prototype is the return type
+	for (const [line, suffix] of [
+		[0, 'd'],
+		[1, 'i'],
+		[2, 'i'],
+	] as const) {
+		const tokens = lines[line]!.filter((t) => t.text === suffix);
+		assert.ok(tokens.length > 0, `line ${line + 1}: no "${suffix}" token`);
+		for (const token of tokens) {
+			assert.ok(
+				token.scopes.includes('storage.type.purebasic'),
+				`line ${line + 1}: ".${suffix}" should be a type, got ${token.scopes.join(' ') || 'no scope'}`,
+			);
+			assert.ok(
+				!token.scopes.some((sc) => sc.startsWith('entity.name')),
+				`line ${line + 1}: ".${suffix}" must not be coloured like the procedure name`,
+			);
+		}
+	}
+
+	assertScoped(lines, 'Area', /^entity\.name\.function/, 'a procedure name');
+	assertScoped(lines, 'Test', /^entity\.name\.function/, 'a declared name');
+	assertScoped(lines, 'Callback', /^entity\.name\.function/, 'a prototype name');
+});
