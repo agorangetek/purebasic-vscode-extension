@@ -262,6 +262,7 @@ reads them from disk), and `PureBasic: Reindex Workspace` redoes the whole scan.
 | `purebasic.index.workspace` | `true` | Offer symbols across files, following `IncludeFile`/`XIncludeFile`. |
 | `purebasic.index.maxFiles` | `400` | Cap on indexed workspace files and on the include group. |
 | `purebasic.format.canonicalCase` | `true` | Restore canonical spelling when formatting and on Enter. |
+| `purebasic.keywords.path` | `""` | Path to a `KeywordsData.pbi` from the PureBasic IDE source; new reserved words in it are picked up at startup. See below. |
 | `editor.formatOnType` (per language) | `true` | On for PureBasic: the switch for the as-you-type re-casing above. |
 | `purebasic.trace.server` | `"off"` | Log language service activity to the *PureBasic* output channel. |
 
@@ -272,6 +273,35 @@ reads them from disk), and `PureBasic: Reindex Workspace` redoes the whole scan.
   many files and symbols were indexed.
 * **PureBasic: Format Text (Canonical Case)** (`purebasic.formatText`) — restore
   canonical spelling in the selection, or in the whole file.
+* **PureBasic: Refresh Keywords from KeywordsData.pbi** (`purebasic.refreshKeywords`)
+  — re-read the file named by `purebasic.keywords.path` on demand.
+
+## Keeping keywords current
+
+The keyword list in this extension is generated from the PureBasic IDE's own
+table, so it is only as new as the extension's last build. Set
+`purebasic.keywords.path` to the IDE's
+[`PureBasicIDE/KeywordsData.pbi`](https://github.com/fantaisie-software/purebasic/blob/master/PureBasicIDE/KeywordsData.pbi)
+and any reserved word it has that this extension does not is picked up at
+startup — so a new PureBasic's `List`-style additions do not wait for a release
+here.
+
+Two things are worth knowing:
+
+* **The file is part of the IDE source, not of a PureBasic installation.** The
+  app bundle ships `catalogs`, `colorschemes`, `compilers`, `purelibraries`,
+  `residents`, `sdk`, `subsystems` and `themes`, and no keyword table. Point the
+  setting at a checkout of the IDE, or at a copy of that one file.
+* **Completion picks a new word up immediately; highlighting needs a reload.**
+  There is no way to register a TextMate grammar at runtime, so the new words are
+  appended to the grammar the editor loads (additively — nothing else in it is
+  touched) and take effect the next time the window loads. The extension says so
+  when it finds any, and offers to reload.
+
+The refresh only ever adds. It reads the `BasicKeywords` section, honours the
+file's `CompilerIf #SpiderBasic` guards the way a PureBasic build does, and
+leaves everything already known alone, so running it twice changes nothing.
+`PureBasic: Refresh Keywords` re-reads the file without restarting.
 
 ## How it is put together
 

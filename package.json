@@ -2,7 +2,7 @@
 	"name": "purebasic",
 	"displayName": "PureBasic",
 	"description": "PureBasic language support for Visual Studio Code: code completion, hover, signature help and document outline.",
-	"version": "0.1.23",
+	"version": "0.1.24",
 	"publisher": "agorangetek",
 	"license": "MIT",
 	"engines": {
@@ -90,6 +90,11 @@
 					"default": 400,
 					"description": "Maximum number of workspace files to index, and the cap on one include group."
 				},
+				"purebasic.keywords.path": {
+					"type": "string",
+					"default": "",
+					"description": "Path to a KeywordsData.pbi from the PureBasic IDE source. Set it and any reserved word it has that this extension does not is picked up at startup, so a new PureBasic's keywords do not wait for a new release here. The file does not ship with a PureBasic installation (it belongs to the IDE source); the words are offered in completion straight away, and added to the grammar so they are coloured after a window reload. Leave empty to use only the keywords built in."
+				},
 				"purebasic.format.canonicalCase": {
 					"type": "boolean",
 					"default": true,
@@ -135,6 +140,11 @@
 			{
 				"command": "purebasic.diagnoseCompletion",
 				"title": "PureBasic: Diagnose Completion at the Cursor",
+				"category": "PureBasic"
+			},
+			{
+				"command": "purebasic.refreshKeywords",
+				"title": "PureBasic: Refresh Keywords from KeywordsData.pbi",
 				"category": "PureBasic"
 			}
 		],

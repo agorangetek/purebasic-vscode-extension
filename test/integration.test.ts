@@ -12,7 +12,7 @@
  * these mock classes too.
  */
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -91,6 +91,28 @@ const outsideFiles = new Map<string, string>([
 	['/shared/common.pbi', ['Procedure WsOutside()', '\tProcedureReturn 1', 'EndProcedure'].join('\n')],
 ]);
 
+/*
+ * A KeywordsData.pbi in the shape the IDE ships, for the keyword refresh: one
+ * word we already know, one we do not, and a SpiderBasic-only word that must
+ * stay out.
+ */
+const KEYWORDS_FILE = '/ide/KeywordsData.pbi';
+const NEW_KEYWORD = 'ZzFreshKeyword';
+outsideFiles.set(
+	KEYWORDS_FILE,
+	[
+		'  BasicKeywords:',
+		'  Data$ "Procedure", "", ""',
+		`  Data$ "${NEW_KEYWORD}", "", ""`,
+		'  CompilerIf #SpiderBasic',
+		'    Data$ "ZzSpiderOnly", "", ""',
+		'  CompilerEndIf',
+	].join('\n'),
+);
+
+/** Writes the grammar refresh makes, by path. */
+const writtenFiles = new Map<string, string>();
+
 class Uri {
 	path: string;
 	constructor(path: string) {
@@ -99,8 +121,22 @@ class Uri {
 	static file(path: string) {
 		return new Uri(path);
 	}
+	/**
+	 * The real Uri.joinPath is purely segment-based: it appends to the base and
+	 * resolves `..` by popping.  It is not `dirname`, and using dirname here
+	 * turned `joinPath(Uri.file('/ext'), 'syntaxes', ...)` into `/syntaxes/...`,
+	 * which quietly sent the keyword refresh to a file that does not exist.
+	 */
 	static joinPath(uri: Uri, ...parts: string[]) {
-		return new Uri([dirname(uri.path), ...parts].join('/'));
+		const segments = uri.path.split('/').filter(Boolean);
+		for (const part of parts) {
+			for (const segment of part.split('/')) {
+				if (segment === '' || segment === '.') continue;
+				if (segment === '..') segments.pop();
+				else segments.push(segment);
+			}
+		}
+		return new Uri('/' + segments.join('/'));
 	}
 	toString() {
 		return `file://${this.path}`;
@@ -311,6 +347,8 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
 	'index.maxFiles': 400,
 	'format.canonicalCase': true,
 	'trace.server': 'off',
+	// the keyword refresh runs at activation, so this has to be set before it
+	'keywords.path': KEYWORDS_FILE,
 };
 
 const vscodeMock = {
@@ -360,9 +398,13 @@ const vscodeMock = {
 		findFiles: async () => [...workspaceFiles.keys()].map((path) => Uri.file(path)),
 		fs: {
 			readFile: async (uri: Uri) => {
-				const text = workspaceFiles.get(uri.path) ?? outsideFiles.get(uri.path);
+				const text =
+					writtenFiles.get(uri.path) ?? workspaceFiles.get(uri.path) ?? outsideFiles.get(uri.path);
 				if (text === undefined) throw new Error(`no such file: ${uri.path}`);
 				return new TextEncoder().encode(text);
+			},
+			writeFile: async (uri: Uri, bytes: Uint8Array) => {
+				writtenFiles.set(uri.path, Buffer.from(bytes).toString('utf8'));
 			},
 		},
 		onDidOpenTextDocument: () => disposable,
@@ -373,9 +415,15 @@ const vscodeMock = {
 	window: {
 		activeTextEditor: undefined as any,
 		createOutputChannel: () => ({ appendLine() {}, show() {}, dispose() {} }),
+		// the real API resolves to the button the user picked, so a caller may
+		// chain on it; returning undefined here would blow up at activation
 		showInformationMessage: (message: string) => {
 			infoMessages.push(message);
-			return undefined;
+			return Promise.resolve(undefined);
+		},
+		showWarningMessage: (message: string) => {
+			infoMessages.push(message);
+			return Promise.resolve(undefined);
 		},
 		setStatusBarMessage: (message: string) => {
 			statusMessages.push(message);
@@ -508,10 +556,21 @@ async function loadExtension(): Promise<void> {
 		return original.call(this, request, ...rest);
 	};
 
-	const bundle = require(outfile) as { activate: (ctx: unknown) => void };
+	const bundle = require(outfile) as { activate: (ctx: unknown) => Promise<void> };
 	vscodeMock.workspace.textDocuments.push(document);
 	vscodeMock.window.activeTextEditor = editor;
-	bundle.activate({ subscriptions: [], workspaceState: {} });
+	// The grammar the editor loads sits beside the extension, as it does in a
+	// real install.  Seed it before activation so the refresh has something to
+	// merge into.
+	outsideFiles.set(
+		'/ext/syntaxes/purebasic.tmLanguage.json',
+		readFileSync(join(root, 'syntaxes', 'purebasic.tmLanguage.json'), 'utf8'),
+	);
+	await bundle.activate({
+		subscriptions: [],
+		workspaceState: {},
+		extensionUri: Uri.file('/ext'),
+	});
 }
 
 const skip = !esbuild && 'esbuild not installed';
@@ -541,6 +600,44 @@ test('integration: extension host wiring', { skip }, async (t) => {
 		assert.ok(commands.has('purebasic.reindex'));
 		assert.ok(commands.has('purebasic.showIndexStats'));
 		assert.ok(commands.has('purebasic.formatText'));
+	});
+
+	/*
+	 * The keyword refresh, end to end through the extension host: the setting
+	 * points at a KeywordsData.pbi, activation reads it, and both halves of the
+	 * feature happen -- the new word is offered, and the grammar file the editor
+	 * loads has it appended, while the SpiderBasic-only word stays out of both.
+	 */
+	await t.test('picks up new keywords from the configured KeywordsData.pbi', () => {
+		const provider = registrations.completion[0]!.provider;
+		const source = [
+			'Procedure P()',
+			`\t${NEW_KEYWORD.slice(0, 6)}`,
+			'EndProcedure',
+		].join('\n');
+		const doc = new TextDocument('/ws/fresh.pb', source);
+		const labels = (
+			provider.provideCompletionItems(
+				doc,
+				new Position(1, 1 + NEW_KEYWORD.slice(0, 6).length),
+			) as CompletionItem[]
+		).map((i) => i.label);
+		assert.ok(labels.includes(NEW_KEYWORD), `${NEW_KEYWORD} should be offered, got ${labels.join(', ')}`);
+
+		const grammar = writtenFiles.get('/ext/syntaxes/purebasic.tmLanguage.json');
+		assert.ok(grammar, 'the grammar beside the extension should have been rewritten');
+		const merged = JSON.parse(grammar) as {
+			repository: Record<string, { patterns: { name?: string; match?: string }[] }>;
+		};
+		const scope = merged.repository['keywords']!.patterns.find(
+			(p) => p.name === 'keyword.other.purebasic',
+		)!;
+		assert.match(scope.match!, new RegExp(`\\|${NEW_KEYWORD}\\)`));
+		// `Procedure` was already a keyword, and must not appear twice
+		assert.equal(scope.match!.split('|').filter((w) => w === 'Procedure').length, 0);
+		// and nothing from behind a SpiderBasic guard came through
+		assert.ok(!grammar.includes('ZzSpiderOnly'));
+		assert.ok(!labels.includes('ZzSpiderOnly'));
 	});
 
 	await t.test('completes commands, keywords and symbols once the name is long enough', () => {

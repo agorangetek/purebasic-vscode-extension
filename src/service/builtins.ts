@@ -12,12 +12,41 @@ for (const item of PB_BUILTINS.items) {
 	if (!byName.has(item.lower)) byName.set(item.lower, item);
 }
 
+/*
+ * Keywords learned at runtime from the user's own KeywordsData.pbi
+ * (see ./keywords.ts).  They live beside the generated data rather than in it,
+ * so nothing on disk has to be regenerated and a write that fails -- a
+ * read-only install, say -- costs the highlighting and not the completion.
+ */
+let overlay: readonly PbBuiltin[] = [];
+
+/** Replace the runtime keyword overlay.  Called at startup, and on demand. */
+export function setExtraKeywords(items: readonly PbBuiltin[]): void {
+	overlay = items;
+	for (const item of items) {
+		if (!byName.has(item.lower)) byName.set(item.lower, item);
+	}
+}
+
+/** The overlay as it stands, so a refresh can extend it rather than replace it. */
+export function extraKeywords(): readonly PbBuiltin[] {
+	return overlay;
+}
+
 export function lookupBuiltin(name: string): PbBuiltin | undefined {
 	return byName.get(name.toLowerCase().replace(/^\*/, ''));
 }
 
 export function allBuiltins(): readonly PbBuiltin[] {
-	return PB_BUILTINS.items;
+	return overlay.length ? [...PB_BUILTINS.items, ...overlay] : PB_BUILTINS.items;
+}
+
+/**
+ * The canonical map exactly as generated, without the runtime overlay.  The
+ * difference between this and keywordCanonical() is what "new" means.
+ */
+export function generatedKeywordCanonical(): Readonly<Record<string, string>> {
+	return PB_BUILTINS.keywordCanonical;
 }
 
 export function builtinCommands(): readonly PbBuiltin[] {
@@ -25,7 +54,7 @@ export function builtinCommands(): readonly PbBuiltin[] {
 }
 
 export function builtinKeywords(): readonly PbBuiltin[] {
-	return PB_BUILTINS.items.filter((i) => i.kind === 'keyword');
+	return allBuiltins().filter((i) => i.kind === 'keyword');
 }
 
 export function builtinSource(): string {
@@ -33,7 +62,7 @@ export function builtinSource(): string {
 }
 
 export function builtinCount(): number {
-	return PB_BUILTINS.count;
+	return PB_BUILTINS.count + overlay.length;
 }
 
 /** Compound statement blocks, from the IDE's folding-pair table. */
@@ -43,7 +72,11 @@ export function allBlocks(): readonly PbBlock[] {
 
 /** Every canonical keyword spelling, plus the canonical map. */
 export function keywordCanonical(): Readonly<Record<string, string>> {
-	return PB_BUILTINS.keywordCanonical;
+	if (overlay.length === 0) return PB_BUILTINS.keywordCanonical;
+	const merged: Record<string, string> = { ...PB_BUILTINS.keywordCanonical };
+	// the runtime overlay must not silently lose a word that is already known
+	for (const item of overlay) merged[item.lower] ??= item.name;
+	return merged;
 }
 
 export function builtinTypeSuffixes(): readonly string[] {
@@ -60,8 +93,10 @@ export function builtinTypeSuffixes(): readonly string[] {
  */
 export function canonicalKeyword(word: string): string | undefined {
 	const lower = word.toLowerCase();
-	if (!Object.hasOwn(PB_BUILTINS.keywordCanonical, lower)) return undefined;
-	return PB_BUILTINS.keywordCanonical[lower];
+	if (Object.hasOwn(PB_BUILTINS.keywordCanonical, lower)) {
+		return PB_BUILTINS.keywordCanonical[lower];
+	}
+	return byName.get(lower)?.kind === 'keyword' ? byName.get(lower)?.name : undefined;
 }
 
 /**

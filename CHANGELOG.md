@@ -4,6 +4,33 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.24] - 2026-09-20
+
+### Added
+
+- **`purebasic.keywords.path`**: point it at a `KeywordsData.pbi` from the PureBasic IDE source and any
+  reserved word it has that this extension does not is picked up at startup, so a new PureBasic's
+  keywords do not have to wait for a release here. `PureBasic: Refresh Keywords` re-reads it on
+  demand. Nothing else about the highlighting or the completion changes.
+  - The two halves land at different times, because they have to: completion, hover and canonical
+    case read an in-memory overlay and are effective at once, while highlighting reads the TextMate
+    grammar the editor loads. There is no way to register a grammar at runtime, so the new words are
+    appended to that file and take effect on the next window load; the extension says how many it
+    found and offers to reload.
+  - The grammar merge is strictly additive -- it appends to one keyword alternation and leaves every
+    other rule byte for byte as it was -- and the refresh only ever adds, so running it twice writes
+    nothing. A read-only install costs the colours and not the completion.
+  - The file belongs to the IDE *source*: a PureBasic installation ships catalogs, colorschemes,
+    compilers, purelibraries, residents, sdk, subsystems and themes, and no keyword table. This reads
+    the `BasicKeywords` section and honours its `CompilerIf #SpiderBasic` guards the way a PureBasic
+    build does, so SpiderBasic's DisableJS/EnableJS stay out.
+
+### Fixed
+
+- The integration harness's `Uri.joinPath` was implemented with `dirname`, so joining onto a
+  directory produced a path one level too high. It is segment-based in the real API, and is now
+  faithful; the bug was hiding the grammar write from the new test.
+
 ## [0.1.23] - 2026-09-20
 
 ### Fixed

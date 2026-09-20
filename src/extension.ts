@@ -5,7 +5,15 @@
  * this file only translates between those plain objects and the vscode API.
  */
 import * as vscode from 'vscode';
-import { allBlocks, builtinCount, builtinSource, canonicalKeyword } from './service/builtins.ts';
+import {
+	allBlocks,
+	builtinCount,
+	builtinSource,
+	canonicalKeyword,
+	extraKeywords,
+	generatedKeywordCanonical,
+	setExtraKeywords,
+} from './service/builtins.ts';
 import { blockOpenerAt } from './service/blocks.ts';
 import { canonicalizeIdentifiers } from './service/casing.ts';
 import { maskSource, parseDocument, wordBefore } from './service/parser.ts';
@@ -20,6 +28,7 @@ import {
 	uriForPath,
 } from './service/includes.ts';
 import { PbIndex } from './service/index.ts';
+import { addKeywordsToGrammar, keywordEntry, newKeywordNames, parseKeywordsData } from './service/keywords.ts';
 import { getSignatureHelp } from './service/signature.ts';
 import type { PbCompletionItem, PbCompletionKind, PbDocument, PbSymbol } from './service/types.ts';
 
@@ -39,6 +48,7 @@ function config() {
 		workspace: c.get<boolean>('index.workspace', true),
 		maxFiles: c.get<number>('index.maxFiles', 400),
 		canonicalCase: c.get<boolean>('format.canonicalCase', true),
+		keywordsPath: c.get<string>('keywords.path', ''),
 		trace: c.get<string>('trace.server', 'off'),
 	};
 }
@@ -244,10 +254,108 @@ async function indexIncludedFiles(seeds: readonly string[]): Promise<void> {
 	}
 }
 
-export function activate(context: vscode.ExtensionContext): void {
+/*
+ * Keywords from the user's own KeywordsData.pbi.
+ *
+ * The generated keyword list is only as new as this extension's last build, so
+ * a reader can point `purebasic.keywords.path` at the IDE's table and have a new
+ * PureBasic's reserved words appear without waiting for a release here.
+ *
+ * Two halves, and they differ in when they take effect:
+ *
+ *   - COMPLETION, hover and canonical case read the overlay in ./service/builtins,
+ *     which is applied in memory and is effective immediately;
+ *   - HIGHLIGHTING reads the TextMate grammar file the editor loads, and there is
+ *     no API to register one at runtime, so the new words are merged into that
+ *     file and only take effect after a window reload.  The merge is strictly
+ *     additive: it appends to one keyword alternation and touches nothing else,
+ *     so it can never drop a rule the generator wrote.
+ *
+ * The .pbi file does not ship with a PureBasic installation -- it belongs to the
+ * IDE source -- so a path that is not set simply means "do nothing".
+ */
+async function refreshKeywords(context: vscode.ExtensionContext, announce: boolean): Promise<void> {
+	const path = config().keywordsPath.trim();
+	if (!path) {
+		setExtraKeywords([]);
+		return;
+	}
+
+	let text: string;
+	try {
+		text = Buffer.from(await vscode.workspace.fs.readFile(vscode.Uri.file(path))).toString('utf8');
+	} catch (error) {
+		trace(`keywords: cannot read ${path}: ${String(error)}`);
+		if (announce) {
+			void vscode.window.showWarningMessage(`PureBasic: cannot read the keyword file ${path}.`);
+		}
+		return;
+	}
+
+	// measured against the generated list AND the current overlay, so running
+	// this again -- on a config change, or by hand -- cannot double-add
+	const current = extraKeywords();
+	const known = [...Object.keys(generatedKeywordCanonical()), ...current.map((i) => i.lower)];
+	const added = newKeywordNames(known, parseKeywordsData(text));
+	setExtraKeywords([...current, ...added.map(keywordEntry)]);
+	if (added.length === 0) {
+		trace(`keywords: ${path} has nothing new (${current.length} from earlier refreshes)`);
+		if (announce) {
+			void vscode.window.showInformationMessage(
+				`PureBasic: no new keywords in ${path}.`,
+			);
+		}
+		return;
+	}
+
+	output.appendLine(`keywords: ${added.length} new from ${path}: ${added.join(', ')}`);
+
+	// completion is live already; the colours need the grammar file and a reload
+	const grammarFile = vscode.Uri.joinPath(context.extensionUri, 'syntaxes', 'purebasic.tmLanguage.json');
+	let reloadNeeded = false;
+	try {
+		const before = Buffer.from(await vscode.workspace.fs.readFile(grammarFile)).toString('utf8');
+		const merged = addKeywordsToGrammar(before, added);
+		if (merged.added.length > 0) {
+			await vscode.workspace.fs.writeFile(grammarFile, Buffer.from(merged.text, 'utf8'));
+			reloadNeeded = true;
+			trace(`keywords: added ${merged.added.join(', ')} to the grammar`);
+		}
+	} catch (error) {
+		// a read-only install costs the colours and not the completion
+		trace(`keywords: cannot update the grammar file: ${String(error)}`);
+	}
+
+	const detail = reloadNeeded
+		? 'Reload the window to colour them.'
+		: 'Highlighting could not be updated; they are offered in completion.';
+	void vscode.window
+		.showInformationMessage(`PureBasic: ${added.length} new keyword(s): ${added.join(', ')}. ${detail}`, 'Reload Window')
+		.then((choice) => {
+			if (choice === 'Reload Window') void vscode.commands.executeCommand('workbench.action.reloadWindow');
+		});
+}
+
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	output = vscode.window.createOutputChannel('PureBasic');
 	index = new PbIndex(config().maxFiles);
 	context.subscriptions.push(output);
+
+	// Awaited, so activation is not "done" with the grammar half-written.  A
+	// keyword file that cannot be read must never fail activation, hence the
+	// catch: it costs the refresh, not the extension.
+	try {
+		await refreshKeywords(context, false);
+	} catch (error) {
+		trace(`keywords: ${String(error)}`);
+	}
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('purebasic.refreshKeywords', () => refreshKeywords(context, true)),
+		vscode.workspace.onDidChangeConfiguration((event) => {
+			if (event.affectsConfiguration('purebasic.keywords.path')) void refreshKeywords(context, true);
+		}),
+	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('purebasic.reindex', async () => {
