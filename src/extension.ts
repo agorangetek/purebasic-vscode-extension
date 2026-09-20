@@ -390,11 +390,17 @@ function terminalFor(cwd: string): vscode.Terminal {
 	return compilerTerminal!;
 }
 
-/** Workspace settings when there is a workspace, global ones otherwise. */
+/*
+ * Where the compiler commands write, always: the user's own settings.
+ *
+ * The IDE keeps these in its global [CompilerDefaults] and lets a project
+ * override them in its .pbsp, and this follows that: what you set from the
+ * buttons is your default everywhere, not a property of whichever folder
+ * happened to be open.  A project's own .vscode/settings.json still wins for
+ * the keys it names, which is the point of it -- but nothing here writes there.
+ */
 function configurationTarget(): vscode.ConfigurationTarget {
-	return vscode.workspace.workspaceFolders?.length
-		? vscode.ConfigurationTarget.Workspace
-		: vscode.ConfigurationTarget.Global;
+	return vscode.ConfigurationTarget.Global;
 }
 
 /** Turn the debugger on or off, and say so. */
