@@ -194,53 +194,81 @@ function plainName(name: string): string {
 }
 
 /**
- * The structure the member expression before a `\` is standing on.  The first
- * step is a declared variable; every further `\name` step moves to the
- * structure that field is declared as, so `m\list()\` reaches the element
- * structure of a List field and `pt\inner\x` walks a nested structure.
- * Undefined the moment a step cannot be told, which leaves every known field on
- * offer rather than none.
+ * What stands before a `\`, and therefore what may be offered after it:
+ *
+ * - `structure`: a structure or interface, so its fields are the answer;
+ * - `leaf`: a native type -- `.i`, a `$` string, a bare `*` pointer -- which has
+ *   no members at all, so nothing is offered;
+ * - `unknown`: nothing could be told (an undeclared name, a call, a `With`
+ *   block), where every known field stays on offer rather than none.
+ *
+ * The chain is walked step by step: the first name is a declared variable and
+ * each further `\name` step moves to the structure that field is declared as,
+ * so `m\list()\` reaches the element structure of a List field and
+ * `pt\inner\x` walks a nested structure.
  */
-function structureOfExpression(
+type MemberSource =
+	| { kind: 'structure'; name: string }
+	| { kind: 'leaf' }
+	| { kind: 'unknown' };
+
+/** A native PureBasic type (`.i`, `.s`, ...): it has no members. */
+function isNativeType(type: string): boolean {
+	return Object.hasOwn(TYPE_SUFFIXES, type.toLowerCase());
+}
+
+function memberSource(
 	document: PbDocument,
 	workspaceSymbols: readonly PbSymbol[],
 	before: string,
 	position: PbPosition,
-): string | undefined {
+): MemberSource {
 	// a step may carry an index or a key -- `list(0)`, `map("key")` -- and the
 	// masked text turns a quoted key into spaces, so whitespace is allowed here
 	const chain = /((?:[*@?]?[A-Za-z_]\w*)(?:\\[^\\]*)*)\\s*$/.exec(before)?.[1];
-	if (chain === undefined) return undefined;
+	if (chain === undefined) return { kind: 'unknown' };
 
 	const steps = chain.split('\\').map((step) => /^[*@?]?([A-Za-z_]\w*)/.exec(step.trim())?.[1]);
-	if (steps.length === 0 || steps.some((step) => step === undefined)) return undefined;
+	if (steps.length === 0 || steps.some((step) => step === undefined)) return { kind: 'unknown' };
 
+	const fields = allFields(document, workspaceSymbols);
 	const known = new Set(
 		[...document.symbols, ...workspaceSymbols]
 			.filter((symbol) => symbol.kind === 'structure' || symbol.kind === 'interface')
 			.map((symbol) => symbol.name),
 	);
-	const fields = allFields(document, workspaceSymbols);
+
+	const scope = enclosingProcedure(document, position)?.name;
 	const declared = document.symbols.filter(
 		(symbol) =>
 			plainName(symbol.name) === plainName(steps[0]!) &&
-			symbol.type !== undefined &&
-			known.has(symbol.type),
+			(symbol.kind === 'variable' ||
+				symbol.kind === 'field' ||
+				symbol.kind === 'list' ||
+				symbol.kind === 'map' ||
+				symbol.kind === 'array'),
 	);
-	const scope = enclosingProcedure(document, position)?.name;
-	let type =
-		declared.find((symbol) => symbol.scope === scope)?.type ??
-		declared.find((symbol) => symbol.scope === '')?.type;
+	const first = declared.find((symbol) => symbol.scope === scope) ?? declared.find((symbol) => symbol.scope === '');
+	// nothing declared at all tells us nothing; a declared name without a type
+	// is a native variable, and a native variable has no members
+	if (first === undefined) return { kind: 'unknown' };
+	if (first.type === undefined) return { kind: 'leaf' };
+	if (isNativeType(first.type)) return { kind: 'leaf' };
+	if (!known.has(first.type)) return { kind: 'unknown' };
 
+	let type: string = first.type;
 	for (const step of steps.slice(1)) {
-		if (type === undefined) return undefined;
 		const field = fields.find(
 			(candidate) => candidate.scope === type && plainName(candidate.name) === plainName(step!),
 		);
-		if (field?.type === undefined || !known.has(field.type)) return undefined;
-		type = field.type;
+		if (field === undefined) return { kind: 'unknown' };
+		const fieldType = field.type;
+		if (fieldType === undefined) return { kind: 'leaf' };
+		if (isNativeType(fieldType)) return { kind: 'leaf' };
+		if (!known.has(fieldType)) return { kind: 'unknown' };
+		type = fieldType;
 	}
-	return type;
+	return { kind: 'structure', name: type };
 }
 
 /**
@@ -256,9 +284,10 @@ function memberItems(
 	position: PbPosition,
 ): PbSymbol[] {
 	const fields = allFields(document, workspaceSymbols);
-	const type = structureOfExpression(document, workspaceSymbols, before, position);
-	const own = type === undefined ? [] : fields.filter((field) => field.scope === type);
-	return own.length > 0 ? own : fields;
+	const source = memberSource(document, workspaceSymbols, before, position);
+	if (source.kind === 'leaf') return [];
+	if (source.kind === 'unknown') return fields;
+	return fields.filter((field) => field.scope === source.name);
 }
 
 /**

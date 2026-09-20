@@ -357,6 +357,8 @@ test('members follow a chain of structures, through a List, a Map and a pointer'
 		'\to\\Items()\\',
 		'\to\\Lookup("k")\\',
 		'\to\\Raw\\',
+		'\to\\Items()\\value\\',
+		'\tmystery\\',
 	].join('\n');
 	const document = parseDocument('file:///chain.pb', source);
 	const lines = source.split('\n');
@@ -370,10 +372,12 @@ test('members follow a chain of structures, through a List, a Map and a pointer'
 
 	assert.deepEqual(at(12), ['value'], 'a List element resolves to its element structure');
 	assert.deepEqual(at(13), ['value'], 'and so does a Map element');
+	assert.deepEqual(at(14), [], 'a bare pointer has no members to offer');
+	assert.deepEqual(at(15), [], 'a native field has no members, so nothing is offered');
 	assert.deepEqual(
-		at(14),
+		at(16),
 		['value', 'flag', 'Items', 'Lookup', '*Raw'],
-		'an untyped pointer leaves every known field on offer',
+		'an undeclared name still leaves every known field on offer',
 	);
 });
 

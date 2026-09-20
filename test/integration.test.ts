@@ -765,6 +765,7 @@ test('integration: only files joined by IncludeFile share symbols', { skip }, as
 			'\tDefine s.WsShape',
 			'\ts\\',
 			'\ts\\Parts()\\',
+			'\ts\\Parts()\\label$\\',
 			'EndProcedure',
 		].join('\n'),
 	);
@@ -859,6 +860,19 @@ test('integration: only files joined by IncludeFile share symbols', { skip }, as
 			element.map(shownLabel).includes('label$'),
 			`expected the element members, got ${element.map(shownLabel).join(', ')}`,
 		);
+	});
+
+	await t.test('a native member offers nothing further', () => {
+		const line = scratch.lineAt(10).text;
+		assert.equal(line, '\ts\\Parts()\\label$\\', 'the fixture moved');
+
+		const items = registrations.completion[0]!.provider.provideCompletionItems(
+			scratch,
+			new Position(10, line.length),
+			{ triggerCharacter: '\\' },
+		) as CompletionItem[];
+
+		assert.deepEqual(items.map(shownLabel), [], 'a string has no members to offer');
 	});
 
 	await t.test('an included file outside the workspace folder is read from disk', async () => {

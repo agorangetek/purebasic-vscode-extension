@@ -4,6 +4,17 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.8] - 2026-09-20
+
+### Changed
+
+- **Stepping into a member that has no members offers nothing.** `m\ImportedList()\ImportedDllHandle\`
+  used to list every field of every known structure, because a chain that could not be resolved
+  to a structure fell back to the generous list. A native leaf -- an `.i` field, a `$` string, a
+  bare `*pointer`, or a variable declared without a type -- is now recognised as such and offers
+  nothing at all. Only an owner that cannot be resolved *at all* (an undeclared name, a call
+  result, a `With` block) still leaves every known field on offer.
+
 ## [0.1.7] - 2026-09-20
 
 ### Fixed
