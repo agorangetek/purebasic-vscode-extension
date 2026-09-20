@@ -4,6 +4,51 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.20] - 2026-09-20
+
+### Fixed
+
+- **The highlighting in 0.1.19 never reached you, and now it does.** The grammar file the editor
+  loads is generated, and a stray apostrophe in a comment made `tools/gen-grammar.mjs` fail to
+  parse. The failure was swallowed, the committed grammar stayed at the previous revision, and
+  0.1.19 was packaged from it -- so none of that release's scope changes were visible and
+  `*pointer` was still white. The generator parses again and the grammar is regenerated.
+- A stale grammar can no longer ship quietly:
+  - `npm run build` regenerates the grammar before it bundles, and `vsce package` runs `build`,
+    so the packaged file is always the one the generator produces;
+  - `node tools/gen-grammar.mjs --check` compares the committed file with the generator and exits
+    non-zero when they differ; the test suite runs it, so a stale or unregenerable grammar fails
+    CI rather than reaching a user. The suite could not catch this before, because it tokenizes
+    whatever file is on disk -- stale or not.
+
+### Changed
+
+- **A library command and a call of your own procedure are one scope**,
+  `entity.name.function.purebasic`. The IDE gives `MessageRequester` and `MyProc(1)` the same
+  Functions colour, so a separate `support.function.purebasic` bought a distinction no scheme
+  could show. Every library command is still matched from the IDE's own table.
+- **A member and the name it comes off are one scope**, `entity.name.type.member.purebasic`
+  (was `variable.other.member` / `variable.other.typed`). The IDE paints a member with its
+  Structures colour, and `variable.other.*` gets whatever a theme gives a variable -- white in
+  Monokai. `OBJ_MEMDLL\ModulesMap()` is now one green expression instead of a green owner beside
+  a grey member, which is what the IDE shows.
+- Compiler directives, includes and macros are `keyword.other.preprocessor.purebasic` (was
+  `meta.preprocessor.purebasic`, which several themes leave uncoloured).
+
+### Verified
+
+- Every scope the grammar can emit was tokenized and resolved against the themes VS Code ships,
+  so each one's rendered colour is known rather than assumed. Under **Monokai**: keywords,
+  directives and operators `#F92672`; commands and procedure names `#A6E22E`; structures, type
+  uses, members and module qualifiers `#A6E22E`; constants, numbers, pointers and `@addresses`
+  `#AE81FF`; strings `#E6DB74`; comments `#88846F`; the native `.i` suffix `#66D9EF`. Re-check
+  any theme with the audit in `.tmp-probe/theme-audit.mjs`.
+- The opt-in palette in `docs/purebasic-ide-monokai.jsonc` is rewritten for these scopes and
+  machine-checked: all 27 selectors name a scope the grammar really emits, and all 28 scopes
+  render the exact colour the PureBasic IDE's own Monokai scheme uses. (Monokai itself has no
+  rule for a label or for an inline-assembly line, so under that theme a label is white and
+  `! mov eax, 1` is plain text; the palette is how you get the IDE's orange and cyan back.)
+
 ## [0.1.19] - 2026-09-20
 
 ### Changed

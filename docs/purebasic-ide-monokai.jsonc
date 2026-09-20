@@ -1,8 +1,9 @@
 {
-	"_comment": "The PureBasic IDE's Monokai scheme (colorschemes/Monokai.prefs, live values in ~/.purebasic/purebasic.prefs) mapped onto this grammar's scopes. Paste into editor.tokenColorCustomizations.textMateRules to pin these colours over any theme; note the source.purebasic prefix, because a [purebasic] block is ignored for token colours.",
+	"_comment": "The PureBasic IDE's own Monokai scheme (colorschemes/Monokai.prefs; the live values are in ~/.purebasic/purebasic.prefs) mapped onto this grammar's scopes. The extension ships no colour opinions at all, so this is OPT IN: paste it into editor.tokenColorCustomizations.textMateRules if you want the IDE's exact palette back. Note the source.purebasic prefix on every selector -- a [purebasic] block is ignored for token colours.",
+	"_verify": "Every selector below is a scope syntaxes/purebasic.tmLanguage.json actually emits; see the scope table in README.md.",
 	"textMateRules": [
 		{
-			"_": "NormalTextColor: names on their own, punctuation",
+			"_": "NormalTextColor. The base scope catches everything no other rule claims: a name on its own, punctuation.",
 			"scope": [
 				"source.purebasic"
 			],
@@ -11,9 +12,11 @@
 			}
 		},
 		{
-			"_": "BasicKeywordColor and OperatorColor",
+			"_": "BasicKeywordColor (Directives included) and OperatorColor",
 			"scope": [
 				"source.purebasic keyword.control.purebasic",
+				"source.purebasic keyword.other.purebasic",
+				"source.purebasic keyword.other.preprocessor.purebasic",
 				"source.purebasic keyword.operator.purebasic"
 			],
 			"settings": {
@@ -21,9 +24,8 @@
 			}
 		},
 		{
-			"_": "PureKeywordColor: library commands, procedure names",
+			"_": "PureKeywordColor: the library commands, a procedure at its declaration, and a call of one",
 			"scope": [
-				"source.purebasic support.function.purebasic",
 				"source.purebasic entity.name.function.purebasic"
 			],
 			"settings": {
@@ -31,7 +33,7 @@
 			}
 		},
 		{
-			"_": "StringColor, escape included",
+			"_": "StringColor. The IDE colours an escape sequence with its string, too.",
 			"scope": [
 				"source.purebasic string",
 				"source.purebasic constant.character.escape.purebasic"
@@ -50,7 +52,7 @@
 			}
 		},
 		{
-			"_": "ASMKeywordColor",
+			"_": "ASMKeywordColor: an inline-assembly line, `! mov eax, 1`",
 			"scope": [
 				"source.purebasic meta.embedded.asm.purebasic"
 			],
@@ -59,7 +61,7 @@
 			}
 		},
 		{
-			"_": "LabelColor",
+			"_": "LabelColor: a code label and a `?label` reference to one",
 			"scope": [
 				"source.purebasic entity.name.label.purebasic",
 				"source.purebasic variable.other.label-reference.purebasic"
@@ -69,7 +71,7 @@
 			}
 		},
 		{
-			"_": "ConstantColor, NumberColor and PointerColor are one value in this scheme",
+			"_": "ConstantColor, NumberColor and PointerColor are one value in this scheme, and a `@reference` wears it too",
 			"scope": [
 				"source.purebasic constant.other.predefined.purebasic",
 				"source.purebasic constant.language.boolean.purebasic",
@@ -78,19 +80,18 @@
 				"source.purebasic constant.numeric.hex.purebasic",
 				"source.purebasic constant.numeric.bin.purebasic",
 				"source.purebasic constant.numeric.float.purebasic",
-				"source.purebasic variable.other.pointer.purebasic",
-				"source.purebasic variable.other.reference.purebasic"
+				"source.purebasic constant.other.pointer.purebasic",
+				"source.purebasic constant.other.reference.purebasic"
 			],
 			"settings": {
 				"foreground": "#AE81FF"
 			}
 		},
 		{
-			"_": "StructureColor and ModuleColor: what comes off a structure",
+			"_": "StructureColor and ModuleColor. A USE of a type is coloured and its DECLARATION is not (see the last rule), so `Structure my_test` stays plain while `test.my_test` and `test\\age` do not -- which is what the IDE does.",
 			"scope": [
 				"source.purebasic entity.name.type.reference.purebasic",
-				"source.purebasic variable.other.member.purebasic",
-				"source.purebasic variable.other.typed.purebasic",
+				"source.purebasic entity.name.type.member.purebasic",
 				"source.purebasic entity.name.namespace.purebasic"
 			],
 			"settings": {
@@ -98,15 +99,22 @@
 			}
 		},
 		{
-			"_": "A declaration is normal text in the IDE: `Structure Point`, a native suffix",
+			"_": "A declaration is normal text in the IDE: `Structure Point`, the name of a Module, a native `.i` suffix",
 			"scope": [
 				"source.purebasic entity.name.type.purebasic",
-				"source.purebasic storage.type.purebasic",
-				"source.purebasic keyword.other.purebasic",
-				"source.purebasic meta.preprocessor.purebasic"
+				"source.purebasic storage.type.purebasic"
 			],
 			"settings": {
 				"foreground": "#F8F8F2"
+			}
+		},
+		{
+			"_": "SeparatorColor: the `:` that separates two statements. The IDE's value is #F8F8F0, a hair off its normal text.",
+			"scope": [
+				"source.purebasic punctuation.separator.statement.purebasic"
+			],
+			"settings": {
+				"foreground": "#F8F8F0"
 			}
 		}
 	]

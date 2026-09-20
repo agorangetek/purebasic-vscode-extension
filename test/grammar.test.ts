@@ -10,6 +10,7 @@
  * devDependencies are not installed.
  */
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -157,12 +158,15 @@ test('constants and keywords are scoped', { skip }, async () => {
 	assertScoped(lines, 'ForEach', /^keyword\.control/, 'ForEach');
 });
 
-test('library commands are one scope, user calls are functions', { skip }, async () => {
+test('library commands and user calls wear the function colour', { skip }, async () => {
 	const lines = await tokenize(['MessageRequester("t", "m")', 'r = Abs(-1)', 'MyUserProc(1)'].join('\n'));
 
-	assertScoped(lines, 'MessageRequester', /^support\.function\./, 'a library command');
-	assertScoped(lines, 'Abs', /^support\.function\.purebasic$/, 'a library command');
-	assertScoped(lines, 'MyUserProc', /^entity\.name\.function/, 'an unknown call');
+	// the PureBasic IDE gives a library command and a call of the reader's own
+	// procedure the same green (Monokai's Functions colour), so one scope serves
+	// both; splitting them only bought a distinction no scheme could show
+	assertScoped(lines, 'MessageRequester', /^entity\.name\.function\.purebasic$/, 'a library command');
+	assertScoped(lines, 'Abs', /^entity\.name\.function\.purebasic$/, 'a library command');
+	assertScoped(lines, 'MyUserProc', /^entity\.name\.function\.purebasic$/, 'an unknown call');
 });
 
 test('declarations name their procedure, structure and module', { skip }, async () => {
@@ -180,7 +184,7 @@ test('members, sigils and labels are scoped', { skip }, async () => {
 			'\n',
 		),
 	);
-	assertScoped(lines, '\\x', /^variable\.other\.member/, 'member access');
+	assertScoped(lines, '\\x', /^entity\.name\.type\.member/, 'member access');
 	assertScoped(lines, '*pBuffer', /^constant\.other\.pointer/, 'pointer variable');
 	assertScoped(lines, '@MyProc', /^constant\.other\.reference/, 'procedure address');
 	assertScoped(lines, '?data', /^variable\.other\.label-reference/, 'data label reference');
@@ -188,7 +192,7 @@ test('members, sigils and labels are scoped', { skip }, async () => {
 	assertScoped(lines, '! mov eax, 1', /^meta\.embedded\.asm/, 'inline assembly');
 
 	assertScoped(lines, 'Helper', /^entity\.name\.namespace/, 'a module qualifier');
-	assertScoped(lines, '::DoIt()', /^variable\.other\.member/, 'a module member');
+	assertScoped(lines, '::DoIt()', /^entity\.name\.type\.member/, 'a module member');
 });
 
 test('a type suffix is scoped as a type, a decimal point is a number', { skip }, async () => {
@@ -283,7 +287,7 @@ test('a String library command prefix still pops up suggestions', { skip }, asyn
 			`"${name}" scopes as ${token.scopes.join(' ')}, so the editor would treat it as a string/comment and never pop up`,
 		);
 		assert.ok(
-			token.scopes.some((s) => s.startsWith('support.function.')),
+			token.scopes.includes('entity.name.function.purebasic'),
 			`"${name}" should still be a library command, got ${token.scopes.join(' ') || 'no scope'}`,
 		);
 	}
@@ -365,8 +369,8 @@ test('a member read is code, a member declaration is not', { skip }, async () =>
 	};
 
 	// reading a member is code: the IDE colours it like an identifier
-	assert.equal(innermost(8, '\\Function'), 'variable.other.member.purebasic');
-	assert.equal(innermost(9, '\\Entry'), 'variable.other.member.purebasic');
+	assert.equal(innermost(8, '\\Function'), 'entity.name.type.member.purebasic');
+	assert.equal(innermost(9, '\\Entry'), 'entity.name.type.member.purebasic');
 
 	// declaring one is not: a field line is left as normal text, so a theme can
 	// keep it plain the way the IDE does
@@ -422,10 +426,10 @@ test('a type use is scoped apart from its declaration', { skip }, async () => {
 	assert.equal(innermost(6, 'i'), 'storage.type.purebasic');
 
 	// a plain name is normal text; only one taking a type wears code colour
-	assert.equal(innermost(5, 'n'), 'variable.other.typed.purebasic');
+	assert.equal(innermost(5, 'n'), 'entity.name.type.member.purebasic');
 	// `localVar.i` takes a type, so it is the typed scope; `globalVar.i` likewise
-	assert.equal(innermost(8, 'localVar'), 'variable.other.typed.purebasic');
-	assert.equal(innermost(6, 'globalVar'), 'variable.other.typed.purebasic');
+	assert.equal(innermost(8, 'localVar'), 'entity.name.type.member.purebasic');
+	assert.equal(innermost(6, 'globalVar'), 'entity.name.type.member.purebasic');
 });
 
 test('a multiplication sign is not a pointer', { skip }, async () => {
@@ -490,12 +494,12 @@ test('a name is left to the theme unless it is taking a type', { skip }, async (
 
 	// a name with a `.` after it is the one that turns
 	for (const [line, text] of [[0, 'p'], [2, 'p2'], [3, 'test'], [5, 'name']] as const) {
-		assert.equal(innermost(line, text), 'variable.other.typed.purebasic', `line ${line + 1}: ${text}`);
+		assert.equal(innermost(line, text), 'entity.name.type.member.purebasic', `line ${line + 1}: ${text}`);
 	}
 	// a member read is the member scope, and the name it comes off takes the code
 	// colour with it: `p\x` is one expression
-	assert.equal(innermost(1, 'x'), 'variable.other.member.purebasic');
-	assert.equal(innermost(1, 'p'), 'variable.other.typed.purebasic');
+	assert.equal(innermost(1, 'x'), 'entity.name.type.member.purebasic');
+	assert.equal(innermost(1, 'p'), 'entity.name.type.member.purebasic');
 	assert.equal(innermost(4, 'count'), '', 'a name on its own is left to the theme');
 });
 
@@ -511,11 +515,33 @@ test('a member access is one piece of code, element form included', { skip }, as
 
 	// the owner, the member and the empty element access all wear one scope, so
 	// they can be one colour: `obj\map()` comes from a structure
-	assert.equal(scopesOf('OBJ_MEMDLL'), 'variable.other.typed.purebasic');
-	assert.equal(scopesOf('\\ModulesMap()'), 'variable.other.member.purebasic');
+	assert.equal(scopesOf('OBJ_MEMDLL'), 'entity.name.type.member.purebasic');
+	assert.equal(scopesOf('\\ModulesMap()'), 'entity.name.type.member.purebasic');
 	// and the code around it keeps its own scopes
 	assert.ok(scopesOf('If').startsWith('keyword.control'));
-	assert.equal(scopesOf('FindMapElement'), 'support.function.purebasic');
-	assert.equal(scopesOf('Str'), 'support.function.purebasic');
+	assert.equal(scopesOf('FindMapElement'), 'entity.name.function.purebasic');
+	assert.equal(scopesOf('Str'), 'entity.name.function.purebasic');
 	assert.equal(scopesOf('*module'), 'constant.other.pointer.purebasic');
+});
+
+/*
+ * Regression guard.  syntaxes/purebasic.tmLanguage.json is generated, and it is
+ * the file the editor actually loads: a generator that throws, or that has been
+ * changed without regenerating, leaves the extension shipping the OLD grammar.
+ * That happened -- a stray apostrophe inside a string literal made
+ * tools/gen-grammar.mjs fail to parse, the failure was swallowed, and 0.1.19 was
+ * packaged with scopes that made every colour fix invisible to the user.  The
+ * tests above could not catch it either, because they tokenize whichever file is
+ * on disk, stale or not.  This one compares the file against the generator.
+ */
+test('the committed grammar is what the generator produces', () => {
+	const result = spawnSync(process.execPath, [join(root, 'tools', 'gen-grammar.mjs'), '--check'], {
+		encoding: 'utf8',
+	});
+	assert.equal(
+		result.status,
+		0,
+		`syntaxes/purebasic.tmLanguage.json is stale -- run \`npm run gen-grammar\`\n` +
+			`${result.stdout ?? ''}${result.stderr ?? ''}`,
+	);
 });

@@ -202,7 +202,7 @@
 					"match": "(?i)\\b(Macro)\\b(\\s+)([A-Za-z_]\\w*)",
 					"captures": {
 						"1": {
-							"name": "meta.preprocessor.purebasic"
+							"name": "keyword.other.preprocessor.purebasic"
 						},
 						"3": {
 							"name": "entity.name.function.purebasic"
@@ -215,355 +215,355 @@
 			"comment": "Every library command, one scope: the library name in the scope was a trap (support.function.string.* reads as a string token, which silences completion) and no theme needs the split.",
 			"patterns": [
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AbortFTPFile|CheckFTPConnection|CloseFTP|CreateFTPDirectory|DeleteFTPDirectory|DeleteFTPFile|ExamineFTPDirectory|FinishFTPDirectory|FTPDirectoryEntryAttributes|FTPDirectoryEntryDate|FTPDirectoryEntryName|FTPDirectoryEntryRaw|FTPDirectoryEntrySize|FTPDirectoryEntryType|FTPProgress|GetFTPDirectory|IsFtp|NextFTPDirectoryEntry|OpenFTP|ReceiveFTPFile|RenameFTPFile|SendFTPFile|SetFTPDirectory)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AbortHTTP|FinishHTTP|GetURLPart|HTTPInfo|HTTPMemory|HTTPProgress|HTTPProxy|HTTPRequest|HTTPRequestMemory|HTTPTimeout|ReceiveHTTPFile|ReceiveHTTPMemory|SetURLPart|URLDecoder|URLEncoder)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:Abs|ACos|ACosH|ASin|ASinH|ATan|ATan2|ATanH|Cos|CosH|Degree|Exp|Infinity|Int|IntQ|IsInfinity|IsNaN|Log|Log10|Mod|NaN|Pow|Radian|Random|RandomData|RandomSeed|Round|Sign|Sin|SinH|Sqr|Tan|TanH)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:Add3DArchive|AmbientColor|AntialiasingMode|BodyPick|ConvertLocalToWorldPosition|ConvertWorldToLocalPosition|CreateWater|EnableWorldCollisions|EnableWorldPhysics|Engine3DStatus|ExamineWorldCollisions|FetchOrientation|FirstWorldCollisionEntity|Fog|GetW|GetWorldAttribute|GetX|GetY|GetZ|InitEngine3D|LoadWorld|MousePick|MouseRayCast|NextWorldCollision|NormalX|NormalY|NormalZ|Parse3DScripts|PickX|PickY|PickZ|Pitch|PointPick|RayCast|RayCollide|RayPick|RenderWorld|Roll|SecondWorldCollisionEntity|SetGUITheme3D|SetOrientation|SetRenderQueue|SetWorldAttribute|ShowGUI|SkyBox|SkyDome|WorldCollisionAppliedImpulse|WorldCollisionContact|WorldCollisionNormal|WorldDebug|WorldGravity|WorldShadows|Yaw)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddBillboard|BillboardGroupCommonDirection|BillboardGroupCommonUpVector|BillboardGroupID|BillboardGroupMaterial|BillboardGroupX|BillboardGroupY|BillboardGroupZ|BillboardHeight|BillboardLocate|BillboardWidth|BillboardX|BillboardY|BillboardZ|ClearBillboards|CountBillboards|CreateBillboardGroup|FreeBillboardGroup|HideBillboardGroup|IsBillboardGroup|MoveBillboard|MoveBillboardGroup|RemoveBillboard|ResizeBillboard|RotateBillboardGroup)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddCipherBuffer|AddFingerprintBuffer|AESDecoder|AESEncoder|Base64Decoder|Base64DecoderBuffer|Base64Encoder|Base64EncoderBuffer|CloseCryptRandom|CreatePasswordHash|CryptRandom|CryptRandomData|DeriveCipherKey|DESFingerprint|FileFingerprint|Fingerprint|FinishCipher|FinishFingerprint|IsCipher|IsFingerprint|OpenCryptRandom|StartAESCipher|StartFingerprint|StringFingerprint|UseCRC32Fingerprint|UseMD5Fingerprint|UseSHA1Fingerprint|UseSHA2Fingerprint|UseSHA3Fingerprint|VerifyPasswordHash)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddDate|ConvertDate|Date|DateUTC|Day|DayOfWeek|DayOfYear|FormatDate|Hour|Minute|Month|ParseDate|Second|Year)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddElement|ChangeCurrentElement|ClearList|CompareList|CopyList|DeleteElement|FirstElement|FreeList|InsertElement|LastElement|ListIndex|ListSize|MergeLists|MoveElement|NextElement|PopListPosition|PreviousElement|PushListPosition|ResetList|SelectElement|SplitList|SwapElements)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddEntityAnimationTime|EntityAnimationBlendMode|EntityAnimationStatus|GetEntityAnimationLength|GetEntityAnimationTime|GetEntityAnimationWeight|SetEntityAnimationLength|SetEntityAnimationTime|SetEntityAnimationWeight|StartEntityAnimation|StopEntityAnimation|UpdateEntityAnimation)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddGadgetColumn|AddGadgetItem|BindGadgetEvent|ButtonGadget|ButtonImageGadget|CalendarGadget|CanvasGadget|CanvasOutput|CanvasVectorOutput|CheckBoxGadget|ClearGadgetItems|CloseGadgetList|ComboBoxGadget|ContainerGadget|CountGadgetItems|DateGadget|DisableGadget|EditorGadget|ExplorerComboGadget|ExplorerListGadget|ExplorerTreeGadget|FrameGadget|FreeGadget|GadgetHeight|GadgetID|GadgetItemID|GadgetToolTip|GadgetType|GadgetWidth|GadgetX|GadgetY|GetActiveGadget|GetGadgetAttribute|GetGadgetColor|GetGadgetData|GetGadgetFont|GetGadgetItemAttribute|GetGadgetItemColor|GetGadgetItemData|GetGadgetItemState|GetGadgetItemText|GetGadgetState|GetGadgetText|HideGadget|HyperLinkGadget|ImageGadget|IPAddressGadget|IsGadget|ListIconGadget|ListViewGadget|MDIGadget|OpenGadgetList|OpenGLGadget|OptionGadget|PanelGadget|ProgressBarGadget|RemoveGadgetColumn|RemoveGadgetItem|ResizeGadget|ScrollAreaGadget|ScrollBarGadget|SetActiveGadget|SetGadgetAttribute|SetGadgetColor|SetGadgetData|SetGadgetFont|SetGadgetItemAttribute|SetGadgetItemColor|SetGadgetItemData|SetGadgetItemImage|SetGadgetItemState|SetGadgetItemText|SetGadgetState|SetGadgetText|ShortcutGadget|SpinGadget|SplitterGadget|StringGadget|TextGadget|TrackBarGadget|TreeGadget|UnbindGadgetEvent|UseGadgetList|WebGadget)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddGadgetItem3D|ButtonGadget3D|CheckBoxGadget3D|ClearGadgetItems3D|CloseGadgetList3D|ComboBoxGadget3D|ContainerGadget3D|CountGadgetItems3D|DisableGadget3D|EditorGadget3D|FrameGadget3D|FreeGadget3D|GadgetHeight3D|GadgetID3D|GadgetToolTip3D|GadgetType3D|GadgetWidth3D|GadgetX3D|GadgetY3D|GetActiveGadget3D|GetGadgetAttribute3D|GetGadgetData3D|GetGadgetItemData3D|GetGadgetItemState3D|GetGadgetItemText3D|GetGadgetState3D|GetGadgetText3D|HideGadget3D|ImageGadget3D|IsGadget3D|ListViewGadget3D|OpenGadgetList3D|OptionGadget3D|PanelGadget3D|ProgressBarGadget3D|RemoveGadgetItem3D|ResizeGadget3D|ScrollAreaGadget3D|ScrollBarGadget3D|SetActiveGadget3D|SetGadgetAttribute3D|SetGadgetData3D|SetGadgetItemData3D|SetGadgetItemState3D|SetGadgetItemText3D|SetGadgetState3D|SetGadgetText3D|SpinGadget3D|StringGadget3D|TextGadget3D)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddImageFrame|CatchImage|CopyImage|CreateImage|EncodeImage|FreeImage|GetImageFrame|GetImageFrameDelay|GrabImage|ImageDepth|ImageFormat|ImageFrameCount|ImageHeight|ImageID|ImageOutput|ImageVectorOutput|ImageWidth|IsImage|LoadImage|RemoveImageFrame|ResizeImage|SaveImage|SetImageFrame|SetImageFrameDelay)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddJSONElement|AddJSONMember|CatchJSON|ClearJSONElements|ClearJSONMembers|ComposeJSON|CreateJSON|ExamineJSONMembers|ExportJSON|ExportJSONSize|ExtractJSONArray|ExtractJSONList|ExtractJSONMap|ExtractJSONStructure|FreeJSON|GetJSONBoolean|GetJSONDouble|GetJSONElement|GetJSONFloat|GetJSONInteger|GetJSONMember|GetJSONQuad|GetJSONString|InsertJSONArray|InsertJSONList|InsertJSONMap|InsertJSONStructure|IsJSON|JSONArraySize|JSONErrorLine|JSONErrorMessage|JSONErrorPosition|JSONMemberKey|JSONMemberValue|JSONObjectSize|JSONType|JSONValue|LoadJSON|NextJSONMember|ParseJSON|RemoveJSONElement|RemoveJSONMember|ResizeJSONElements|SaveJSON|SetJSONArray|SetJSONBoolean|SetJSONDouble|SetJSONFloat|SetJSONInteger|SetJSONNull|SetJSONObject|SetJSONQuad|SetJSONString)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddKeyboardShortcut|AddWindowTimer|BindEvent|CloseWindow|DisableWindow|Event|EventData|EventGadget|EventlParam|EventMenu|EventTimer|EventType|EventWindow|EventwParam|GetActiveWindow|GetWindowColor|GetWindowData|GetWindowState|GetWindowTitle|HideWindow|IsWindow|OpenWindow|PostEvent|RemoveKeyboardShortcut|RemoveWindowTimer|ResizeWindow|SetActiveWindow|SetWindowCallback|SetWindowColor|SetWindowData|SetWindowState|SetWindowTitle|SmartWindowRefresh|StickyWindow|UnbindEvent|WaitWindowEvent|WindowBounds|WindowEvent|WindowHeight|WindowID|WindowMouseX|WindowMouseY|WindowOutput|WindowVectorOutput|WindowWidth|WindowX|WindowY)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddMailAttachment|AddMailAttachmentData|AddMailRecipient|CreateMail|FreeMail|GetMailAttribute|GetMailBody|IsMail|MailProgress|RemoveMailRecipient|SendMail|SetMailAttribute|SetMailBody)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddMapElement|ClearMap|CompareMap|CopyMap|DeleteMapElement|FindMapElement|FreeMap|MapKey|MapSize|NextMapElement|PopMapPosition|PushMapPosition|ResetMap)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddMaterialLayer|CopyMaterial|CountMaterialLayers|CreateAnimatedMaterial|CreateMaterial|CreateShader|CreateShaderMaterial|DisableMaterialLighting|FreeMaterial|GetMaterialAttribute|GetMaterialColor|GetScriptMaterial|IsMaterial|MaterialAnimation|MaterialBlendingMode|MaterialCullingMode|MaterialFilteringMode|MaterialFog|MaterialID|MaterialShaderAutoParameter|MaterialShaderParameter|MaterialShaderTexture|MaterialShadingMode|MaterialShininess|MaterialTextureAliases|ReloadMaterial|RemoveMaterialLayer|ResetMaterial|RotateMaterial|ScaleMaterial|ScrollMaterial|SetMaterialAttribute|SetMaterialColor)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddMeshManualLOD|AddSubMesh|BuildMeshLOD|BuildMeshShadowVolume|BuildMeshTangents|CopyMesh|CreateCapsule|CreateCone|CreateCube|CreateCylinder|CreateDataMesh|CreateIcoSphere|CreateLine3D|CreateMesh|CreatePlane|CreateSphere|CreateTorus|CreateTube|FinishMesh|FreeMesh|GetMeshData|IsMesh|LoadMesh|MeshDirectAdd|MeshFace|MeshID|MeshIndex|MeshIndexCount|MeshRadius|MeshVertex|MeshVertexColor|MeshVertexCount|MeshVertexNormal|MeshVertexPosition|MeshVertexTangent|MeshVertexTextureCoordinate|NormalizeMesh|SaveMesh|SetMeshData|SetMeshMaterial|SubMeshCount|TransformMesh|UpdateMesh|UpdateMeshBoundingBox)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddNodeAnimationTime|CreateNodeAnimation|CreateNodeAnimationKeyFrame|FreeNodeAnimation|GetNodeAnimationKeyFramePitch|GetNodeAnimationKeyFrameRoll|GetNodeAnimationKeyFrameTime|GetNodeAnimationKeyFrameX|GetNodeAnimationKeyFrameY|GetNodeAnimationKeyFrameYaw|GetNodeAnimationKeyFrameZ|GetNodeAnimationLength|GetNodeAnimationTime|GetNodeAnimationWeight|NodeAnimationStatus|SetNodeAnimationKeyFramePosition|SetNodeAnimationKeyFrameRotation|SetNodeAnimationKeyFrameScale|SetNodeAnimationLength|SetNodeAnimationTime|SetNodeAnimationWeight|StartNodeAnimation|StopNodeAnimation)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddPackDirectory|AddPackFile|AddPackMemory|CatchPack|ClosePack|CompressMemory|CreatePack|ExaminePack|IsPack|NextPackEntry|OpenPack|PackEntryDate|PackEntryName|PackEntrySize|PackEntryType|PackerCallback|UncompressMemory|UncompressPackFile|UncompressPackMemory|UseBriefLZPacker|UseJcalg1Packer|UseLzmaPacker|UseTarPacker|UseZipPacker)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddPathArc|AddPathBox|AddPathCircle|AddPathCurve|AddPathEllipse|AddPathLine|AddPathSegments|AddPathText|BeginVectorLayer|ClipPath|ClosePath|ConvertCoordinateX|ConvertCoordinateY|CustomDashPath|DashPath|DotPath|DrawVectorImage|DrawVectorParagraph|DrawVectorText|EndVectorLayer|FillPath|FillVectorOutput|FlipCoordinatesX|FlipCoordinatesY|IsInsidePath|IsInsideStroke|IsPathEmpty|MovePathCursor|NewVectorPage|PathBoundsHeight|PathBoundsWidth|PathBoundsX|PathBoundsY|PathCursorX|PathCursorY|PathLength|PathPointAngle|PathPointX|PathPointY|PathSegments|PdfVectorOutput|ResetCoordinates|ResetPath|RestoreVectorState|RotateCoordinates|SaveVectorState|ScaleCoordinates|SkewCoordinates|StartVectorDrawing|StopVectorDrawing|StrokePath|SvgVectorOutput|TranslateCoordinates|VectorFont|VectorOutputHeight|VectorOutputWidth|VectorParagraphHeight|VectorResolutionX|VectorResolutionY|VectorSourceCircularGradient|VectorSourceColor|VectorSourceGradientColor|VectorSourceImage|VectorSourceLinearGradient|VectorTextHeight|VectorTextWidth|VectorUnit)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddScreenGadgetItem|ButtonImageScreenGadget|ButtonScreenGadget|CheckBoxScreenGadget|ClearScreenGadgetItems|CloseScreenGadgetList|CloseScreenWindow|ComboBoxScreenGadget|ContainerScreenGadget|CountScreenGadgetItems|DisableScreenGadget|DisableScreenWindow|EditorScreenGadget|EventScreenGadget|FreeScreenGadget|GetScreenGadgetState|GetScreenGadgetText|HideScreenGadget|HideScreenWindow|ImageScreenGadget|InitScreenGadgets|InputEvent|IsScreenGadget|ListViewScreenGadget|OpenScreenGadgetList|OpenScreenWindow|OptionScreenGadget|PanelScreenGadget|ProgressBarScreenGadget|RemoveScreenGadgetItem|RenderScreenGadgets|ResizeScreenGadget|ResizeScreenWindow|ScreenEventType|ScreenGadgetHeight|ScreenGadgetID|ScreenGadgetSkin|ScreenGadgetToolTip|ScreenGadgetType|ScreenGadgetWidth|ScreenGadgetX|ScreenGadgetY|ScreenMouseVisible|ScreenVirtualSize|ScreenWindowAnimation|ScreenWindowEvent|ScrollAreaScreenGadget|ScrollBarScreenGadget|SetScreenGadgetFont|SetScreenGadgetState|SetScreenGadgetText|SplitterScreenGadget|StringScreenGadget|TextScreenGadget|TrackBarScreenGadget)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddSkeletonAnimationKeyFrame|CreateBone|CreateSkeleton|CreateSkeletonAnimation|FinishBoneAssignment|VertexBoneAssignment)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddSplinePoint|ClearSpline|ComputeSpline|CountSplinePoints|CreateSpline|FreeSpline|SplinePointX|SplinePointY|SplinePointZ|SplineX|SplineY|SplineZ|UpdateSplinePoint)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddStaticGeometryEntity|BuildStaticGeometry|CreateStaticGeometry|FreeStaticGeometry|IsStaticGeometry)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddStatusBarField|CreateStatusBar|FreeStatusBar|IsStatusBar|StatusBarHeight|StatusBarID|StatusBarImage|StatusBarProgress|StatusBarText)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddSubEntity|ApplyEntityForce|ApplyEntityImpulse|ApplyEntityTorque|ApplyEntityTorqueImpulse|AttachEntityObject|CopyEntity|CreateEntity|CreateEntityBody|DetachEntityObject|DisableEntityBody|EnableManualEntityBoneControl|EntityAngularFactor|EntityBonePitch|EntityBoneRoll|EntityBoneX|EntityBoneY|EntityBoneYaw|EntityBoneZ|EntityBoundingBox|EntityCollide|EntityCustomParameter|EntityDirection|EntityDirectionX|EntityDirectionY|EntityDirectionZ|EntityFixedYawAxis|EntityID|EntityLinearFactor|EntityLookAt|EntityParentNode|EntityPitch|EntityRenderMode|EntityRoll|EntityVelocity|EntityX|EntityY|EntityYaw|EntityZ|FetchEntityMaterial|FreeEntity|FreeEntityBody|FreeEntityJoints|GetEntityAttribute|GetEntityCollisionGroup|GetEntityCollisionMask|GetEntityMesh|HideEntity|IsEntity|MoveEntity|MoveEntityBone|RotateEntity|RotateEntityBone|ScaleEntity|ScaleEntityBone|SetEntityAttribute|SetEntityCollisionFilter|SetEntityMaterial)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddSysTrayIcon|ChangeSysTrayIcon|IsSysTrayIcon|RemoveSysTrayIcon|SysTrayIconMenu|SysTrayIconToolTip)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddTerrainTexture|BuildTerrain|CreateTerrain|CreateTerrainBody|DefineTerrainTile|FreeTerrain|FreeTerrainBody|GetTerrainTileHeightAtPoint|GetTerrainTileLayerBlend|SaveTerrain|SetTerrainTileHeightAtPoint|SetTerrainTileLayerBlend|SetupTerrains|TerrainHeight|TerrainLocate|TerrainMousePick|TerrainRenderMode|TerrainTileHeightAtPosition|TerrainTileLayerMapSize|TerrainTilePointX|TerrainTilePointY|TerrainTileSize|UpdateTerrain|UpdateTerrainTileLayerBlend)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddVehicleWheel|ApplyVehicleBrake|ApplyVehicleForce|ApplyVehicleSteering|CreateVehicle|CreateVehicleBody|GetVehicleAttribute|SetVehicleAttribute)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AddVertexPoseReference|CreateVertexAnimation|CreateVertexPoseKeyFrame|CreateVertexTrack|MeshPoseCount|MeshPoseName|UpdateVertexPoseReference|VertexPoseReferenceCount)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AffectedDatabaseRows|CheckDatabaseNull|CloseDatabase|DatabaseColumnIndex|DatabaseColumnName|DatabaseColumns|DatabaseColumnSize|DatabaseColumnType|DatabaseDriverDescription|DatabaseDriverName|DatabaseError|DatabaseID|DatabaseQuery|DatabaseUpdate|ExamineDatabaseDrivers|FinishDatabaseQuery|FirstDatabaseRow|GetDatabaseBlob|GetDatabaseDouble|GetDatabaseFloat|GetDatabaseLong|GetDatabaseQuad|GetDatabaseString|IsDatabase|NextDatabaseDriver|NextDatabaseRow|OpenDatabase|OpenDatabaseRequester|PreviousDatabaseRow|SetDatabaseBlob|SetDatabaseDouble|SetDatabaseFloat|SetDatabaseLong|SetDatabaseNull|SetDatabaseQuad|SetDatabaseString|UseMySQLDatabase|UseODBCDatabase|UsePostgreSQLDatabase|UseSQLiteDatabase)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AllocateMemory|AllocateStructure|CompareMemory|CompareMemoryString|CopyMemory|CopyMemoryString|FillMemory|FreeMemory|FreeStructure|MemorySize|MemoryStringLength|MoveMemory|PeekA|PeekB|PeekC|PeekD|PeekF|PeekI|PeekL|PeekQ|PeekS|PeekU|PeekW|PokeA|PokeB|PokeC|PokeD|PokeF|PokeI|PokeL|PokeQ|PokeS|PokeU|PokeW|ReAllocateMemory)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:Alpha|AlphaBlend|BackColor|Blue|Box|BoxedGradient|Circle|CircularGradient|ClipOutput|ConicalGradient|CustomFilterCallback|CustomGradient|DrawAlphaImage|DrawImage|DrawingBuffer|DrawingBufferPitch|DrawingBufferPixelFormat|DrawingFont|DrawingMode|DrawRotatedText|DrawText|Ellipse|EllipticalGradient|FillArea|FrontColor|GetOriginX|GetOriginY|GrabDrawingImage|GradientColor|Green|Line|LinearGradient|LineXY|OutputDepth|OutputHeight|OutputWidth|Plot|Point|Red|ResetGradientColors|RGB|RGBA|RoundBox|SetOrigin|StartDrawing|StopDrawing|TextHeight|TextWidth|UnclipOutput)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AppendStringBuilderString|AppendStringBuilderStringN|CreateStringBuilder|FreeStringBuilder|GetStringBuilderString|IsStringBuilder|ResetStringBuilder)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:ArraySize|CompareArray|CopyArray|FreeArray)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:Asc|Ascii|Bin|Chr|CountString|EscapeString|FindString|FormatNumber|Hex|InsertString|LCase|Left|Len|LSet|LTrim|Mid|RemoveString|ReplaceString|ReverseString|Right|RSet|RTrim|Space|Str|StrD|StrF|StringByteLength|StringField|StrU|Trim|UCase|UnescapeString|Unicode|UTF8|Val|ValD|ValF)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AttachNodeObject|CreateNode|DetachNodeObject|FreeNode|IsNode|MoveNode|NodeFixedYawAxis|NodeID|NodeLookAt|NodePitch|NodeRoll|NodeX|NodeY|NodeYaw|NodeZ|RotateNode|ScaleNode)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AttachRibbonEffect|CompositorEffectParameter|CreateCompositorEffect|CreateLensFlareEffect|CreateRibbonEffect|DetachRibbonEffect|FreeEffect|HideEffect|IsEffect|LensFlareEffectColor|RibbonEffectColor|RibbonEffectWidth)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AudioCDLength|AudioCDName|AudioCDStatus|AudioCDTrackLength|AudioCDTracks|AudioCDTrackSeconds|EjectAudioCD|InitAudioCD|PauseAudioCD|PlayAudioCD|ResumeAudioCD|StopAudioCD|UseAudioCD)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AvailableProgramOutput|CloseProgram|CountProgramParameters|EnvironmentVariableName|EnvironmentVariableValue|ExamineEnvironmentVariables|GetEnvironmentVariable|IsProgram|KillProgram|NextEnvironmentVariable|ProgramExitCode|ProgramFilename|ProgramID|ProgramParameter|ProgramRunning|ReadProgramData|ReadProgramError|ReadProgramString|RemoveEnvironmentVariable|RunProgram|SetEnvironmentVariable|WaitProgram|WriteProgramData|WriteProgramString|WriteProgramStringN)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:AvailableSerialPortInput|AvailableSerialPortOutput|CloseSerialPort|GetSerialPortStatus|IsSerialPort|OpenSerialPort|ReadSerialPortData|SerialPortError|SerialPortID|SerialPortTimeouts|SetSerialPortStatus|WriteSerialPortData|WriteSerialPortString)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:BindMenuEvent|CloseSubMenu|CreateImageMenu|CreateMenu|CreatePopupImageMenu|CreatePopupMenu|DisableMenuItem|DisplayPopupMenu|FreeMenu|GetMenuItemState|GetMenuItemText|GetMenuTitleText|HideMenu|IsMenu|MenuBar|MenuHeight|MenuID|MenuItem|MenuTitle|OpenSubMenu|SetMenuItemState|SetMenuItemText|SetMenuTitleText|UnbindMenuEvent)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:BindWebViewCallback|UnbindWebViewCallback|WebViewExecuteScript|WebViewGadget|WebViewProxy)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CallCFunction|CallCFunctionFast|CallFunction|CallFunctionFast|CloseLibrary|CountLibraryFunctions|ExamineLibraryFunctions|GetFunction|GetFunctionEntry|IsLibrary|LibraryFunctionAddress|LibraryFunctionName|LibraryID|NextLibraryFunction|OpenLibrary)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CameraBackColor|CameraCustomParameter|CameraDirection|CameraDirectionX|CameraDirectionY|CameraDirectionZ|CameraFixedYawAxis|CameraFollow|CameraFOV|CameraID|CameraLookAt|CameraPitch|CameraProjectionMode|CameraProjectionX|CameraProjectionY|CameraRange|CameraReflection|CameraRenderMode|CameraRoll|CameraViewHeight|CameraViewWidth|CameraViewX|CameraViewY|CameraX|CameraY|CameraYaw|CameraZ|CheckObjectVisibility|CreateCamera|FreeCamera|IsCamera|MoveCamera|ResizeCamera|RotateCamera)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CatchMusic|FreeMusic|GetMusicPosition|GetMusicRow|IsMusic|LoadMusic|MusicVolume|PlayMusic|SetMusicPosition|StopMusic)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CatchSound|FreeSound|GetSoundFrequency|GetSoundPosition|InitSound|IsSound|LoadSound|PauseSound|PlaySound|ResumeSound|SetSoundFrequency|SetSoundPosition|SoundLength|SoundPan|SoundStatus|SoundVolume|StopSound)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CatchSprite|ClipSprite|CopySprite|CreateSprite|DisplaySprite|DisplayTransparentSprite|FreeSprite|GrabSprite|InitSprite|IsSprite|LoadSprite|RotateSprite|SaveSprite|SpriteBlendingMode|SpriteCollision|SpriteDepth|SpriteHeight|SpriteID|SpriteOutput|SpritePixelCollision|SpriteQuality|SpriteWidth|TransformSprite|TransparentSpriteColor|ZoomSprite)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CatchXML|ChildXMLNode|ComposeXML|CopyXMLNode|CreateXML|CreateXMLNode|DeleteXMLNode|ExamineXMLAttributes|ExportXML|ExportXMLSize|ExtractXMLArray|ExtractXMLList|ExtractXMLMap|ExtractXMLStructure|FormatXML|FreeXML|GetXMLAttribute|GetXMLEncoding|GetXMLNodeName|GetXMLNodeOffset|GetXMLNodeText|GetXMLStandalone|InsertXMLArray|InsertXMLList|InsertXMLMap|InsertXMLStructure|IsXML|LoadXML|MainXMLNode|MoveXMLNode|NextXMLAttribute|NextXMLNode|ParentXMLNode|ParseXML|PreviousXMLNode|RemoveXMLAttribute|ResolveXMLAttributeName|ResolveXMLNodeName|RootXMLNode|SaveXML|SetXMLAttribute|SetXMLEncoding|SetXMLNodeName|SetXMLNodeOffset|SetXMLNodeText|SetXMLStandalone|XMLAttributeName|XMLAttributeValue|XMLChildCount|XMLError|XMLErrorLine|XMLErrorPosition|XMLNodeFromID|XMLNodeFromPath|XMLNodePath|XMLNodeType|XMLStatus)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CGIBuffer|CGICookieName|CGICookieValue|CGIParameterData|CGIParameterDataSize|CGIParameterName|CGIParameterType|CGIParameterValue|CGIVariable|CountCGICookies|CountCGIParameters|FinishFastCGIRequest|InitCGI|InitFastCGI|ReadCGI|WaitFastCGIRequest|WriteCGIData|WriteCGIFile|WriteCGIHeader|WriteCGIString|WriteCGIStringN)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:ChangeGamma|ClearScreen|CloseScreen|ExamineScreenModes|FlipBuffers|IsScreenActive|NextScreenMode|OpenScreen|OpenWindowedScreen|ScreenDepth|ScreenHeight|ScreenID|ScreenModeDepth|ScreenModeHeight|ScreenModeRefreshRate|ScreenModeWidth|ScreenOutput|ScreenWidth|SetFrameRate)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CheckFilename|CopyDirectory|CopyFile|CreateDirectory|DeleteDirectory|DeleteFile|DirectoryEntryAttributes|DirectoryEntryDate|DirectoryEntryName|DirectoryEntrySize|DirectoryEntryType|ExamineDirectory|FileSize|FinishDirectory|GetCurrentDirectory|GetExtensionPart|GetFileAttributes|GetFileDate|GetFilePart|GetHomeDirectory|GetPathPart|GetTemporaryDirectory|GetUserDirectory|IsDirectory|NextDirectoryEntry|RenameFile|SetCurrentDirectory|SetFileAttributes|SetFileDate)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:ClearClipboard|GetClipboardImage|GetClipboardText|SetClipboardImage|SetClipboardText)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:ClearConsole|CloseConsole|ConsoleColor|ConsoleCursor|ConsoleError|ConsoleLocate|ConsoleTitle|EnableGraphicalConsole|Inkey|Input|OpenConsole|Print|PrintN|RawKey|ReadConsoleData|WriteConsoleData)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:ClearDebugOutput|CloseDebugOutput|CopyDebugOutput|DebuggerError|DebuggerWarning|PurifierGranularity|ResetProfiler|SaveDebugOutput|ShowAssemblyViewer|ShowCallstack|ShowDebugOutput|ShowLibraryViewer|ShowMemoryViewer|ShowProfiler|ShowVariableViewer|ShowWatchlist|StartProfiler|StopProfiler)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CloseFile|CreateFile|Eof|FileBuffersSize|FileID|FileSeek|FlushFileBuffers|IsFile|Loc|Lof|OpenFile|ReadAsciiCharacter|ReadByte|ReadCharacter|ReadData|ReadDouble|ReadFile|ReadFloat|ReadInteger|ReadLong|ReadQuad|ReadString|ReadStringFormat|ReadUnicodeCharacter|ReadWord|TruncateFile|WriteAsciiCharacter|WriteByte|WriteCharacter|WriteData|WriteDouble|WriteFloat|WriteInteger|WriteLong|WriteQuad|WriteString|WriteStringFormat|WriteStringN|WriteUnicodeCharacter|WriteWord)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CloseHelp|OpenHelp)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CloseHID|DisableHIDBlockingMode|ExamineHIDs|GetHIDIndexedString|GetHIDReportDescriptor|HIDError|HIDInfo|IsHID|NextHID|OpenHID|OpenHIDPath|ReadHIDData|ReceiveHIDFeatureReport|ReceiveHIDInputReport|SendHIDFeatureReport|SendHIDOutputReport|WriteHIDData)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CloseNetworkConnection|CloseNetworkServer|ConnectionID|CreateNetworkServer|EventClient|EventServer|ExamineIPAddresses|FreeIP|GetClientIP|GetClientPort|HostName|IPAddressField|IPString|MakeIPAddress|NetworkClientEvent|NetworkServerEvent|NextIPAddress|OpenNetworkConnection|ReceiveNetworkData|SendNetworkData|SendNetworkString|ServerID|UseNetworkTLS)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:ClosePreferences|CreatePreferences|ExaminePreferenceGroups|ExaminePreferenceKeys|FlushPreferenceBuffers|NextPreferenceGroup|NextPreferenceKey|OpenPreferences|PreferenceComment|PreferenceGroup|PreferenceGroupName|PreferenceKeyName|PreferenceKeyValue|ReadPreferenceDouble|ReadPreferenceFloat|ReadPreferenceInteger|ReadPreferenceLong|ReadPreferenceQuad|ReadPreferenceString|RemovePreferenceGroup|RemovePreferenceKey|WritePreferenceDouble|WritePreferenceFloat|WritePreferenceInteger|WritePreferenceLong|WritePreferenceQuad|WritePreferenceString)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CloseWindow3D|DisableWindow3D|EventGadget3D|EventType3D|EventWindow3D|GetActiveWindow3D|GetWindowTitle3D|HideWindow3D|InputEvent3D|IsWindow3D|OpenWindow3D|ResizeWindow3D|SetActiveWindow3D|SetWindowTitle3D|WindowEvent3D|WindowHeight3D|WindowID3D|WindowWidth3D|WindowX3D|WindowY3D)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CocoaMessage|ComputerName|CountCPUs|CPUName|Delay|DoubleClickTime|ElapsedMilliseconds|MemoryStatus|OSVersion|UserName)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:ColorRequester|FontRequester|InputRequester|MessageRequester|NextSelectedFilename|OpenFileRequester|PathRequester|SaveFileRequester|SelectedFilePattern|SelectedFontColor|SelectedFontName|SelectedFontSize|SelectedFontStyle)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:ConeTwistJoint|EnableHingeJointAngularMotor|FreeJoint|GenericJoint|GetJointAttribute|HingeJoint|HingeJointMotorTarget|IsJoint|PointJoint|SetJointAttribute|SliderJoint)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CopyLight|CreateLight|DisableLightShadows|FreeLight|GetLightColor|HideLight|IsLight|LightAttenuation|LightDirection|LightDirectionX|LightDirectionY|LightDirectionZ|LightID|LightLookAt|LightPitch|LightRoll|LightX|LightY|LightYaw|LightZ|MoveLight|RotateLight|SetLightColor|SpotLightRange)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CopyTexture|CreateCubeMapTexture|CreateCubicTexture|CreateRenderTexture|CreateTexture|EntityCubeMapTexture|FreeTexture|GetScriptTexture|IsTexture|LoadTexture|SaveRenderTexture|TextureHeight|TextureID|TextureOutput|TextureWidth|UpdateRenderTexture)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CountRegularExpressionGroups|CreateRegularExpression|ExamineRegularExpression|ExtractRegularExpression|FreeRegularExpression|IsRegularExpression|MatchRegularExpression|NextRegularExpressionMatch|RegularExpressionError|RegularExpressionGroup|RegularExpressionGroupLength|RegularExpressionGroupPosition|RegularExpressionMatchLength|RegularExpressionMatchPosition|RegularExpressionMatchString|RegularExpressionNamedGroup|RegularExpressionNamedGroupLength|RegularExpressionNamedGroupPosition|ReplaceRegularExpression)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CreateDialog|DialogError|DialogGadget|DialogID|DialogWindow|FreeDialog|IsDialog|OpenXMLDialog|RefreshDialog|UseDialogOpenGLGadget|UseDialogScintillaGadget|UseDialogWebGadget|UseDialogWebViewGadget)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CreateMutex|CreateSemaphore|CreateThread|FreeMutex|FreeSemaphore|IsThread|KillThread|LockMutex|PauseThread|ResumeThread|SignalSemaphore|ThreadID|ThreadPriority|TryLockMutex|TrySemaphore|UnlockMutex|WaitSemaphore|WaitThread)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CreateParticleEmitter|DisableParticleEmitter|FreeParticleEmitter|GetScriptParticleEmitter|HideParticleEmitter|IsParticleEmitter|MoveParticleEmitter|ParticleAcceleration|ParticleAngle|ParticleColorFader|ParticleColorRange|ParticleEmissionRate|ParticleEmitterAngle|ParticleEmitterDirection|ParticleEmitterID|ParticleEmitterX|ParticleEmitterY|ParticleEmitterZ|ParticleMaterial|ParticleScaleRate|ParticleSize|ParticleSpeedFactor|ParticleTimeToLive|ParticleVelocity|ResizeParticleEmitter)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CreateText3D|FreeText3D|IsText3D|MoveText3D|ScaleText3D|Text3DAlignment|Text3DCaption|Text3DColor|Text3DID|Text3DX|Text3DY|Text3DZ)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CreateToolBar|DisableToolBarButton|FreeToolBar|GetToolBarButtonState|IsToolBar|SetToolBarButtonState|ToolBarButtonText|ToolBarHeight|ToolBarID|ToolBarImageButton|ToolBarSeparator|ToolBarToolTip)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:CustomSortArray|CustomSortList|RandomizeArray|RandomizeList|SortArray|SortList|SortStructuredArray|SortStructuredList)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:DefaultPrinter|NewPrinterPage|PrinterOutput|PrinterPageHeight|PrinterPageWidth|PrinterVectorOutput|PrintRequester|StartPrinting|StopPrinting)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:DesktopDepth|DesktopFrequency|DesktopHeight|DesktopMouseX|DesktopMouseY|DesktopName|DesktopResolutionX|DesktopResolutionY|DesktopScaledX|DesktopScaledY|DesktopUnscaledX|DesktopUnscaledY|DesktopWidth|DesktopX|DesktopY|ExamineDesktops)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:DragFiles|DraggedItemIndex|DragImage|DragOSFormats|DragPrivate|DragText|EnableGadgetDrop|EnableWindowDrop|EventDropAction|EventDropBuffer|EventDropFiles|EventDropImage|EventDropPrivate|EventDropSize|EventDropText|EventDropType|EventDropX|EventDropY|ExamineDraggedItems|NextDraggedItem|SetDragCallback|SetDropCallback)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:ErrorAddress|ErrorCode|ErrorFile|ErrorLine|ErrorMessage|ErrorRegister|ErrorTargetAddress|ExamineAssembly|InstructionAddress|InstructionString|NextInstruction|OnErrorCall|OnErrorDefault|OnErrorExit|OnErrorGoto|RaiseError)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:ExamineJoystick|InitJoystick|JoystickAxisX|JoystickAxisY|JoystickAxisZ|JoystickButton|JoystickName)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:ExamineKeyboard|InitKeyboard|KeyboardInkey|KeyboardMode|KeyboardPushed|KeyboardReleased)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:ExamineMouse|InitMouse|MouseButton|MouseDeltaX|MouseDeltaY|MouseLocate|MouseWheel|MouseX|MouseY|ReleaseMouse)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:FontID|FreeFont|IsFont|LoadFont|RegisterFontFile)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:FreeMovie|InitMovie|IsMovie|LoadMovie|MovieAudio|MovieHeight|MovieInfo|MovieLength|MovieSeek|MovieStatus|MovieWidth|PauseMovie|PlayMovie|ResizeMovie|ResumeMovie|StopMovie)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:FreeSound3D|IsSound3D|LoadSound3D|PlaySound3D|SoundCone3D|SoundID3D|SoundListenerLocate|SoundRange3D|SoundVolume3D|StopSound3D)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:GetRuntimeDouble|GetRuntimeInteger|GetRuntimeString|IsRuntime|SetRuntimeDouble|SetRuntimeInteger|SetRuntimeString)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:ScintillaGadget|ScintillaSendMessage)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:UseFLACSoundDecoder|UseOGGSoundDecoder)\\b"
 				},
 				{
-					"name": "support.function.purebasic",
+					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:UseGIFImageDecoder|UseJPEG2000ImageDecoder|UseJPEG2000ImageEncoder|UseJPEGImageDecoder|UseJPEGImageEncoder|UsePNGImageDecoder|UsePNGImageEncoder|UseTGAImageDecoder|UseTIFFImageDecoder)\\b"
 				}
 			]
@@ -571,8 +571,8 @@
 		"members": {
 			"patterns": [
 				{
-					"comment": "var\\field, Module::item, and the element form var\\map().",
-					"name": "variable.other.member.purebasic",
+					"comment": "var\\field, Module::item, and the element form var\\map().  Scoped under entity.name.type so that a scheme paints it where it paints a type: the IDE gives a member its Structures colour, which in the Monokai themes VS Code ships is the entity.name.* green.",
+					"name": "entity.name.type.member.purebasic",
 					"match": "(?:\\\\|::)[A-Za-z_]\\w*(?:\\(\\))?"
 				},
 				{
@@ -616,7 +616,7 @@
 		},
 		"identifiers": {
 			"comment": "A name that goes on to a type or a member -- `test.my_test`, `OBJ_MEMDLL\\ModulesMap()` -- is what a variable wears code colour for.  A name on its own is left unscoped, so the theme paints it its normal text, which is what the PureBasic IDE does.",
-			"name": "variable.other.typed.purebasic",
+			"name": "entity.name.type.member.purebasic",
 			"match": "[A-Za-z_]\\w*(?=\\s*[.\\\\])"
 		},
 		"operators": {
@@ -650,7 +650,7 @@
 					"match": "(?i)\\b(?:Global|Protected|Static|Shared|Threaded|Define|NewList|NewMap|AddElement|AddMapElement|ClearList|ClearMap|DeleteList|DeleteMap)\\b"
 				},
 				{
-					"name": "meta.preprocessor.purebasic",
+					"name": "keyword.other.preprocessor.purebasic",
 					"match": "(?i)\\b(?:Macro|EndMacro|UndefineMacro|MacroExpandedCount|CompilerIf|CompilerElseIf|CompilerElse|CompilerEndIf|CompilerSelect|CompilerCase|CompilerDefault|CompilerEndSelect|CompilerError|CompilerWarning|EnableExplicit|DisableExplicit|EnableASM|DisableASM|HeaderSection|EndHeaderSection|DisablePureLibrary|IncludeFile|XIncludeFile|Import|EndImport|ImportC)\\b"
 				},
 				{

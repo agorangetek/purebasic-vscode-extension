@@ -13,9 +13,8 @@ second process, no IPC, nothing to restart.
 ### Syntax highlighting
 
 A TextMate grammar generated from the PureBasic IDE's own keyword and command
-tables: keywords by category, library commands per library
-(`support.function.gadget.purebasic`, …), `#Constants`, `*pointers`, `@proc`
-addresses, `?data` labels, `var\field` members, `Module::item`, `.type`
+tables: keywords by category, every library command, `#Constants`, `*pointers`,
+`@proc` addresses, `?data` labels, `var\field` members, `Module::item`, `.type`
 suffixes, `~"escape strings"` and `!` inline assembly. PureBasic's single
 comment (`;`) and its two string forms are scoped, so a keyword written inside
 a string stays a string.
@@ -33,25 +32,41 @@ scope below is specific to PureBasic:
 | --- | --- |
 | keywords (`Procedure`, `EndProcedure`, `ReDim`, `If`, …) | `keyword.control.purebasic` |
 | declaration keywords (`Dim`, `Global`, `NewList`, …) | `keyword.other.purebasic` |
-| compiler directives and includes (`CompilerIf`, `IncludeFile`, `Macro`) | `meta.preprocessor.purebasic` |
+| compiler directives and includes (`CompilerIf`, `IncludeFile`, `Macro`) | `keyword.other.preprocessor.purebasic` |
 | operators, words and symbols (`And`, `=`, `<=`) | `keyword.operator.purebasic` |
-| procedures, declared and called | `entity.name.function.purebasic` |
+| procedures and library commands, declared or called (`MessageRequester`, `MyProc(1)`) | `entity.name.function.purebasic` |
 | structures, interfaces, modules (declared) | `entity.name.type.purebasic` |
 | a type name after a `.` (used) | `entity.name.type.reference.purebasic` |
 | a native type suffix or return type (`.d`, `.i`) | `storage.type.purebasic` |
-| library commands (`MessageRequester`, …) | `support.function.purebasic` |
 | constants (`#MaxPoints`, `#PB_Event_CloseWindow`) | `constant.other.predefined.purebasic` |
 | `True` / `False`, `Null` | `constant.language.boolean\|null.purebasic` |
 | numbers (`12`, `$FF`, `%1010`, `1.5`) | `constant.numeric.decimal\|hex\|bin\|float.purebasic` |
 | pointers (`*pBuffer`) | `constant.other.pointer.purebasic` |
-| structure members, read (`pt\x`, `obj\map()`) | `variable.other.member.purebasic` |
-| a name taking a type (`test.my_test`, `name.s`) | `variable.other.typed.purebasic` |
+| a member and the name it comes off (`pt\x`, `obj\map()`, `Module::item`) | `entity.name.type.member.purebasic` |
 | a module prefix (`Helper::DoIt`) | `entity.name.namespace.purebasic` |
 | a procedure address (`@MyProc`) | `constant.other.reference.purebasic` (bare `@` too) |
 | a data label (`?data`) | `variable.other.label-reference.purebasic` |
 | labels (`top:`) | `entity.name.label.purebasic` |
 | a statement separator (`:`) | `punctuation.separator.statement.purebasic` |
 | inline assembly (`! mov …`) | `meta.embedded.asm.purebasic` |
+
+Two of those are worth explaining, because they are where the PureBasic IDE and
+VS Code's own vocabulary disagree:
+
+* **A member wears a type scope.** The IDE paints `pt\x` with its Structures
+  colour, and a `variable.other.*` scope would instead get whatever the theme
+  gives a variable. `entity.name.type.member.purebasic` puts it in the same
+  family as `Structure Point`, so `OBJ_MEMDLL\ModulesMap()` reads as one green
+  expression rather than a green owner next to a grey member.
+* **A library command wears a function scope.** The IDE gives `MessageRequester`
+  and a call of your own `MyProc` the same Functions colour, so they share
+  `entity.name.function.purebasic`; splitting them would buy a distinction no
+  scheme can show.
+
+A name that takes a type (`test.my_test`, `name.s`, the `pt` of `pt\x`) is scoped
+too, which is what makes it the same colour as the member after it. A name on its
+own is deliberately left unscoped, so the theme paints it its normal text -- which
+is what the IDE does.
 
 The scope vocabulary follows [duty1g/vscode-purebasic](https://github.com/duty1g/vscode-purebasic) (MIT).
 
@@ -63,10 +78,12 @@ whatever theme you run, paste the rules from
 nothing is left half-coloured. Any customisation you add overrides the theme for the scopes it
 names, which is how VS Code layers them.
 
-A library's name is used as-is, except the String library, whose segment is `stringlib`.
-VS Code reads the suggestions category of the token under the caret from its innermost
-scope with `/\b(comment|string|regex|regexp)\b/`; a bare `string` segment would make it
-treat a command as a string literal, and typing it would never pop up the list.
+A code scope must never contain the word `string` or `comment`: VS Code reads the
+suggestions category of the token under the caret from its innermost scope with
+`/\b(comment|string|regex|regexp)\b/`, and a code token that reads as a string
+literal silently stops the list from popping up. The String library is exactly
+that trap, which is part of why the library name is no longer in the scope at
+all: every command is just `entity.name.function.purebasic`.
 
 To colour one of them differently, target it from your settings:
 
@@ -88,12 +105,10 @@ Note the `source.purebasic` prefix — it keeps the rule to this language.
 Wrapping the setting in a `"[purebasic]"` block does **not** work for token
 colours; it is silently ignored.
 
-The type scopes are worth singling out, because the default dark theme is
-inconsistent about them: `storage.type` falls through to the base theme's
-classic blue (`#569CD6`, the same colour as a keyword), while
-`entity.name.type` is dark_plus's teal (`#4EC9B0`). The example above makes
-both a lighter blue (`#9CDCFE`) so a type reads as a type rather than as
-another keyword.
+Colour is the theme's business, so pick a scope that says what you mean and let
+each theme render it: because an owner and its members share
+`entity.name.type.member.purebasic`, one rule re-colours the whole of
+`OBJ_MEMDLL\ModulesMap()`.
 
 ### Code completion
 
