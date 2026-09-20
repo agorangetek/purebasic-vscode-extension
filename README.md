@@ -35,7 +35,7 @@ scope below is specific to PureBasic:
 | compiler directives and includes (`CompilerIf`, `IncludeFile`, `Macro`) | `keyword.other.preprocessor.purebasic` |
 | operators, words and symbols (`And`, `=`, `<=`) | `keyword.operator.purebasic` |
 | procedures and library commands, declared or called (`MessageRequester`, `MyProc(1)`) | `entity.name.function.purebasic` |
-| structures, interfaces, modules (declared) | `entity.name.type.purebasic` |
+| a declared name (`Module MemDll`, `Structure Point`, `Macro M`) | *no scope* — normal text, as the IDE draws it |
 | a structure name after a `.` (used) | `entity.name.type.reference.purebasic` |
 | a built-in type (`.i`, `.s`, `.l`, `.d`, `p-ascii`) and the name in front of it | *no scope* — plain normal text, as the IDE draws it |
 | constants (`#MaxPoints`, `#PB_Event_CloseWindow`) | `constant.other.predefined.purebasic` |
@@ -50,9 +50,17 @@ scope below is specific to PureBasic:
 | a statement separator (`:`) | `punctuation.separator.statement.purebasic` |
 | inline assembly (`! mov …`) | `meta.embedded.asm.purebasic` |
 
-Three of those are worth explaining, because they are where the PureBasic IDE
+Four of those are worth explaining, because they are where the PureBasic IDE
 and VS Code's own vocabulary disagree:
 
+* **A declaration name is normal text.** The IDE's highlighter colours a word by
+  what *surrounds* it and never by being declared: a `(` after it makes it a
+  function, a `::` makes it a module prefix, a `.Type` or a `\` makes it a
+  structure, and a bare word is normal text. So `MemDll` in `Module MemDll` and
+  `Point` in `Structure Point` are plain, while `MemDll::DoIt()` and `pt.Point`
+  are not — and `Area` in `Procedure.d Area(...)` is, because a `(` follows it.
+  No scope is invented for a declared name, so every theme shows it as the
+  normal text it is.
 * **A built-in type has no colour at all.** The IDE has no "type" category in
   its preferences: its highlighter
   ([`HighlightingEngine.pb`](https://github.com/fantaisie-software/purebasic/blob/master/PureBasicIDE/HighlightingEngine.pb))
@@ -75,9 +83,9 @@ and VS Code's own vocabulary disagree:
 
 A name that takes a *structure* type (`test.my_test`, the `pt` of `pt\x`) is
 scoped too, which is what makes it the same colour as the member after it. A name
-on its own, and one whose dot is followed by a built-in type (`name.s`), is
-deliberately left unscoped, so the theme paints it its normal text — which is what
-the IDE does.
+on its own, one whose dot is followed by a built-in type (`name.s`), and one that
+is being *declared* (`Structure Point`) are deliberately left unscoped, so the
+theme paints them their normal text — which is what the IDE does.
 
 The scope vocabulary follows [duty1g/vscode-purebasic](https://github.com/duty1g/vscode-purebasic) (MIT).
 
@@ -107,8 +115,8 @@ To colour one of them differently, target it from your settings:
     "textMateRules": [
         {
             "scope": [
-                "source.purebasic entity.name.type.purebasic",
-                "source.purebasic entity.name.type.reference.purebasic"
+                "source.purebasic entity.name.type.reference.purebasic",
+                "source.purebasic entity.name.type.member.purebasic"
             ],
             "settings": { "foreground": "#9CDCFE" }
         }

@@ -218,13 +218,17 @@ export const grammar = {
 				BUILTIN_TYPE +
 				'|' +
 				TYPE_NAME +
-				'))?\\s*([A-Za-z_]\\w*)?',
+				'))?\\s*(?:[A-Za-z_]\\w*)?',
 			beginCaptures: {
 				1: { name: 'keyword.control.purebasic' },
 				// group 2 is the structure of `Structure.Point`, never a built-in
 				// type: a built-in one belongs to the non-capturing branch above
 				2: { name: 'entity.name.type.reference.purebasic' },
-				3: { name: 'entity.name.type.purebasic' },
+				// The declared name has no scope on purpose: a bare word is normal
+				// text to the IDE's highlighter, which colours a word by what
+				// surrounds it -- `(` or `::`, a `.Type`, a `\\` -- and not by being
+				// declared.  It is matched, so nothing else can claim it, and
+				// scoped as nothing, so the theme paints it its normal text.
 			},
 			end: '(?i)\\b(EndStructureUnion|EndStructure|EndInterface)\\b',
 			endCaptures: { 0: { name: 'keyword.control.purebasic' } },
@@ -263,24 +267,23 @@ export const grammar = {
 				},
 				{
 					comment:
-						'Structure / Interface / Module / Enumeration declarations.  Enumeration[.type] with no name of its own is left to the keyword and type-suffix rules; `Enumeration.i` is a built-in type and so has no scope.',
+						'Module / DeclareModule / Enumeration declarations.  Enumeration[.type] with no name of its own is left to the keyword and type-suffix rules; `Enumeration.i` is a built-in type and so has no scope.  The declared NAME has no scope either: `MemDll` in `Module MemDll` is a bare word, and the IDE paints a bare word with its normal text -- its only module colour is for the `MemDll::item` prefix, which the #members rule below covers.',
 					match:
 						'(?i)\\b(DeclareModule|Module|EnumerationBinary|Enumeration)\\b(?:\\s*\\.\\s*(?:' +
 						BUILTIN_TYPE +
 						'|' +
 						TYPE_NAME +
-						'))?\\s+([A-Za-z_]\\w*)',
+						'))?\\s+(?:[A-Za-z_]\\w*)',
 					captures: {
 						1: { name: 'keyword.control.purebasic' },
 						2: { name: 'entity.name.type.reference.purebasic' },
-						3: { name: 'entity.name.type.purebasic' },
 					},
 				},
 				{
-					match: '(?i)\\b(Macro)\\b(\\s+)([A-Za-z_]\\w*)',
+					// `Macro M` -- M is a bare word too, so it stays normal text
+					match: '(?i)\\b(Macro)\\b\\s+[A-Za-z_]\\w*',
 					captures: {
 						1: { name: 'keyword.other.preprocessor.purebasic' },
-						3: { name: 'entity.name.function.purebasic' },
 					},
 				},
 			],

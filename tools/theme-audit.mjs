@@ -282,9 +282,9 @@ if (args[0] === '--palette') {
 		'entity.name.type.reference.purebasic': '#A6E22E',
 		'entity.name.type.member.purebasic': '#A6E22E',
 		'entity.name.namespace.purebasic': '#A6E22E',
-		'entity.name.type.purebasic': '#F8F8F2',
-		// no entry for a built-in type: the IDE has no type colour, so `.i` and
-		// friends carry no scope and fall to the base NormalText rule above
+		// no entry for a declared name or a built-in type: the IDE colours a word
+		// by what surrounds it, so `MemDll` in `Module MemDll` and `.i` in
+		// `test.i` carry no scope and fall to the base NormalText rule above
 		'punctuation.separator.statement.purebasic': '#F8F8F0',
 		'source.purebasic': '#F8F8F2',
 	};

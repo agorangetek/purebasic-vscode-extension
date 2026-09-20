@@ -4,6 +4,35 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.25] - 2026-09-20
+
+### Changed
+
+- **A declared name is normal text, as the PureBasic IDE draws it.** `MemDll` in `Module MemDll` and in
+  `DeclareModule MemDll` was `entity.name.type.purebasic`, which is the Structures green under
+  Monokai. The IDE has no declaration colour at all: its highlighter
+  ([`HighlightingEngine.pb`](https://github.com/fantaisie-software/purebasic/blob/master/PureBasicIDE/HighlightingEngine.pb))
+  assigns a colour by what *surrounds* a word, never by the word being declared.
+  - `Module` / `DeclareModule` / `Structure` / `Interface` / `Enumeration` / `Macro` are Basic
+    Keywords, so they stay the keyword colour.
+  - the name after any of them has nothing following it, so it is Normal Text -- `MemDll` is white.
+  - `entity.name.type.purebasic` is gone from the grammar; no scope was invented in its place, so a
+    theme paints a declared name with its own normal text, the same choice the built-in type
+    suffixes already get. The one exception is `Macro M`'s name, which was
+    `entity.name.function.purebasic` and is now plain too.
+  - the rules that DO colour a name are the positional ones, and they are unchanged: a `(` after it
+    (`Procedure.d Area(...)`, `Declare.i Bar(...)`, `Prototype.i Callback(...)`) is the function
+    colour, a `::` is the module colour (`MemDll::DoIt()`), a `.Structure` or a `\` is the
+    structures colour (`pt.Point`, `test\age`).
+- `docs/purebasic-ide-monokai.jsonc` drops the rule for the removed scope: the base normal-text rule
+  already covers a declared name, so the opt-in palette is unchanged in what it renders.
+
+### Note
+
+- The IDE gives the `::` of `MemDll::DoIt()` its operator colour, while this grammar includes it in
+  the member token, so it comes out green rather than pink. Left alone for now; it is a one-token
+  difference and nothing else depends on it.
+
 ## [0.1.24] - 2026-09-20
 
 ### Added

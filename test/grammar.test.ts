@@ -169,13 +169,70 @@ test('library commands and user calls wear the function colour', { skip }, async
 	assertScoped(lines, 'MyUserProc', /^entity\.name\.function\.purebasic$/, 'an unknown call');
 });
 
-test('declarations name their procedure, structure and module', { skip }, async () => {
+/*
+ * A declaration name is normal text to the IDE.  Its highlighter colours a word
+ * by what SURROUNDS it -- a `(`, a `::`, a `.Type`, a `\` -- and never by being
+ * declared, so `MemDll` in `Module MemDll` and `Point` in `Structure Point` are
+ * plain, while the `MemDll` of `MemDll::DoIt()` and the `Point` of `pt.Point`
+ * are not.  There is no declaration-name scope at all, so a theme cannot
+ * colour one; that is the same choice the built-in type suffixes get.
+ */
+test('a declared name is left as normal text, the way the IDE draws it', { skip }, async () => {
 	const lines = await tokenize(
-		['Procedure.d Area(w.d, h.d)', 'Structure Point', 'EndStructure', 'Module Helper'].join('\n'),
+		[
+			'Procedure.d Area(w.d, h.d)',
+			'Declare.i Bar(x.i)',
+			'Prototype.i Callback(x.i)',
+			'Structure Point',
+			'Interface IFoo',
+			'Enumeration Colour',
+			'Macro M',
+			'DeclareModule MemDll',
+			'Module MemDll',
+			'EndModule',
+		].join('\n'),
 	);
+
+	const plain = (line: number, text: string) => {
+		const token = lines[line]!.find((t) => t.text.trim() === text);
+		assert.ok(token, `line ${line + 1}: "${text}" did not tokenize`);
+		assert.equal(
+			token.scopes.join(' '),
+			'',
+			`line ${line + 1}: "${text}" should be normal text, got ${token.scopes.join(' ')}`,
+		);
+	};
+
+	// a name that nothing follows is a bare word
+	for (const [line, name] of [
+		[3, 'Point'],
+		[4, 'IFoo'],
+		[5, 'Colour'],
+		[6, 'M'],
+		[7, 'MemDll'],
+		[8, 'MemDll'],
+	] as const) {
+		plain(line, name);
+	}
+	// the keyword in front of it is still a keyword
+	for (const [line, keyword] of [
+		[3, 'Structure'],
+		[4, 'Interface'],
+		[5, 'Enumeration'],
+		[6, 'Macro'],
+		[7, 'DeclareModule'],
+		[8, 'Module'],
+	] as const) {
+		assert.ok(
+			lines[line]!.some((t) => t.text.trim() === keyword && t.scopes.some((s) => s.startsWith('keyword'))),
+			`line ${line + 1}: "${keyword}" should stay a keyword`,
+		);
+	}
+
+	// a procedure's name IS followed by `(`, so it keeps the function colour
 	assertScoped(lines, 'Area', /^entity\.name\.function/, 'a procedure name');
-	assertScoped(lines, 'Point', /^entity\.name\.type/, 'a structure name');
-	assertScoped(lines, 'Helper', /^entity\.name\.type/, 'a module name');
+	assertScoped(lines, 'Bar', /^entity\.name\.function/, 'a declared name');
+	assertScoped(lines, 'Callback', /^entity\.name\.function/, 'a prototype name');
 });
 
 test('members, sigils and labels are scoped', { skip }, async () => {
@@ -287,7 +344,7 @@ test('a structure type is code, on both sides of the dot', { skip }, async () =>
 	// the declaration itself stays normal text, and so does a field with a
 	// built-in type -- the IDE does not colour a field either
 	const point = lines[3]!.find((t) => t.text.trim() === 'Point');
-	assert.ok(point?.scopes.some((s) => s.startsWith('entity.name.type')), 'Structure Point names a type');
+	assert.equal(point?.scopes.join(' '), '', 'Structure Point declares a name, it does not use one');
 	for (const text of ['x', '.i']) {
 		const token = lines[4]!.find((t) => t.text.trim() === text);
 		assert.ok(token, `line 5: "${text}" did not tokenize`);
@@ -481,8 +538,9 @@ test('a type use is scoped apart from its declaration', { skip }, async () => {
 		return token.scopes[token.scopes.length - 1] ?? '';
 	};
 
-	// the declaration names a type; a USE of a structure type is code, like the IDE
-	assert.equal(innermost(0, 'Point'), 'entity.name.type.purebasic');
+	// the DECLARATION is normal text (the IDE colours a bare word as normal
+	// text); a USE of a structure type is code
+	assert.equal(innermost(0, 'Point'), '');
 	assert.equal(innermost(3, 'Point'), 'entity.name.type.reference.purebasic');
 	assert.equal(innermost(4, 'ScreenBuffer'), 'entity.name.type.reference.purebasic');
 
