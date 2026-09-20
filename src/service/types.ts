@@ -113,8 +113,6 @@ export interface PbBlock {
 
 export interface PbBuiltinData {
 	source: string;
-	/** Absolute path of the PureBasic IDE checkout this data came from. */
-	generatedFrom?: string;
 	count: number;
 	/** Canonical spelling of every reserved word. */
 	keywords: string[];

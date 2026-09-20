@@ -341,7 +341,6 @@ const items = [...commandItems, ...keywordItems];
 
 const out = {
 	source: `PureBasic ${commandItems.length} library commands and ${keywordItems.length} keywords`,
-	generatedFrom: pbIde,
 	count: items.length,
 	/** Canonical spelling of every reserved word, lower case keyed. */
 	keywords: [...canonical.values()],
