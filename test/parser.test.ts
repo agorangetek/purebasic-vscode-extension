@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
 	callContextAt,
+	inStringOrComment,
 	maskSource,
+	memberContextAt,
 	parameterNames,
 	parseDocument,
 	statementContextAt,
@@ -241,4 +243,50 @@ test('a List, Map or Array field is recorded as a container', () => {
 		'Slots:array:Inner',
 		'plain:-:i',
 	]);
+});
+
+/*
+ * What may be offered depends on what is being typed: a type name only after
+ * `name.`, a member only after something that can have one, and nothing at all
+ * inside a string, a comment or after a dot that no type belongs after.
+ */
+test('the member context only claims a dot or a backslash that can take one', () => {
+	const cases: [string, string, string][] = [
+		['IncludeFile "memdll.', 'none', 'a dot inside a string'],
+		['IncludeFile "memdll.pb"', 'plain', 'after the closing quote'],
+		['m\\ImportedList().', 'none', 'a dot after a call'],
+		['m\\ImportedList()\\ImportedDllHandle.', 'none', 'a dot after a member'],
+		['x = 1.', 'none', 'a dot after a number'],
+		['x = a[1].', 'none', 'a dot after an index'],
+		['x.y.', 'none', 'a second type suffix'],
+		['; note.', 'none', 'a dot inside a comment'],
+		['pt.', 'type', 'a plain declaration'],
+		['*p.', 'type', 'a pointer declaration'],
+		['Procedure Foo(a.', 'type', 'a parameter'],
+		['s = "a" + y.', 'type', 'an expression tail'],
+		['n = 1\\', 'none', 'a backslash after a number'],
+		['m\\', 'member', 'a member access'],
+		['items(0)\\', 'member', 'a member after an index'],
+		['\\', 'member', 'a bare backslash in a With block'],
+		['s = ~"a\\"b.', 'none', 'a dot inside an escape string'],
+		['s = ~"a\\"b"', 'plain', 'after the escape string closes'],
+	];
+
+	for (const [line, wanted, why] of cases) {
+		assert.equal(
+			memberContextAt(line, { line: 0, character: line.length }),
+			wanted,
+			`${why}: ${JSON.stringify(line)}`,
+		);
+	}
+});
+
+test('inStringOrComment knows where code stops being code', () => {
+	assert.equal(inStringOrComment('IncludeFile "memdll.', { line: 0, character: 20 }), true);
+	assert.equal(inStringOrComment('IncludeFile "memdll.pb"', { line: 0, character: 23 }), false);
+	assert.equal(inStringOrComment('x = 1 ; note', { line: 0, character: 12 }), true);
+	// a plain string takes no escapes, so this one is closed
+	assert.equal(inStringOrComment('x = "a\\"', { line: 0, character: 8 }), false);
+	// an escape string does
+	assert.equal(inStringOrComment('x = ~"a\\"b', { line: 0, character: 10 }), true);
 });

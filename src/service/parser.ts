@@ -562,16 +562,89 @@ export function wordAt(
 }
 
 /** What the character before the cursor is asking for. */
+/**
+ * Whether the caret sits inside a string literal or a `;` comment, where no name
+ * completion belongs.  PureBasic strings and comments do not span lines, so the
+ * line under the caret is all that matters.  `~"..."` is the escape form, where
+ * `\"` does not close the string; a plain string takes no escapes at all.
+ */
+export function inStringOrComment(text: string, position: PbPosition): boolean {
+	const line = text.split(/\r\n|\r|\n/)[position.line] ?? '';
+	const upto = Math.min(Math.max(position.character, 0), line.length);
+	let inString = false;
+	let escapes = false;
+
+	for (let i = 0; i < upto; i++) {
+		const ch = line[i]!;
+		if (inString) {
+			if (escapes && ch === '\\') {
+				i++;
+				continue;
+			}
+			if (ch === '"') inString = false;
+			continue;
+		}
+		if (ch === ';') return true;
+		if (ch === '~' && line[i + 1] === '"') {
+			inString = true;
+			escapes = true;
+			i++;
+			continue;
+		}
+		if (ch === '"') {
+			inString = true;
+			escapes = false;
+		}
+	}
+	return inString;
+}
+
+/**
+ * A type name belongs after `name.` and `*name.` -- and nowhere else.  A dot
+ * after a member access, a call, a number or a closing bracket is not a place a
+ * type can go, so the caller offers nothing rather than the wrong list.
+ */
+function isTypeContext(before: string): boolean {
+	const match = /(\*?[A-Za-z_]\w*)\s*\.$/.exec(before);
+	if (match === null) return false;
+	const start = match.index;
+	if (start === 0) return true;
+	// what precedes the name decides: not another member access, type or sigil
+	return !/[\\~.@?$]/.test(before[start - 1]!);
+}
+
+/**
+ * A member belongs after `name\`, after a call or an index (`list(0)\`,
+ * `items[i]\`) and after a bare `\` inside a `With` block -- not after a number
+ * or an operator.
+ */
+function isMemberContext(before: string): boolean {
+	if (/^\s*\\$/.test(before)) return true;
+	return /(?:[A-Za-z_]\w*\$?|[)\]])\s*\\$/.test(before);
+}
+
+/** What the caret is in the middle of, which decides what may be offered. */
+export type PbMemberContext =
+	/** `name.` -- a type name belongs here. */
+	| 'type'
+	/** `name\` -- a structure member belongs here. */
+	| 'member'
+	/** A string, a comment, or a dot that no type belongs after: nothing at all. */
+	| 'none'
+	/** Anywhere else: ordinary names. */
+	| 'plain';
+
 export function memberContextAt(
 	text: string,
 	position: PbPosition,
 	word = '',
-): 'type' | 'member' | 'plain' {
-	const lines = maskSource(text);
-	const line = lines[position.line] ?? '';
+): PbMemberContext {
+	if (inStringOrComment(text, position)) return 'none';
+
+	const line = maskSource(text)[position.line] ?? '';
 	const before = line.slice(0, Math.max(0, position.character - word.length));
-	if (/\.\s*$/.test(before)) return 'type';
-	if (/\\\s*$/.test(before)) return 'member';
+	if (/\.\s*$/.test(before)) return isTypeContext(before) ? 'type' : 'none';
+	if (/\\\s*$/.test(before)) return isMemberContext(before) ? 'member' : 'none';
 	return 'plain';
 }
 

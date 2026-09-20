@@ -412,3 +412,31 @@ test('a List, Map or Array member is inserted with its parentheses', () => {
 	assert.equal(inserted.get('plain')?.insertText, 'plain', 'a plain field stays plain');
 	assert.equal(inserted.get('plain')?.isSnippet, false);
 });
+
+test('nothing is offered inside a string, a comment, or after a stray dot', () => {
+	const at = (line: string) =>
+		buildCompletions({
+			document: parseDocument('file:///ctx.pb', line),
+			position: { line: 0, character: line.length },
+			word: '',
+			options: OPTIONS,
+		});
+
+	assert.deepEqual(at('IncludeFile "memdll.'), [], 'a dot inside a string');
+	assert.deepEqual(at('m\\ImportedList().'), [], 'a dot after a call');
+	assert.deepEqual(at('m\\ImportedList()\\ImportedDllHandle.'), [], 'a dot after a member');
+	assert.deepEqual(at('x = 1.'), [], 'a dot after a number');
+	assert.deepEqual(at('; note.'), [], 'a dot inside a comment');
+
+	const types = at('pt.').map((i) => i.label);
+	assert.ok(types.includes('i'), 'a real declaration still offers the type list');
+
+	const declared = 'Structure Point\n\tx.i\nEndStructure\npt.';
+	const withStructure = buildCompletions({
+		document: parseDocument('file:///ctx.pb', declared),
+		position: { line: 3, character: 3 },
+		word: '',
+		options: OPTIONS,
+	}).map((i) => i.label);
+	assert.ok(withStructure.includes('Point'), 'and the structures');
+});

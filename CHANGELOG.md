@@ -4,6 +4,21 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.9] - 2026-09-20
+
+### Changed
+
+- **A `.` only offers the type list where a type name belongs.** Any dot used to mean "a type
+  goes here", so `test\ImportedList().` and `test\ImportedList()\ImportedDllHandle.` offered the
+  type list, and `IncludeFile "memdll.` offered every name in the language -- `.` is a trigger
+  character, so the editor asked even inside a string. The context is now checked against what
+  precedes the dot: a type list only after `name.` or `*name.`, and nothing at all after a
+  member access, a call, an index, a number, a second suffix, or anywhere inside a string or a
+  comment. `~"..."` is understood, so `\"` does not end a string, while a plain string takes no
+  escapes.
+- A `\` after a number or an operator is refused the same way; a bare `\` (a `With` block) and
+  `list(0)\` are still member contexts.
+
 ## [0.1.8] - 2026-09-20
 
 ### Changed

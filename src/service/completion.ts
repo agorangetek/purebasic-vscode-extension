@@ -318,6 +318,10 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 		items.push(item);
 	};
 
+	// -- inside a string or a comment, or after a dot no type belongs after,
+	//    nothing is offered at all
+	if (members === 'none') return [];
+
 	// -- after '.' a type is expected; after '\' a structure member
 	if (members === 'type' || members === 'member') {
 		if (members === 'type') {

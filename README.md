@@ -99,6 +99,9 @@ another keyword.
   with its parentheses, because that is how an element is reached: a list inserts
   `items()`, a map or an array inserts `lookup(${1})`, leaving the caret where the
   key or the index goes.
+* **Only where a name belongs** — typing `.` offers the type list after `name.` or
+  `*name.` and nothing anywhere else (after a member, a call, an index, a number), and
+  inside a string or a comment nothing is offered at all, `.` trigger character or not.
 * **Prefix filtering, in any case** — typing a character offers only the names
   that *start* with it, whatever case you type.
 * **It waits for you** — nothing pops up until three characters of the name are

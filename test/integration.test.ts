@@ -875,6 +875,28 @@ test('integration: only files joined by IncludeFile share symbols', { skip }, as
 		assert.deepEqual(items.map(shownLabel), [], 'a string has no members to offer');
 	});
 
+	await t.test('a dot that no type belongs after offers nothing', () => {
+		const lines = [
+			'IncludeFile "memdll.', //                       0  inside a string
+			'm\\ImportedList().', //                         1  after a call
+			'm\\ImportedList()\\ImportedDllHandle.', //      2  after a native member
+		];
+		const context = new TextDocument('/ws/ctx.pb', lines.join('\n'));
+
+		for (const [line, text] of lines.entries()) {
+			const items = registrations.completion[0]!.provider.provideCompletionItems(
+				context,
+				new Position(line, text.length),
+				{ triggerCharacter: '.' },
+			) as CompletionItem[];
+			assert.deepEqual(
+				items.map(shownLabel),
+				[],
+				`line ${line + 1} ${JSON.stringify(text)} should offer nothing`,
+			);
+		}
+	});
+
 	await t.test('an included file outside the workspace folder is read from disk', async () => {
 		const items = at(scratch, 6, 7);
 		const outside = items.find((i) => shownLabel(i) === 'WsOutside');
