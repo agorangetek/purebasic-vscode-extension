@@ -4,6 +4,19 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.6] - 2026-09-21
+
+### Fixed
+
+- **A problem with no line of its own is no longer underlined.** The loader
+  refusing to start a program, and a link that failed, name no source line, so
+  the problem was hung on the first line and the whole of that line was
+  squiggled red -- pointing the reader at code that is not at fault. An empty
+  range is not the way out either: VS Code fills one in with the word it is in
+  (`getWordRangeAtPosition`), so the same word would be underlined. The problem
+  is now placed where no word encloses the position: it is listed in the
+  Problems pane, against the file, with nothing underlined in the editor.
+
 ## [1.0.5] - 2026-09-21
 
 ### Fixed
