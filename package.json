@@ -2,7 +2,7 @@
 	"name": "purebasic",
 	"displayName": "PureBasic",
 	"description": "PureBasic language support for Visual Studio Code: code completion, hover, signature help and document outline.",
-	"version": "0.2.5",
+	"version": "0.2.6",
 	"publisher": "agorangetek",
 	"license": "MIT",
 	"engines": {
@@ -25,7 +25,9 @@
 	},
 	"main": "./dist/extension.js",
 	"activationEvents": [
-		"onLanguage:purebasic"
+		"onLanguage:purebasic",
+		"onDebug",
+		"onDebugResolve:purebasic"
 	],
 	"contributes": {
 		"languages": [
@@ -261,6 +263,11 @@
 		],
 		"menus": {
 			"editor/title/run": [
+				{
+					"command": "purebasic.debug",
+					"when": "editorLangId == purebasic",
+					"group": "1_run@9"
+				},
 				{
 					"command": "purebasic.run",
 					"when": "editorLangId == purebasic",

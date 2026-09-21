@@ -99,6 +99,8 @@ export class PureBasicDebugSession {
 	/** The variables of this stop, so one stop does not ask for them twice. */
 	private scopeCache: { name: string; procedure: string; frame: number; variables: DebugVariable[] }[] | undefined;
 	private ended = false;
+	/** The number the next message this adapter sends will carry. */
+	private sequence = 0;
 	/** Everything the adapter says to the editor. */
 	onMessage: (message: DapMessage) => void = () => {};
 
@@ -604,16 +606,26 @@ export class PureBasicDebugSession {
 
 	// ------------------------------------------------------------ the talking
 
+	/**
+	 * Say something to the editor, numbered as the protocol requires: every
+	 * message an adapter sends carries a sequence of its own, and a client is
+	 * entitled to drop the ones that do not.
+	 */
+	private say(message: DapMessage): void {
+		this.sequence += 1;
+		this.onMessage({ ...message, seq: this.sequence });
+	}
+
 	private respond(request: DapMessage, body?: Record<string, unknown>): void {
-		this.onMessage({ type: 'response', request_seq: request.seq, success: true, command: request.command, body });
+		this.say({ type: 'response', request_seq: request.seq, success: true, command: request.command, body });
 	}
 
 	private fail(request: DapMessage, message: string): void {
-		this.onMessage({ type: 'response', request_seq: request.seq, success: false, command: request.command, message });
+		this.say({ type: 'response', request_seq: request.seq, success: false, command: request.command, message });
 	}
 
 	private event(event: string, body?: Record<string, unknown>): void {
-		this.onMessage({ type: 'event', event, body });
+		this.say({ type: 'event', event, body });
 	}
 }
 

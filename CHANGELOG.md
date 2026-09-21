@@ -4,6 +4,19 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.6] - 2026-09-21
+
+### Added
+
+- **A Debug button in the editor's title bar**, beside Run, and F5 does the same. Run is a plain run
+  -- build, then start the program in a window of its own -- and does not stop at breakpoints; Debug
+  is the one that starts a session. The README says so now, which it should have from the start.
+
+### Fixed
+
+- The adapter's messages carry the sequence numbers the protocol requires, and the extension is woken
+  for `onDebug` and `onDebugResolve:purebasic` rather than only by the language.
+
 ## [0.2.5] - 2026-09-21
 
 ### Added
