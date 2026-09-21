@@ -853,7 +853,7 @@ async function chooseCompilerSettings(): Promise<void> {
 	void vscode.window.setStatusBarMessage(`PureBasic: ${pick.label} set to ${String(value) || 'default'}`, 4000);
 }
 
-export async function activate(context: vscode.ExtensionContext): Promise<void> {
+export async function activate(context: vscode.ExtensionContext): Promise<ExtensionApi> {
 	output = vscode.window.createOutputChannel('PureBasic');
 	outputPanel = new DebugOutputPanel();
 	context.subscriptions.push(
@@ -950,10 +950,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}),
 	);
 
+	if (vscode.window.activeTextEditor?.document.languageId === LANGUAGE) outputPanel.reveal();
+
 	// keep the index in sync with edits
 	context.subscriptions.push(
 		vscode.workspace.onDidOpenTextDocument((doc) => {
-			if (doc.languageId === LANGUAGE) indexOf(doc);
+			if (doc.languageId !== LANGUAGE) return;
+			indexOf(doc);
+			// a PureBasic file, opened or newly made: its output has a home
+			outputPanel.reveal();
+		}),
+		vscode.window.onDidChangeActiveTextEditor((editor) => {
+			if (editor?.document.languageId === LANGUAGE) outputPanel.reveal();
 		}),
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			if (event.document.languageId === LANGUAGE) indexOf(event.document);
@@ -1338,6 +1346,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	void indexWorkspace();
 
 	trace(`activated with ${builtinCount()} built-ins from ${builtinSource()}`);
+
+	return { debugOutput: { visible: () => outputPanel.visible() } };
 }
 
 
@@ -1504,9 +1514,28 @@ class DebugOutputPanel implements vscode.WebviewViewProvider {
 		this.stopping = stopping;
 		this.lines = [];
 		this.post({ type: 'reset', title: name });
-		// the view's own command rather than its container's: a view that is the
-		// only one of its container has no container command to reveal
-		void vscode.commands.executeCommand(`${DebugOutputPanel.viewType}.focus`);
+		this.reveal();
+	}
+
+	/**
+	 * Show the panel, if it is not showing already.
+	 *
+	 * There is no way to reveal a view without focusing it, so the caret is put
+	 * back in the editor afterwards: the panel opens because a PureBasic file
+	 * was opened, and that is where the writing is meant to happen.
+	 */
+	reveal(): void {
+		if (this.view?.visible) return;
+		void (async () => {
+			try {
+				// the view's own command rather than its container's: a view that
+				// is the only one of its container has no container command
+				await vscode.commands.executeCommand(`${DebugOutputPanel.viewType}.focus`);
+				await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+			} catch (error) {
+				trace(`debugger: could not show the output panel: ${String(error)}`);
+			}
+		})();
 	}
 
 	append(text: string): void {
@@ -1524,6 +1553,11 @@ class DebugOutputPanel implements vscode.WebviewViewProvider {
 	clear(): void {
 		this.lines = [];
 		this.post({ type: 'reset' });
+	}
+
+	/** Whether the panel is on screen. */
+	visible(): boolean {
+		return this.view?.visible === true;
 	}
 
 	/** Stop what is running, if anything is. */
@@ -1578,6 +1612,14 @@ function outputHtml(): string {
 		});
 	</script>
 </body></html>`;
+}
+
+/**
+ * What this extension offers other extensions -- and the checks in this
+ * repository, which ask the output panel whether it is showing.
+ */
+export interface ExtensionApi {
+	debugOutput: { visible(): boolean };
 }
 
 export function deactivate(): void {

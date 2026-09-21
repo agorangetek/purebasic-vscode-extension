@@ -4,6 +4,20 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.9] - 2026-09-21
+
+### Added
+
+- **The Debug Output panel opens itself** for a PureBasic file, opened or newly made -- `.pb`, `.pbi`
+  or `.pbf` -- and at startup if one is already in the editor. It is shown without taking the caret
+  with it, so the writing carries on where it was.
+- `debugOutput.visible()` is offered as this extension's exports, for other extensions and for the
+  checks in this repository.
+
+### Changed
+
+- Starting a run no longer focuses the panel either, for the same reason: it is shown, not moved into.
+
 ## [0.2.8] - 2026-09-21
 
 ### Added

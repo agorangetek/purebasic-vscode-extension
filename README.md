@@ -25,6 +25,10 @@ TextMate scopes, so your theme decides every colour — nothing is pinned.
   written.
 * **Smart Enter** — pressing Enter on a block opener closes the block and puts
   the caret in its body.
+* **Debug Output panel** — opens by itself when a PureBasic file is opened or
+  made, and shows what the program prints: `Debug` statements, anything else it
+  writes, and what the debugger has to say during a run under it. It has Clear
+  and Stop, and does not take the caret away from the editor when it opens.
 * **Run** — builds the open file, then starts it, with everything it prints --
   `Debug` output above all -- going to the **Debug Output** panel in the
   secondary side bar, the right-hand one, where it can be read beside the code
