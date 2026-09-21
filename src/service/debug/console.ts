@@ -65,6 +65,15 @@ export class DebugConsole {
 	private started: Promise<string>;
 	/** Until the first prompt, everything printed is the console coming up. */
 	private up = false;
+	/**
+	 * Whether the console's first prompt ever arrived.
+	 *
+	 * A console that exits without one never became a debugger: the program was
+	 * stopped before it -- by the loader, say -- and what it printed on the way
+	 * out is the only account of why.  `up` is not the same thing: it is set on
+	 * the way out too, so that a caller waiting for a prompt is let go.
+	 */
+	cameUp = false;
 	ended = false;
 
 	constructor(pty: PtyProcess, callbacks: ConsoleCallbacks = {}) {
@@ -150,8 +159,11 @@ export class DebugConsole {
 		if (this.buffer[end] === ' ') end++;
 		// the last line printed before the prompt has no newline of its own, so
 		// `forward` left it in the buffer: a program's `Print` with no newline
-		// right before it stops is still its output, and belongs in the panel
-		this.forwardLine(this.buffer.slice(this.cursor, at).replace(/\r/g, ''));
+		// right before it stops is still its output, and belongs in the panel.
+		// When the prompt follows a newline there is nothing there, and an empty
+		// line must not be passed on as though the program had printed one
+		const rest = this.buffer.slice(this.cursor, at).replace(/\r/g, '');
+		if (rest !== '') this.forwardLine(rest);
 		const reply = this.buffer.slice(0, at);
 		this.buffer = this.buffer.slice(end);
 		this.cursor = 0;
@@ -167,6 +179,7 @@ export class DebugConsole {
 			const waiting = this.waiting;
 			this.waiting = undefined;
 			this.up = true;
+			this.cameUp = true;
 			waiting(reply);
 		}
 	}

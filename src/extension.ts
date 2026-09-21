@@ -826,6 +826,52 @@ function lineRange(document: vscode.TextDocument | undefined, line: number): vsc
 	return new vscode.Range(index, 0, index, Number.MAX_SAFE_INTEGER);
 }
 
+/**
+ * A program that will not run, in the Problems pane.
+ *
+ * The reason the loader gives -- a library it cannot find, above all -- is not
+ * something the program printed, and it is not tied to a source line: it belongs
+ * to the file as a whole, and the Problems pane is where a reader looks for
+ * something to act on.  An empty message is a launch that worked, and takes away
+ * the problem a failed one left.
+ *
+ * It goes in the compiler's own collection, so a build clears it the way a build
+ * clears compiler errors: a file that has just been built has what this build
+ * said about it and nothing left over from an earlier run.
+ */
+function reportProgramProblem(program: string, message: string): void {
+	const collection = compilerDiagnostics;
+	if (!collection) return;
+
+	const uri = vscode.Uri.file(program);
+	if (message === '') {
+		collection.delete(uri);
+		return;
+	}
+
+	const document = vscode.workspace.textDocuments.find((open) => open.uri.fsPath === program);
+	collection.set(uri, [new vscode.Diagnostic(lineRange(document, 1), message, vscode.DiagnosticSeverity.Error)]);
+}
+
+/**
+ * A launch that failed, said with the buttons the reader needs.
+ *
+ * The editor has a prompt of its own for a failed launch, and it is not used
+ * here: it carries an `Open 'launch.json'` button, which is no use when what
+ * went wrong is the program rather than the configuration, and it takes only one
+ * button from the adapter besides, so it cannot offer both of these.  The launch
+ * is failed without it (see `failQuietly`) and this is shown instead: OK for a
+ * reader who has seen enough, and Show Logs for the whole account of what the
+ * loader said, in the output channel this extension's logs go to.
+ */
+async function showLaunchAlert(message: string, details: string): Promise<void> {
+	const choice = await vscode.window.showWarningMessage(message, { modal: true }, 'OK', 'Show Logs');
+	if (choice !== 'Show Logs') return;
+	output.appendLine(`[PureBasic] ${new Date().toISOString()}`);
+	output.appendLine(details);
+	output.show(true);
+}
+
 /** A path with its symlinks resolved, for matching two ways of naming a file. */
 function canonicalPath(path: string): string {
 	try {
@@ -1453,6 +1499,8 @@ function debugAdapter(): vscode.DebugAdapter {
 		showBuild: (target, command, output, note) =>
 			showBuildLog(target, command, output, note, dirname(target), hostPlatform()),
 		output: (_stream, text) => outputPanel.append(text),
+		problem: (program, message) => reportProgramProblem(program, message),
+		alert: (message, details) => void showLaunchAlert(message, details),
 	});
 
 	const messages = new vscode.EventEmitter<vscode.DebugProtocolMessage>();

@@ -11,6 +11,8 @@ node_modules/**
 package-lock.json
 tsconfig.json
 esbuild.mjs
+HANDOFF.md
+.mavis-probe
 **/*.map
 **/*.ts
 .npm-cache/**

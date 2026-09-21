@@ -331,6 +331,28 @@ export function parseErrors(text: string): DebugError[] {
 }
 
 /**
+ * What a program printed before the debugger came up, without the console's
+ * own banner.
+ *
+ * A program can be stopped before its first line -- a library it is linked
+ * against is not where the loader looks for it, say -- and the debugger never
+ * reaches the point of printing a prompt.  What the loader or the runtime had
+ * to say about that is then the only account of why, and it arrives in the same
+ * buffer as the banner the console prints about itself.  The banner is the
+ * console's and is dropped; everything else is the program's, and is kept.
+ */
+export function withoutBanner(text: string): string {
+	const banner = [
+		/^\s*=+\s*$/,
+		/^\s*PureBasic Console Debugger\s*$/,
+		/^\s*Type 'help' for command options\.\s*$/,
+	];
+	return lines(text)
+		.filter((line) => line.trim() !== '' && !banner.some((rule) => rule.test(line)))
+		.join('\n');
+}
+
+/**
  * What the program itself printed, as opposed to what the debugger had to say.
  *
  * `Debug` output arrives with the debugger's own prefix, which is taken off: it

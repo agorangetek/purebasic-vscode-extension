@@ -21,6 +21,7 @@ import {
 	parseLocation,
 	parseShow,
 	parseVariables,
+	withoutBanner,
 	type DebugLocation,
 	type DebugVariable,
 } from './parse.ts';
@@ -56,6 +57,21 @@ export interface DebugHost {
 	showBuild(target: string, command: string, output: string, note: string): void;
 	/** The program's own output, for the panel that shows it. */
 	output(stream: 'stdout' | 'stderr', text: string): void;
+	/**
+	 * A problem with the program itself, for the editor's Problems pane.
+	 *
+	 * A message of `''` takes away the one a previous launch left, which is what
+	 * a launch that worked says.
+	 */
+	problem(program: string, message: string): void;
+	/**
+	 * Say that a launch failed, with the whole account of it a click away.
+	 *
+	 * The editor's own prompt for a failed launch cannot carry the buttons this
+	 * wants, so the launch is failed without it and the host is left to say it:
+	 * see `failQuietly`.
+	 */
+	alert(message: string, details: string): void;
 }
 
 /** Where the debug session is, and what it runs. */
@@ -269,11 +285,39 @@ export class PureBasicDebugSession {
 		this.console = new DebugConsole(started, {
 			onOutput: (stream, text) => this.report(stream, text),
 			onExit: () => {
-				this.finish();
+				// a console that never printed a prompt is a launch that has not
+				// finished: it is about to report why the program is not there,
+				// and a `terminated` sent first would be the whole of what the
+				// editor hears
+				if (this.console?.cameUp !== false) this.finish();
 			},
 		});
 
-		await this.console.ready();
+		const greeting = await this.console.ready();
+		if (!this.console.cameUp) {
+			// the console never printed a prompt, so there is no debugger here to
+			// talk to: the program was stopped before it.  What it printed on the
+			// way out -- the loader saying a library is not where it looks, above
+			// all -- is the only account of why.  It is a problem with the program
+			// rather than output from it, so it goes to the Problems pane, and the
+			// alert is left to the host, which can give it the buttons this cannot
+			const said = withoutBanner(greeting);
+			const why = `the program stopped before the debugger could start${said !== '' ? `: ${said}` : ''}`;
+			this.preferences.restore();
+			this.preferences = undefined;
+			this.host.problem(options.program, said !== '' ? said : 'the program could not be started');
+			this.host.alert(why, [
+				why,
+				'',
+				`program:    ${options.program}`,
+				`executable: ${options.target}`,
+				`directory:  ${options.cwd}`,
+			].join('\n'));
+			this.failQuietly(request, why);
+			return;
+		}
+		// the program is there, so a problem a launch that failed left is gone
+		this.host.problem(options.program, '');
 		const listed = await this.console.command('files');
 		this.files = parseFiles(listed);
 		this.host.trace(
@@ -693,6 +737,27 @@ export class PureBasicDebugSession {
 
 	private fail(request: DapMessage, message: string): void {
 		this.say({ type: 'response', request_seq: request.seq, success: false, command: request.command, message });
+	}
+
+	/**
+	 * Fail a request without the editor saying so itself.
+	 *
+	 * The editor pops its own dialog for a failed request -- and for a launch it
+	 * adds a button of its own to it, `Open 'launch.json'`, which is no use when
+	 * what went wrong is the program rather than the configuration, and it will
+	 * only take one button from the adapter besides.  `showUser: false` is how
+	 * the protocol asks it to hold back, so that the host, which has already been
+	 * told what happened (`alert`), is the one that says it.
+	 */
+	private failQuietly(request: DapMessage, message: string): void {
+		this.say({
+			type: 'response',
+			request_seq: request.seq,
+			success: false,
+			command: request.command,
+			message,
+			body: { error: { id: 1, format: message, showUser: false } },
+		});
 	}
 
 	private event(event: string, body?: Record<string, unknown>): void {

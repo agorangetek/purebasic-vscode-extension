@@ -4,6 +4,42 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.5] - 2026-09-21
+
+### Fixed
+
+- **A program that cannot start now says why instead of ending in silence.** The
+  command-line debugger prints its prompt only once the program is there to
+  debug, so everything a program wrote before that prompt -- and a program the
+  loader stops before its first line writes nothing else -- was taken for the
+  console coming up and thrown away. A debug session against such a program
+  simply terminated with an empty Debug Console. What it printed on the way out
+  (macOS dyld saying `Library not loaded: @rpath/libbass.dylib`, for one) is now
+  a problem against the file in the Problems pane -- it is the program that will
+  not run, not output from it -- and the launch is reported as failed with that
+  text, rather than as a session that started and immediately stopped. A launch
+  that works takes the problem away again.
+- **A build that fails at the link step now says so in the Problems pane.** The
+  compiler names no source line for a link failure: it says `Error: Linker` and
+  passes on what the linker said, which is where a library it cannot find is
+  spelled out (`error: no such file or directory: '/…/libbass.dylib'`). Nothing
+  there matched what the output reader knew, so the whole failure stayed in the
+  terminal. The linker's own message is now a problem against the file that was
+  built, with the tool name dropped.
+- **A launch that fails is asked about with an OK and a Show Logs button.** The
+  editor's own prompt for a failed launch carries an `Open 'launch.json'` button,
+  which is no use when what went wrong is the program rather than the
+  configuration, and it will only take one button from the adapter besides, so it
+  cannot offer both. The launch is failed without the editor's prompt and shown
+  instead as a warning with **OK** and **Show Logs**: OK for a reader who has seen
+  enough, Show Logs for the whole account of what the loader said -- with the
+  program, the executable and the directory it was started in -- in the output
+  channel this extension's logs go to.
+- **A stop no longer prints a blank line that the program did not.** The last
+  line before the debugger's prompt was passed on as output even when the prompt
+  followed a newline, so every breakpoint and step pushed one empty line into
+  the console and the panel.
+
 ## [1.0.4] - 2026-09-21
 
 ### Fixed
