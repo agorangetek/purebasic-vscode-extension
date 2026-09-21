@@ -31,7 +31,8 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 
-const pbIde = process.argv[2] || process.env.PB_IDE || join(root, '..', 'PB IDE');
+const args = process.argv.slice(2).filter((arg) => !arg.startsWith('--'));
+const pbIde = args[0] || process.env.PB_IDE || join(root, '..', 'PB IDE');
 const commandsFile = join(pbIde, 'scripts', 'commands', 'pb_commands_full.json');
 const namesFile = join(pbIde, 'scripts', 'commands', 'pb_commands.json');
 const keywordsFile = join(pbIde, 'scripts', 'PureBasicKeywords.gd');
@@ -267,13 +268,36 @@ const CATEGORY_OF_IDE_KEYWORD = {
 	includepath: 'Includes',
 };
 
+/*
+ * Those nine names, written down as well as read.
+ *
+ * The table they come from is the IDE's, and the IDE checkout is not part of
+ * this repository, so a checkout without it has to still reproduce what is
+ * committed here: these are the nine the comment above names, in the order the
+ * data was built with.  A table that is to hand is read as before and may know
+ * more than this list does.
+ */
+const IDE_KEYWORDS_WITHOUT_A_TABLE = [
+	'Array',
+	'As',
+	'CallDebugger',
+	'DebugLevel',
+	'DisableDebugger',
+	'EnableDebugger',
+	'IncludePath',
+	'List',
+	'Map',
+];
+
 const ideKeywordsFile = [join(pbIde, 'PureBasicIDE', 'KeywordsData.pbi'), join(pbIde, 'KeywordsData.pbi')].find(
 	(file) => existsSync(file),
 );
 
+const ideKeywords = ideKeywordsFile ? readIdeKeywords(ideKeywordsFile) : IDE_KEYWORDS_WITHOUT_A_TABLE;
+
 let supplemented = 0;
-if (ideKeywordsFile) {
-	for (const name of readIdeKeywords(ideKeywordsFile)) {
+{
+	for (const name of ideKeywords) {
 		const key = name.toLowerCase();
 		if (seenKeyword.has(key)) continue;
 		seenKeyword.add(key);
@@ -352,13 +376,38 @@ const out = {
 
 /* ------------------------------------------------------------------- output */
 
-mkdirSync(join(root, 'src', 'data'), { recursive: true });
 const outFile = join(root, 'src', 'data', 'pb-builtins.json');
-writeFileSync(outFile, JSON.stringify(out, null, 1) + '\n');
-
 const tsFile = join(root, 'src', 'data', 'pb-builtins.ts');
+const jsonText = JSON.stringify(out, null, 1) + '\n';
+const tsText = serialiseBuiltinsTs(out);
 
-writeFileSync(tsFile, serialiseBuiltinsTs(out));
+/*
+ * `--check` answers whether the committed files are what this would write,
+ * without writing them.  It is not part of `npm run check` on purpose: it reads
+ * the IDE checkout above, and that is not there when CI runs.
+ */
+if (process.argv.includes('--check')) {
+	let stale = 0;
+	for (const [file, text] of [
+		[outFile, jsonText],
+		[tsFile, tsText],
+	]) {
+		if (!existsSync(file) || readFileSync(file, 'utf8') !== text) {
+			console.error(`stale: ${file}`);
+			stale++;
+		}
+	}
+	if (stale > 0) {
+		console.error(`${stale} file(s) would change: run npm run gen-data`);
+		process.exit(1);
+	}
+	console.log(`up to date: ${outFile} and ${tsFile}`);
+	process.exit(0);
+}
+
+mkdirSync(join(root, 'src', 'data'), { recursive: true });
+writeFileSync(outFile, jsonText);
+writeFileSync(tsFile, tsText);
 
 const byLibrary = {};
 for (const item of commandItems) byLibrary[item.category] = (byLibrary[item.category] ?? 0) + 1;

@@ -335,13 +335,14 @@ export function parseErrors(text: string): DebugError[] {
  *
  * `Debug` output arrives with the debugger's own prefix, which is taken off: it
  * is the program's output, and belongs in the debug console with the rest of it.
- * A line that starts at the left margin with no marker is a console program's
- * own writing; everything indented, bracketed or blank is the console talking.
+ * Only the console's own protocol is dropped -- the prompt, and the `[Debugger
+ * ...]` markers of the listings -- since a program is free to print a blank
+ * line, an indented line or a bracketed line of its own.
  */
 export function parseProgramOutput(text: string): { stream: 'stdout' | 'stderr'; text: string }[] {
 	const printed: { stream: 'stdout' | 'stderr'; text: string }[] = [];
 	for (const line of lines(text)) {
-		const debug = /^\[Debugger\]\s\s(.*)$/.exec(line);
+		const debug = /^\[Debugger\]\s\s?(.*)$/.exec(line);
 		if (debug) {
 			printed.push({ stream: 'stdout', text: `${debug[1]!}\n` });
 			continue;
@@ -351,7 +352,7 @@ export function parseProgramOutput(text: string): { stream: 'stdout' | 'stderr';
 			printed.push({ stream: 'stderr', text: `${error[1]!}\n` });
 			continue;
 		}
-		if (line === '' || /^\s/.test(line) || line.startsWith('[') || line.startsWith('DEBUGGER::')) continue;
+		if (line.startsWith('DEBUGGER::') || /^\s*\[Debugger[^\]]*\]/.test(line)) continue;
 		printed.push({ stream: 'stdout', text: `${line}\n` });
 	}
 	return printed;

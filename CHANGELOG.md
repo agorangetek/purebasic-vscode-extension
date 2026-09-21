@@ -4,6 +4,55 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.3] - 2026-09-21
+
+### Fixed
+
+- **The debugger's command line takes one command at a time.** It answers into
+  the same stream its prompts come back on, so a command written while another
+  was unanswered was answered to the wrong caller, and the caller left waiting
+  never heard back at all: toggling a breakpoint while the program was running
+  could leave the session unable to say where it had stopped. A command that
+  arrives while one is in flight now waits its turn. Ctrl+C is never queued, as
+  it is what stops the program the waiting command is waiting for.
+- **A debugger that stops answering no longer hangs the editor.** Every command
+  but `run` and `step` is given twenty seconds to answer -- those two wait as long
+  as the program takes, which is the point of them -- so a console that has gone
+  quiet says so instead of leaving the editor waiting for ever.
+- **What the program prints is no longer mistaken for the console talking.** A
+  blank line, an indented line and a line beginning with `[` are the program's to
+  print; only the console's own prompt and its `[Debugger ...]` markers are held
+  back. A `Debug` line the console marks with a single space is read as the
+  program's output too.
+- **The last thing printed before a stop is no longer lost** when it has no
+  newline of its own -- `Print` rather than `PrintN`.
+- **The Debug Output panel stays closed once it is closed.** It opened itself on
+  every edit, so it could not be put away while a PureBasic file was open.
+- **A compile error in an included file goes away when the build is clean**,
+  rather than keeping its squiggle until that file itself is edited. A file the
+  compiler names by a relative path is looked for beside the file that was built.
+- **The variables of one stop are not served at the next.** A reference held
+  across a step is let go with the values it stood for, so stepping does not show
+  the structures of where the program was.
+- **A breakpoint in an included file of a subdirectory is no longer applied to a
+  file of the same name elsewhere**, and a stack frame opens the file the editor
+  knows rather than a path that is not there.
+- **Casing leaves `debug$` and `#debug` as written**, as it already left `*p`.
+- **Signature help finds a `#Name` or `Name$` parameter** and highlights it, and a
+  call written `Module::Proc(` finds the procedure it names.
+- **The debugger's own settings are put back when a session ends badly**
+  (Windows): they are copied aside before the session writes its own, so a crash
+  leaves something to put back by hand, and a copy left by an earlier crash cannot
+  undo settings changed since.
+- **Enter writes the line ending the file already uses**, so a CRLF file does not
+  grow lines that are not.
+- **Completion answers sooner.** The include graph is remembered between requests
+  rather than walked again for each one, and a document's masked form is kept for
+  the request that asks for it several times.
+- **Regenerating the built-in data no longer drops nine keywords** when the IDE
+  checkout they are read from is not to hand. `npm run check:data` says whether
+  what is committed is what the generator writes.
+
 ## [1.0.2] - 2026-09-21
 
 ### Added

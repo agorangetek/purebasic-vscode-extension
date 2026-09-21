@@ -61,8 +61,12 @@ export function canonicalizeIdentifiers(
 ): CasingResult {
 	/** Every name the user declared, lower-cased, so no language rule claims one. */
 	const declared = new Set<string>();
+	// the key has to be what the identifier regex below sees, which is the
+	// alphabetic body alone: the sigils (`*`, `@`, `?`, `#`) and the type suffix
+	// (`$`) are not part of it, so `debug$` and `#debug` are recognised as
+	// declared rather than folded to the language's `Debug`
 	const add = (name: string) => {
-		const key = name.replace(/^[*@?]/, '').toLowerCase();
+		const key = name.replace(/^[*@?#]/, '').replace(/\$$/, '').toLowerCase();
 		if (key.length > 0) declared.add(key);
 	};
 	for (const symbol of declaredSymbols) {

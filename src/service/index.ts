@@ -8,6 +8,11 @@ import type { PbDocument } from './types.ts';
 export class PbIndex {
 	private documents = new Map<string, PbDocument>();
 	private limit: number;
+	/**
+	 * Bumped by every change to the contents, so a cache built from this pool can
+	 * see whether the answer it holds is still the answer.
+	 */
+	revision = 0;
 
 	constructor(limit = 400) {
 		this.limit = limit;
@@ -19,11 +24,13 @@ export class PbIndex {
 		this.documents.delete(uri);
 		this.documents.set(uri, document);
 		this.trim();
+		this.revision++;
 		return document;
 	}
 
 	remove(uri: string): void {
 		this.documents.delete(uri);
+		this.revision++;
 	}
 
 	get(uri: string): PbDocument | undefined {
@@ -32,6 +39,7 @@ export class PbIndex {
 
 	clear(): void {
 		this.documents.clear();
+		this.revision++;
 	}
 
 	uris(): string[] {

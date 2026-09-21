@@ -18,6 +18,9 @@ const gone = [
 	'src',
 	'scripts',
 	'third_party',
+	// a node-gyp build of node-pty would otherwise be kept, and the loader
+	// looks for build/Release before the prebuilds
+	'build',
 ];
 
 for (const path of gone) rmSync(join(root, path), { recursive: true, force: true });

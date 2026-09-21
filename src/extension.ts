@@ -6,7 +6,7 @@
  */
 import { spawn } from 'node:child_process';
 import { realpathSync, writeFileSync } from 'node:fs';
-import { basename, dirname, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import * as vscode from 'vscode';
 import {
 	allBlocks,
@@ -787,6 +787,11 @@ function reportCompilerErrors(document: vscode.TextDocument, output: string): vo
 	const collection = compilerDiagnostics;
 	if (!collection) return;
 
+	// a build answers for the whole program, so an error this one does not name
+	// is no longer an error: without this, an include that has been fixed keeps
+	// its squiggle until that file itself is edited
+	collection.clear();
+
 	const open = new Map<string, vscode.TextDocument>();
 	for (const other of vscode.workspace.textDocuments) open.set(canonicalPath(other.uri.fsPath), other);
 	open.set(canonicalPath(document.uri.fsPath), document);
@@ -795,8 +800,9 @@ function reportCompilerErrors(document: vscode.TextDocument, output: string): vo
 	byFile.set(document.uri.toString(), { uri: document.uri, items: [] });
 
 	for (const error of parseCompilerOutput(output)) {
-		const named = error.file ? open.get(canonicalPath(error.file)) : document;
-		const uri = named ? named.uri : vscode.Uri.file(error.file);
+		const where = absoluteErrorPath(document, error.file);
+		const named = error.file ? open.get(canonicalPath(where)) : document;
+		const uri = named ? named.uri : vscode.Uri.file(where);
 		const entry = byFile.get(uri.toString()) ?? { uri, items: [] };
 		byFile.set(uri.toString(), entry);
 		entry.items.push(
@@ -808,8 +814,8 @@ function reportCompilerErrors(document: vscode.TextDocument, output: string): vo
 		);
 	}
 
-	// the file that was built is always answered for, so a build that worked is
-	// what takes an error away
+	// set() replaces a file's whole list, so what this build does not name has
+	// already lost its errors to the clear() above
 	for (const entry of byFile.values()) collection.set(entry.uri, entry.items);
 }
 
@@ -827,6 +833,23 @@ function canonicalPath(path: string): string {
 	} catch {
 		return resolve(path);
 	}
+}
+
+/** The line ending the document is written with, so an edit does not mix two. */
+function eolOf(document: vscode.TextDocument): string {
+	return document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+}
+
+/**
+ * A name the compiler printed, as a path.
+ *
+ * It is given the file to build rather than a directory, and an included file
+ * comes back named beside it -- so a name that is not absolute belongs to that
+ * file's own directory, not to wherever the editor happens to be running.
+ */
+function absoluteErrorPath(document: vscode.TextDocument, file: string): string {
+	if (file === '' || isAbsolute(file)) return file;
+	return join(dirname(document.uri.fsPath), file);
 }
 
 /**
@@ -970,9 +993,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
 			const line = document.lineAt(position.line).text;
 			const word = typedWord(line, position.character);
 			const cfg = config();
+			const parsed = indexOf(document);
 			const items = buildCompletions({
-				document: indexOf(document),
-				workspaceSymbols: usableSymbols(indexOf(document)),
+				document: parsed,
+				workspaceSymbols: usableSymbols(parsed),
 				position: { line: position.line, character: position.character },
 				word,
 				options: {
@@ -1000,9 +1024,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
 	 * because a file being made is not a PureBasic file when it appears: an
 	 * unsaved one has no language until it is given a name, so the event that
 	 * matters is whichever comes next, and the answer is the same every time.
+	 *
+	 * Only on the way in, though: there is no telling a panel the reader has
+	 * closed from one that was never open, so asking again on every edit would
+	 * put it back on the next keystroke.
 	 */
+	let showing = false;
 	const revealForPureBasic = () => {
-		if (vscode.workspace.textDocuments.some((open) => open.languageId === LANGUAGE)) outputPanel.reveal();
+		const wanted = vscode.workspace.textDocuments.some((open) => open.languageId === LANGUAGE);
+		if (wanted && !showing) outputPanel.reveal();
+		showing = wanted;
 	};
 	context.subscriptions.push(
 		vscode.workspace.onDidOpenTextDocument(() => revealForPureBasic()),
@@ -1027,7 +1058,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
 			if (doc.languageId === LANGUAGE) index.remove(doc.uri.toString());
 		}),
 		vscode.workspace.onDidChangeConfiguration((event) => {
-			if (event.affectsConfiguration('purebasic')) {
+			// only the settings the index is built from: a change to, say, the
+			// trace level has no business walking the workspace again
+			if (event.affectsConfiguration('purebasic.index')) {
 				index = new PbIndex(config().maxFiles);
 				void indexWorkspace();
 			}
@@ -1199,7 +1232,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
 		const body = base + unit;
 
 		await editor.edit((b) =>
-			b.replace(line.range, `${lineText}\n${body}\n${base}${block.closers[0]}`),
+			b.replace(line.range, `${lineText}${eolOf(document)}${body}${eolOf(document)}${base}${block.closers[0]}`),
 		);
 
 		// TextLine.lineNumber is the line's own index (zero-based, despite the

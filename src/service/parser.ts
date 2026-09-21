@@ -27,73 +27,98 @@ type BlockKind =
 	| 'datasection'
 	| 'import';
 
-/** Replace comments and string literals with spaces, preserving offsets. */
-export function maskSource(text: string): string[] {
-	const lines = text.split(/\r\n|\r|\n/);
-	const out: string[] = [];
+/**
+ * The masked form of one line, always exactly as long as it.
+ *
+ * A string literal is closed on the line it opens on: pbcompiler refuses
+ * anything else, with `Literal string not terminated (" missing)`, rather than
+ * carrying the string on.  The state therefore starts fresh for every line, and
+ * a quote left unclosed masks its own line only -- the lines after it go on
+ * being read as code while it is being typed.
+ */
+function maskLine(line: string): string {
+	// an inline-assembly line is not PureBasic at all
+	if (/^\s*!/.test(line)) return ' '.repeat(line.length);
 
-	for (const line of lines) {
-		// an inline-assembly line is not PureBasic at all
-		if (/^\s*!/.test(line)) {
-			out.push(' '.repeat(line.length));
+	let inString = false;
+	let escapes = false;
+	let masked = '';
+	let i = 0;
+	while (i < line.length) {
+		if (inString) {
+			// in a ~"..." string \" is a quote, in a plain one it is not
+			if (escapes && line[i] === '\\' && line[i + 1] === '"') {
+				masked += '  ';
+				i += 2;
+				continue;
+			}
+			if (line[i] === '"') {
+				inString = false;
+				escapes = false;
+			}
+			masked += ' ';
+			i++;
 			continue;
 		}
 
-		let masked = '';
-		let i = 0;
-		while (i < line.length) {
-			const ch = line[i]!;
+		const ch = line[i]!;
 
-			// ';' starts a comment, and PureBasic has no block comment
-			if (ch === ';') {
-				masked += ' '.repeat(line.length - i);
-				break;
-			}
-
-			// ~"..." is the escape string, where \" is a quote
-			if (ch === '~' && line[i + 1] === '"') {
-				masked += '  ';
-				i += 2;
-				while (i < line.length) {
-					if (line[i] === '\\' && line[i + 1] === '"') {
-						masked += '  ';
-						i += 2;
-						continue;
-					}
-					if (line[i] === '"') {
-						masked += ' ';
-						i++;
-						break;
-					}
-					masked += ' ';
-					i++;
-				}
-				continue;
-			}
-
-			// "..." has no escape of its own (that is what ~ strings are for)
-			if (ch === '"') {
-				masked += ' ';
-				i++;
-				while (i < line.length) {
-					if (line[i] === '"') {
-						masked += ' ';
-						i++;
-						break;
-					}
-					masked += ' ';
-					i++;
-				}
-				continue;
-			}
-
-			masked += ch;
-			i++;
+		// ';' starts a comment, and PureBasic has no block comment
+		if (ch === ';') {
+			masked += ' '.repeat(line.length - i);
+			break;
 		}
-		out.push(masked);
+
+		// ~"..." is the escape string, where \" is a quote
+		if (ch === '~' && line[i + 1] === '"') {
+			inString = true;
+			escapes = true;
+			masked += '  ';
+			i += 2;
+			continue;
+		}
+
+		// "..." has no escape of its own (that is what ~ strings are for)
+		if (ch === '"') {
+			inString = true;
+			escapes = false;
+			masked += ' ';
+			i++;
+			continue;
+		}
+
+		masked += ch;
+		i++;
 	}
 
-	return out;
+	return masked;
+}
+
+/** The last few maskings, most recent first. */
+const MASK_CACHE: { text: string; lines: string[] }[] = [];
+const MASK_CACHE_LIMIT = 4;
+
+/**
+ * Replace comments and string literals with spaces, preserving offsets.
+ *
+ * The result has exactly one entry per line, however the text separates them
+ * (`\r\n`, `\r`, `\n`, including a trailing one), and a masked line is exactly
+ * as long as its source line, so a character offset means the same thing in
+ * both.
+ *
+ * The result is pure -- every caller only reads the array and its strings are
+ * immutable -- so the last few results are kept and handed out again: one
+ * completion masks the same document several times over.
+ */
+export function maskSource(text: string): string[] {
+	for (const entry of MASK_CACHE) {
+		if (entry.text === text) return entry.lines;
+	}
+
+	const lines = text.split(/\r\n|\r|\n/).map((line) => maskLine(line));
+	MASK_CACHE.unshift({ text, lines });
+	if (MASK_CACHE.length > MASK_CACHE_LIMIT) MASK_CACHE.pop();
+	return lines;
 }
 
 /** Comment lines directly above a declaration become its documentation. */
@@ -245,9 +270,12 @@ const FIELD_RESERVED_RE =
 /**
  * `x.MyStruct`, `*p.MyStruct` or `x.i` on a line of its own: the bare form is a
  * declaration too -- pbcompiler accepts it -- and it is how a structured
- * variable is usually introduced.
+ * variable is usually introduced.  It is matched against the source line rather
+ * than the masked one, so that a following string literal cannot blank itself
+ * away and leave behind what looks like a bare declaration; nothing but
+ * whitespace, or a comment, may follow the type.
  */
-const BARE_DECL_RE = /^\s*(\*?[A-Za-z_]\w*)\s*\.\s*([A-Za-z_]\w*)\s*$/;
+const BARE_DECL_RE = /^\s*(\*?[A-Za-z_]\w*)\s*\.\s*([A-Za-z_]\w*)\s*(?:;.*)?$/;
 
 const FIELD_RE =
 	/^\s*(?:(list|array|map)\s+)?(\*?[A-Za-z_]\w*\$?)(?:\.([A-Za-z_]\w*))?(?:\s*(?:\[\s*\w+\s*\]|\([^)]*\)))?\s*$/i;
@@ -359,11 +387,10 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			const wanted = CLOSE_KIND[word];
 			for (let s = stack.length - 1; s >= 0; s--) {
 				const block = stack[s]!;
+				// EndStructure closes an open StructureUnion, which has no
+				// terminator of its own; nothing else pairs up across kinds
 				const matches =
-					block.kind === wanted ||
-					(wanted === 'structure' && block.kind === 'structureunion') ||
-					(wanted === 'enumeration' &&
-						(block.kind === 'enumeration' || block.kind === 'declaremodule'));
+					block.kind === wanted || (wanted === 'structure' && block.kind === 'structureunion');
 				if (matches) {
 					if (block.kind === 'procedure' && block.symbol) block.symbol.endLine = i;
 					stack.splice(s, 1);
@@ -488,8 +515,10 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			continue;
 		}
 
-		// a bare `name.Type` declaration, which pbcompiler accepts on its own
-		const typed = inside('datasection') ? null : BARE_DECL_RE.exec(line);
+		// a bare `name.Type` declaration, which pbcompiler accepts on its own;
+		// read from the source line, since masking would hide a string literal
+		// that follows the type and make the line look like a declaration
+		const typed = inside('datasection') ? null : BARE_DECL_RE.exec(source);
 		if (typed) {
 			add(typed[1]!, 'variable', i, source, {
 				type: typed[2],
@@ -568,9 +597,10 @@ export function wordAt(
 /** What the character before the cursor is asking for. */
 /**
  * Whether the caret sits inside a string literal or a `;` comment, where no name
- * completion belongs.  PureBasic strings and comments do not span lines, so the
- * line under the caret is all that matters.  `~"..."` is the escape form, where
- * `\"` does not close the string; a plain string takes no escapes at all.
+ * completion belongs.  PureBasic strings and comments do not span lines -- a
+ * literal has to be closed on the line it opens on -- so the line under the
+ * caret is all that matters.  `~"..."` is the escape form, where `\"` does not
+ * close the string; a plain string takes no escapes at all.
  */
 export function inStringOrComment(text: string, position: PbPosition): boolean {
 	const line = text.split(/\r\n|\r|\n/)[position.line] ?? '';

@@ -10,7 +10,14 @@ import { builtinMarkdown, declarationBlock, lookupBuiltin } from './builtins.ts'
 import { callContextAt, parameterNames } from './parser.ts';
 import type { PbDocument, PbParameterLabel, PbPosition, PbSignatureInfo, PbSymbol } from './types.ts';
 
-/** Locate each name inside `label` as a whole word, in order. */
+/**
+ * Locate each name inside `label` as a whole word, in order.
+ *
+ * `\b` would not do: a name may carry a leading `#` or a trailing `$`, and
+ * neither of those is a word character, so a boundary next to one never
+ * matches.  The boundary is an explicit one instead, over the characters a
+ * name can be made of.
+ */
 function labelOffsets(label: string, names: readonly string[]): PbParameterLabel[] {
 	const labels: PbParameterLabel[] = [];
 	let from = 0;
@@ -20,7 +27,8 @@ function labelOffsets(label: string, names: readonly string[]): PbParameterLabel
 			continue;
 		}
 		const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-		const match = new RegExp(`\\b${escaped}\\b`, 'i').exec(label.slice(from));
+		const boundary = `(?<![A-Za-z0-9_])${escaped}(?![A-Za-z0-9_])`;
+		const match = new RegExp(boundary, 'i').exec(label.slice(from));
 		if (!match) {
 			labels.push(name);
 			continue;
@@ -38,10 +46,14 @@ function userProcSignatures(
 	callee: string,
 	customSymbols: readonly PbSymbol[],
 ): PbSignatureInfo[] {
+	// a call may be written `Module::Proc`, which names the same procedure the
+	// declaration calls `Proc`, so the module qualifier is dropped
+	const cut = callee.lastIndexOf('::');
+	const wanted = cut >= 0 ? callee.slice(cut + 2) : callee;
 	const all = [...document.symbols, ...customSymbols].filter(
 		(s) =>
 			s.params !== undefined &&
-			s.name.replace(/^[*@?]/, '').toLowerCase() === callee.toLowerCase(),
+			s.name.replace(/^[*@?]/, '').toLowerCase() === wanted.toLowerCase(),
 	);
 
 	return all.map((symbol) => {

@@ -2,7 +2,7 @@
 	"name": "purebasic",
 	"displayName": "PureBasic",
 	"description": "PureBasic language support for Visual Studio Code: code completion, hover, signature help and document outline.",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"publisher": "agorangetek",
 	"license": "MIT",
 	"engines": {
@@ -400,6 +400,7 @@
 		"gen-data": "node tools/gen-data.mjs",
 		"gen-grammar": "node tools/gen-grammar.mjs",
 		"gen-builtins-ts": "node tools/gen-builtins-ts.mjs",
+		"check:data": "node tools/gen-data.mjs --check",
 		"generate": "npm run gen-data && npm run gen-grammar",
 		"build": "node tools/gen-grammar.mjs && node tools/gen-builtins-ts.mjs && node esbuild.mjs",
 		"watch": "node esbuild.mjs --watch",
@@ -410,7 +411,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^22.10.2",
-		"@types/vscode": "^1.75.0",
+		"@types/vscode": "^1.90.0",
 		"@vscode/vsce": "^3.2.1",
 		"esbuild": "^0.24.2",
 		"typescript": "^5.7.2"

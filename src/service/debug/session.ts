@@ -25,7 +25,7 @@ import {
 	type DebugVariable,
 } from './parse.ts';
 import { writeDebuggerPreferences, type DebuggerPreferences } from './prefs.ts';
-import { spawnWithPty } from './pty.ts';
+import { spawnWithPty, type PtyProcess } from './pty.ts';
 
 /** The one thread the command-line debugger shows. */
 const THREAD = 1;
@@ -145,7 +145,10 @@ export class PureBasicDebugSession {
 					break;
 				case 'configurationDone':
 					this.respond(request);
-					void this.begin();
+					// the run itself must not hold the dispatcher up, and a failure
+					// in it must still be said rather than becoming an unhandled
+					// rejection nobody hears
+					void this.begin().catch((error: unknown) => this.host.trace(`debugger: begin: ${String(error)}`));
 					break;
 				case 'threads':
 					this.respond(request, { threads: [{ id: THREAD, name: 'Main' }] });
@@ -246,13 +249,22 @@ export class PureBasicDebugSession {
 			compiler: String(args.compiler ?? ''),
 		});
 
-		const started = await spawnWithPty({
-			command: options.target,
-			args: splitCommandLine(options.args),
-			cwd: options.cwd,
-			env: this.preferences.env,
-			platform: options.platform,
-		});
+		let started: PtyProcess;
+		try {
+			started = await spawnWithPty({
+				command: options.target,
+				args: splitCommandLine(options.args),
+				cwd: options.cwd,
+				env: this.preferences.env,
+				platform: options.platform,
+			});
+		} catch (error) {
+			// the debugger's settings have already been written at this point,
+			// and there is no session now to put them back when it ends
+			this.preferences.restore();
+			this.preferences = undefined;
+			throw error;
+		}
 
 		this.console = new DebugConsole(started, {
 			onOutput: (stream, text) => this.report(stream, text),
@@ -362,7 +374,11 @@ export class PureBasicDebugSession {
 		if (!console || this.ended) return;
 
 		this.event('continued', { threadId: THREAD, allThreadsContinued: true });
+		// the handles describe the stop that is ending: they are let go with
+		// the variables they stand for, so a reference held across a step is
+		// not answered with the previous stop's structures
 		this.scopeCache = undefined;
+		this.handles.clear();
 		const reply = command === '\u0003' ? await console.interrupt() : await console.command(command);
 
 		if (this.ended || console.ended) {
@@ -610,6 +626,16 @@ export class PureBasicDebugSession {
 	private fileFor(path: string): number | undefined {
 		const wanted = baseName(path).toLowerCase();
 		const found = this.files.filter((file) => baseName(file.name).toLowerCase() === wanted);
+		// several of its files go by this name: the one the editor's path ends
+		// with is the one meant, and the most particular of those tries first,
+		// since a short name ends the path as well as a longer one does
+		let exact: { number: number; name: string } | undefined;
+		for (const file of found) {
+			if (namesTheTail(path, file.name) && file.name.length > (exact?.name.length ?? 0)) exact = file;
+		}
+		if (exact) return exact.number;
+		// none of them is the file the path is under, so the first is taken,
+		// and said, as before
 		if (found.length > 1) this.host.trace(`debugger: ${wanted} is ${found.length} of its files; taking the first`);
 		return found[0]?.number;
 	}
@@ -617,8 +643,18 @@ export class PureBasicDebugSession {
 	/** The path a debugger file name stands for. */
 	private pathFor(name: string): string {
 		if (name === '') return '';
-		if (baseName(this.options?.program ?? '').toLowerCase() === baseName(name).toLowerCase()) return this.options!.program;
-		return joinPath(this.options?.cwd ?? '', name);
+		const wanted = baseName(name).toLowerCase();
+		const program = this.options?.program ?? '';
+		if (baseName(program).toLowerCase() === wanted) return program;
+		// the debugger's name is often a short one -- `inc.pb` for a file in a
+		// directory of the program's own -- so a path the editor has named
+		// which ends with it is preferred to the name joined to the directory
+		// the program runs in, which may well be a file that is not there
+		let known: string | undefined;
+		for (const path of this.applied.keys()) {
+			if (namesTheTail(path, name) && path.length > (known?.length ?? 0)) known = path;
+		}
+		return known ?? joinPath(this.options?.cwd ?? '', name);
 	}
 
 	private referenceFor(variable: DebugVariable): number {
@@ -674,6 +710,21 @@ function dirnameOf(path: string): string {
 	const parts = path.split(/[\\/]/);
 	parts.pop();
 	return parts.join('/');
+}
+
+/**
+ * Whether one path is another path's tail.
+ *
+ * The debugger names a file as it was compiled, which can be a bare name or a
+ * whole path, and the two sides need not spell separators alike, so both are
+ * compared under one separator.  A name counts only at a separator or at the
+ * start, so `inc.pb` is the tail of `/src/inc.pb` and not of `/src/myinc.pb`.
+ */
+function namesTheTail(path: string, name: string): boolean {
+	const full = path.toLowerCase().replace(/\\/g, '/');
+	const tail = name.toLowerCase().replace(/\\/g, '/');
+	if (!full.endsWith(tail)) return false;
+	return full.length === tail.length || full[full.length - tail.length - 1] === '/';
 }
 
 function joinPath(directory: string, name: string): string {

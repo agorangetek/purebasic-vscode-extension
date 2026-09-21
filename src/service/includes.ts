@@ -22,6 +22,12 @@ import type { PbDocument, PbSymbol } from './types.ts';
 export interface DocumentPool {
 	uris(): readonly string[];
 	get(uri: string): PbDocument | undefined;
+	/**
+	 * Bumped whenever the pool's contents change.  A pool that cannot say is left
+	 * out of the caching below rather than handed a group built from an older set
+	 * of documents.
+	 */
+	revision?: number;
 }
 
 /** The `file://` style prefix of a uri, or '' when there is none. */
@@ -114,12 +120,30 @@ export function uriForPath(pool: DocumentPool, path: string): string | undefined
 }
 
 /**
+ * The group computed last time, and the key it was computed for.
+ *
+ * The walk below is O(files x includes x files) -- every include target is
+ * compared against every uri in the pool -- and one request asks for the same
+ * root several times over, so the answer is kept until the pool changes.  The
+ * set handed out is the cached one, so a caller must read it and not write: the
+ * only ones are groupSymbols, which iterates, and extension.ts, which passes it
+ * straight on.
+ */
+let cachedGroup: { key: string; group: Set<string> } | undefined;
+
+/**
  * Every file that shares a translation unit with `root`: what it includes, what
  * includes it, and so on through the chain in either direction.  Bounded by
  * `limit` so a pathological project cannot make a completion request walk the
  * whole disk.
  */
 export function includeGroup(root: string, pool: DocumentPool, limit = 400): Set<string> {
+	const key =
+		pool.revision === undefined ? undefined : `${pool.revision}\u0000${root}\u0000${limit}`;
+	if (key !== undefined && cachedGroup !== undefined && cachedGroup.key === key) {
+		return cachedGroup.group;
+	}
+
 	const searchPaths = includeSearchPaths(pool);
 	const neighbours = new Map<string, Set<string>>();
 	const link = (a: string, b: string) => {
@@ -154,6 +178,7 @@ export function includeGroup(root: string, pool: DocumentPool, limit = 400): Set
 			queue.push(next);
 		}
 	}
+	if (key !== undefined) cachedGroup = { key, group };
 	return group;
 }
 

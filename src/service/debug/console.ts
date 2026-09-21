@@ -32,6 +32,24 @@ const PROMPT = 'DEBUGGER::';
  */
 const RUNNING = new Set(['run', 'step']);
 
+/**
+ * How long a command the program is not held by is given to answer.
+ *
+ * The same grace `ready()` gives the console to come up: long enough for a slow
+ * answer, short enough that a debugger which has stopped answering -- a child
+ * that died, a prompt that was lost -- leaves an error rather than a caller
+ * waiting for ever.
+ */
+const ANSWER_TIMEOUT = 20000;
+
+/** One turn of the conversation: a command, and the promise its caller holds. */
+interface Turn {
+	command: string;
+	resolve: (text: string) => void;
+	/** How long to wait once it is written; 0 is as long as it takes. */
+	timeoutMs: number;
+}
+
 export class DebugConsole {
 	private pty: PtyProcess;
 	private callbacks: ConsoleCallbacks;
@@ -39,7 +57,10 @@ export class DebugConsole {
 	private buffer = '';
 	/** How much of the buffer has been looked at for program output. */
 	private cursor = 0;
-	private pending: { command: string; resolve: (text: string) => void } | undefined;
+	/** The command the console has, and has not answered yet. */
+	private pending: Turn | undefined;
+	/** Commands issued while one was in flight: the console takes them one at a time. */
+	private queue: Turn[] = [];
 	private waiting: ((text: string) => void) | undefined;
 	private started: Promise<string>;
 	/** Until the first prompt, everything printed is the console coming up. */
@@ -65,41 +86,48 @@ export class DebugConsole {
 		return Promise.race([this.started, timeout]);
 	}
 
-	/** Send one command, and resolve with everything it printed in reply. */
+	/**
+	 * Send one command, and resolve with everything it printed in reply.
+	 *
+	 * Only one command is in flight at a time.  The console answers into the
+	 * same stream its prompts come back on, so a second command written while
+	 * the first is unanswered would be answered to the wrong caller: a command
+	 * that arrives while another is in flight is queued, and sent when that one
+	 * has been answered.
+	 */
 	command(text: string, timeoutMs = 0): Promise<string> {
 		if (this.ended) return Promise.resolve('');
-		const answer = new Promise<string>((resolve) => {
-			this.pending = { command: text, resolve };
-			if (timeoutMs > 0) {
-				setTimeout(() => {
-					if (this.pending?.command === text) {
-						this.pending = undefined;
-						resolve('');
-					}
-				}, timeoutMs);
-			}
+		// a command that leaves the program running comes back only when the
+		// program stops, which is not this adapter's to decide, so it waits as
+		// long as it takes; everything else gets a bounded wait, since there is
+		// nothing else to end the wait of a console that has gone quiet
+		const wait = timeoutMs > 0 ? timeoutMs : RUNNING.has(text.trim()) ? 0 : ANSWER_TIMEOUT;
+		return new Promise<string>((resolve) => {
+			const turn: Turn = { command: text, resolve, timeoutMs: wait };
+			if (this.pending) this.queue.push(turn);
+			else this.write(turn, `${text}\n`);
 		});
-		this.pty.write(`${text}\n`);
-		return answer;
 	}
 
 	/**
 	 * Interrupt the program: Ctrl+C opens the console prompt, which is the
 	 * documented way to stop a running program from the command-line debugger.
+	 *
+	 * The interrupt is never queued: it is what stops a running program, and a
+	 * `run` in flight is answered only when the program stops, so waiting for
+	 * its turn would be waiting for the very thing the interrupt is here to
+	 * end.  Whatever is in flight is answered with what it has printed so far,
+	 * and the Ctrl+C goes out at once.
 	 */
 	interrupt(timeoutMs = 5000): Promise<string> {
 		if (this.ended) return Promise.resolve('');
-		const answer = new Promise<string>((resolve) => {
-			this.pending = { command: '\u0003', resolve };
-			setTimeout(() => {
-				if (this.pending?.command === '\u0003') {
-					this.pending = undefined;
-					resolve('');
-				}
-			}, timeoutMs);
+		const running = this.pending;
+		this.pending = undefined;
+		if (running) running.resolve(this.withoutEcho(this.buffer, running.command));
+		return new Promise<string>((resolve) => {
+			// Ctrl+C is a key rather than a line, so it goes without a newline
+			this.write({ command: '\u0003', resolve, timeoutMs }, '\u0003');
 		});
-		this.pty.write('\u0003');
-		return answer;
 	}
 
 	/** The console's answer to a question it has to ask: `(y,N)` and the like. */
@@ -120,6 +148,10 @@ export class DebugConsole {
 
 		let end = at + PROMPT.length;
 		if (this.buffer[end] === ' ') end++;
+		// the last line printed before the prompt has no newline of its own, so
+		// `forward` left it in the buffer: a program's `Print` with no newline
+		// right before it stops is still its output, and belongs in the panel
+		this.forwardLine(this.buffer.slice(this.cursor, at).replace(/\r/g, ''));
 		const reply = this.buffer.slice(0, at);
 		this.buffer = this.buffer.slice(end);
 		this.cursor = 0;
@@ -128,6 +160,7 @@ export class DebugConsole {
 			const pending = this.pending;
 			this.pending = undefined;
 			pending.resolve(this.withoutEcho(reply, pending.command));
+			this.sendNext();
 			return;
 		}
 		if (this.waiting) {
@@ -136,6 +169,33 @@ export class DebugConsole {
 			this.up = true;
 			waiting(reply);
 		}
+	}
+
+	/** Write a command, and make it the one the console is answering. */
+	private write(turn: Turn, text: string): void {
+		this.pending = turn;
+		this.pty.write(text);
+		if (turn.timeoutMs > 0) setTimeout(() => this.expire(turn), turn.timeoutMs);
+	}
+
+	/** The next command that was waiting its turn, now that one is over. */
+	private sendNext(): void {
+		const next = this.queue.shift();
+		if (next) this.write(next, `${next.command}\n`);
+	}
+
+	/**
+	 * Give up on a command the console has not answered.
+	 *
+	 * The reply can still arrive later, so this is a safety net for a debugger
+	 * that has gone quiet rather than a promise that no answer is coming: what
+	 * arrives after its turn is over is taken by whatever is waiting then.
+	 */
+	private expire(turn: Turn): void {
+		if (this.pending !== turn) return;
+		this.pending = undefined;
+		turn.resolve('');
+		this.sendNext();
 	}
 
 	/** Pass on the complete lines that have arrived, one by one. */
@@ -168,6 +228,10 @@ export class DebugConsole {
 		this.ended = true;
 		const pending = this.pending;
 		this.pending = undefined;
+		// nothing will be answered now, so the commands still waiting their turn
+		// are let go rather than left holding a promise for ever
+		const queued = this.queue;
+		this.queue = [];
 		const waiting = this.waiting;
 		this.waiting = undefined;
 		if (waiting) {
@@ -175,6 +239,7 @@ export class DebugConsole {
 			waiting(this.buffer);
 		}
 		if (pending) pending.resolve(this.buffer);
+		for (const turn of queued) turn.resolve('');
 		this.callbacks.onExit?.(code);
 	}
 }

@@ -12,7 +12,9 @@
  * On the Unix systems the file goes into a directory of its own which is handed
  * to the program as its HOME, so the user's own debugger settings are never
  * touched.  Windows has no such indirection, so the file is written where the
- * debugger looks for it: kept as it was, and put back when the session ends.
+ * debugger looks for it: copied aside first, and put back when the session ends
+ * -- or left as a copy to put back by hand, when the session never gets that
+ * far.
  *
  * Editor-agnostic: no 'vscode' import.
  */
@@ -64,7 +66,18 @@ export function writeDebuggerPreferences(options: {
 
 	// <PureBasic>\Compilers\pbcompiler.exe -> <PureBasic>\debugger\debugger.prefs
 	const file = join(dirname(dirname(options.compiler)), 'debugger', 'debugger.prefs');
+	// the user's own settings are kept in hand as before, and copied aside as
+	// well: a session that ends badly -- a crash, a force quit, a power cut --
+	// never reaches restore(), and a copy on disk is something to put back by
+	// hand afterwards
 	const before = existsSync(file) ? readFileSync(file) : undefined;
+	const backup = `${file}.purebasic-backup`;
+	// a copy that is already there is the true original, made before the first
+	// of two sessions running at once wrote its own settings: it is left as it
+	// is, and this session puts back what it found instead, so a copy left over
+	// from an earlier crash cannot undo settings the user has changed since
+	const mine = !existsSync(backup);
+	if (mine) writeFileSync(backup, before ?? '');
 	mkdirSync(dirname(file), { recursive: true });
 	writeFileSync(file, SETTINGS);
 
@@ -72,7 +85,14 @@ export function writeDebuggerPreferences(options: {
 		env: options.env,
 		restore: () => {
 			try {
-				if (before === undefined) rmSync(file, { force: true });
+				if (mine) {
+					// an empty copy records a session that found no settings file
+					// of its own: there is nothing to put back
+					const saved = readFileSync(backup);
+					if (saved.length === 0) rmSync(file, { force: true });
+					else writeFileSync(file, saved);
+					rmSync(backup, { force: true });
+				} else if (before === undefined) rmSync(file, { force: true });
 				else writeFileSync(file, before);
 			} catch {
 				// the settings stay as this session left them
