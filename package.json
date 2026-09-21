@@ -225,6 +225,11 @@
 				"icon": "$(package)"
 			},
 			{
+				"command": "purebasic.debug",
+				"title": "PureBasic: Debug",
+				"icon": "$(debug-alt)"
+			},
+			{
 				"command": "purebasic.debuggerOn",
 				"title": "PureBasic: Turn Debugger On",
 				"category": "PureBasic",
@@ -309,7 +314,62 @@
 					"when": "config.purebasic.compiler.debugger"
 				}
 			]
-		}
+		},
+		"breakpoints": [
+			{
+				"language": "purebasic"
+			}
+		],
+		"debuggers": [
+			{
+				"type": "purebasic",
+				"label": "PureBasic",
+				"languages": [
+					"purebasic"
+				],
+				"configurationAttributes": {
+					"launch": {
+						"required": [
+							"program"
+						],
+						"properties": {
+							"program": {
+								"type": "string",
+								"description": "The PureBasic source file to build and debug."
+							},
+							"cwd": {
+								"type": "string",
+								"description": "The directory the program runs in. Defaults to the source file's own."
+							},
+							"args": {
+								"type": "string",
+								"description": "Command line arguments for the program, as the IDE's command line field spells them."
+							}
+						}
+					}
+				},
+				"initialConfigurations": [
+					{
+						"type": "purebasic",
+						"request": "launch",
+						"name": "Debug PureBasic file",
+						"program": "${file}"
+					}
+				],
+				"configurationSnippets": [
+					{
+						"label": "PureBasic: Debug a file",
+						"description": "Build the file with the debugger and debug it.",
+						"body": {
+							"type": "purebasic",
+							"request": "launch",
+							"name": "Debug PureBasic file",
+							"program": "^\"\\${file}^\""
+						}
+					}
+				]
+			}
+		]
 	},
 	"scripts": {
 		"gen-data": "node tools/gen-data.mjs",
@@ -321,7 +381,7 @@
 		"typecheck": "tsc --noEmit",
 		"check": "npm run typecheck && node tools/gen-grammar.mjs --check && node tools/gen-builtins-ts.mjs --check && npm run build",
 		"vscode:prepublish": "npm run build",
-		"package": "vsce package"
+		"package": "node tools/trim-pty.mjs && vsce package"
 	},
 	"devDependencies": {
 		"@types/node": "^22.10.2",
@@ -329,5 +389,8 @@
 		"@vscode/vsce": "^3.2.1",
 		"esbuild": "^0.24.2",
 		"typescript": "^5.7.2"
+	},
+	"dependencies": {
+		"node-pty": "^1.1.0"
 	}
 }

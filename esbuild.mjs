@@ -13,7 +13,7 @@ const options = {
 	platform: 'node',
 	format: 'cjs',
 	target: 'node18',
-	external: ['vscode'],
+	external: ['vscode', 'node-pty'],
 	sourcemap: true,
 	minify: process.argv.includes('--minify'),
 	logLevel: 'info',

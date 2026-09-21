@@ -34,6 +34,7 @@ import { addKeywordsToGrammar, keywordEntry, newKeywordNames, parseKeywordsData 
 import {
 	compileSavePanel,
 	compilerArguments,
+	debugOutputFor,
 	parseCompilerOutput,
 	placeBuiltFile,
 	resolveCompiler,
@@ -49,6 +50,7 @@ import {
 	type CompilerSettings,
 	type Platform,
 } from './service/compiler.ts';
+import { PureBasicDebugSession } from './service/debug/session.ts';
 import { getSignatureHelp } from './service/signature.ts';
 import type { PbCompletionItem, PbCompletionKind, PbDocument, PbSymbol } from './service/types.ts';
 
@@ -808,6 +810,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		vscode.commands.registerCommand('purebasic.debuggerOn', () => setDebugger(true)),
 		vscode.commands.registerCommand('purebasic.debuggerOff', () => setDebugger(false)),
 		vscode.commands.registerCommand('purebasic.compilerSettings', () => chooseCompilerSettings()),
+		// the debugger: the adapter is the extension itself, driving the
+		// command-line debugger that a -d build carries
+		vscode.debug.registerDebugAdapterDescriptorFactory('purebasic', {
+			createDebugAdapterDescriptor: () => new vscode.DebugAdapterInlineImplementation(debugAdapter()),
+		}),
+		vscode.debug.registerDebugConfigurationProvider('purebasic', new DebugConfigurations()),
+		vscode.commands.registerCommand('purebasic.debug', () => debugOpenFile()),
 		vscode.commands.registerCommand('purebasic.refreshKeywords', () => refreshKeywords(context, true)),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration('purebasic.keywords.path')) void refreshKeywords(context, true);
@@ -1254,6 +1263,107 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	void indexWorkspace();
 
 	trace(`activated with ${builtinCount()} built-ins from ${builtinSource()}`);
+}
+
+
+/*
+ * Debugging.
+ *
+ * The adapter is a plain object of this extension's own -- there is no second
+ * process -- and what it cannot do itself is handed to it here: building the
+ * program, and putting that build's log in the terminal, both of which are the
+ * same work the buttons do.
+ */
+function debugAdapter(): vscode.DebugAdapter {
+	const session = new PureBasicDebugSession({
+		trace: (message) => trace(message),
+		build: (source, settings, target) => buildForDebug(source, settings, target),
+		showBuild: (target, command, output, note) =>
+			showBuildLog(target, command, output, note, dirname(target), hostPlatform()),
+	});
+
+	const messages = new vscode.EventEmitter<vscode.DebugProtocolMessage>();
+	session.onMessage = (message) => messages.fire(message as vscode.DebugProtocolMessage);
+
+	return {
+		onDidSendMessage: messages.event,
+		handleMessage: (message) => session.handle(message as { command?: string }),
+		dispose: () => {
+			messages.dispose();
+			session.dispose();
+		},
+	};
+}
+
+/** Build a program for debugging: the same build the buttons do, with the debugger in. */
+async function buildForDebug(
+	source: string,
+	settings: CompilerSettings,
+	target: string,
+): Promise<{ ok: boolean; command: string; output: string }> {
+	const platform = hostPlatform();
+	const compiler = resolveCompiler(settings.path, platform);
+	const args = [...compilerArguments(settings, target, platform), source];
+	const command = shellCommand([compiler, ...args], platform);
+	trace(`debugger: ${command}`);
+
+	await createFolder(dirname(target));
+	const building = vscode.window.setStatusBarMessage(`PureBasic: building ${basename(source)}`);
+	const result = await runCompiler(compiler, args, dirname(source));
+	building.dispose();
+
+	const document = vscode.workspace.textDocuments.find((open) => open.uri.fsPath === source);
+	if (document) reportCompilerErrors(document, result.output);
+
+	return { ok: result.code === 0, command, output: result.output };
+}
+
+/**
+ * The launch configuration, filled in from what the buttons already know.
+ *
+ * A launch.json may name nothing but the source; everything else -- the compiler
+ * settings, the platform, where the build goes -- is the extension's to supply,
+ * and is the same for a session started from the command as for one started
+ * from a file.
+ */
+class DebugConfigurations implements vscode.DebugConfigurationProvider {
+	provideDebugConfigurations(): vscode.DebugConfiguration[] {
+		return [newDebugConfiguration('${file}')];
+	}
+
+	resolveDebugConfiguration(
+		_folder: vscode.WorkspaceFolder | undefined,
+		config: vscode.DebugConfiguration,
+	): vscode.DebugConfiguration | undefined {
+		if (!config.program) {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor || editor.document.languageId !== LANGUAGE) {
+				void vscode.window.showInformationMessage('PureBasic: open a .pb file to debug.');
+				return undefined;
+			}
+			config.program = editor.document.uri.fsPath;
+		}
+
+		const settings = compilerSettings();
+		const platform = hostPlatform();
+		config.settings ??= settings;
+		config.platform ??= platform;
+		config.compiler ??= resolveCompiler(settings.path, platform);
+		config.cwd ??= dirname(config.program);
+		config.target ??= debugOutputFor(config.program, platform);
+		return config;
+	}
+}
+
+function newDebugConfiguration(program: string): vscode.DebugConfiguration {
+	return { type: 'purebasic', request: 'launch', name: 'Debug PureBasic file', program };
+}
+
+/** `PureBasic: Debug` -- debug the file in the editor. */
+async function debugOpenFile(): Promise<void> {
+	const document = await compilableDocument();
+	if (!document) return;
+	await vscode.debug.startDebugging(undefined, newDebugConfiguration(document.uri.fsPath));
 }
 
 export function deactivate(): void {

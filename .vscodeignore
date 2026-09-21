@@ -6,6 +6,8 @@ src/**
 tools/**
 out/**
 node_modules/**
+!node_modules/node-pty/**
+!node_modules/node-addon-api/**
 package-lock.json
 tsconfig.json
 esbuild.mjs

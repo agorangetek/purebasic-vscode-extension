@@ -74,6 +74,16 @@ export function stagedOutputFor(sourcePath: string, platform: Platform = hostPla
 	return temporaryOutput(sourcePath, platform, '-compile');
 }
 
+/**
+ * Where a debug session builds the program it is about to run.
+ *
+ * Its own name again, so debugging a file does not write over what a Run of the
+ * same file is running, nor what a Compile has staged.
+ */
+export function debugOutputFor(sourcePath: string, platform: Platform = hostPlatform()): string {
+	return temporaryOutput(sourcePath, platform, '-debug');
+}
+
 function temporaryOutput(sourcePath: string, platform: Platform, tag: string): string {
 	const name = basename(sourcePath).replace(/\.[^.]*$/, '');
 	const stamp = createHash('sha1').update(sourcePath).digest('hex').slice(0, 8);
