@@ -4,6 +4,16 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.13] - 2026-09-21
+
+### Fixed
+
+- **A breakpoint on the first line now stops the program.** The debugger halts before the first line --
+  that is what makes breakpoints possible at all -- and continuing from a line never stops on that same
+  line again, so a breakpoint set on the line the program was already standing on could not be reached
+  and the run went straight through. That breakpoint is honoured as the session starts now, by leaving
+  the program where it is, so the first line stops like any other and stepping carries on from there.
+
 ## [0.2.11] - 2026-09-21
 
 ### Changed

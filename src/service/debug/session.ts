@@ -274,9 +274,33 @@ export class PureBasicDebugSession {
 		this.event('initialized');
 	}
 
-	/** Everything is set: let the program run to whatever stops it first. */
+	/**
+	 * Everything is set: let the program run to whatever stops it first.
+	 *
+	 * The debugger halts before the first line, and a breakpoint on the line it
+	 * is already halted at would never be reached -- continuing from a line does
+	 * not stop on it again -- so that one breakpoint is honoured here, by leaving
+	 * the program where it stands.  A breakpoint on the first line is the usual
+	 * way to be told that the session started at all.
+	 */
 	private async begin(): Promise<void> {
 		if (!this.console || this.ended) return;
+
+		const location = await this.currentLocation();
+		const held = location
+			? (this.applied.get(this.pathFor(location.file)) ?? []).filter((one) => one.line === location.line)
+			: [];
+		if (location && held.length > 0) {
+			this.frames = await this.currentFrames(location);
+			this.event('stopped', {
+				reason: 'breakpoint',
+				threadId: THREAD,
+				allThreadsStopped: true,
+				hitBreakpointIds: held.map((one) => one.id),
+			});
+			return;
+		}
+
 		await this.resume('run', 'entry');
 	}
 
