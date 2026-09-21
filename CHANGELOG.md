@@ -4,6 +4,31 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.11] - 2026-09-21
+
+### Changed
+
+- **One play button.** The Debug button in the title bar is gone; the play button is the one there is,
+  and the debugger button decides what it does: on -- green -- the file is built with the debugger in
+  it and run under it, so breakpoints stop it and the stepping commands work; off it is a plain run in
+  a window of its own, which is faster. With no breakpoints set there is simply nothing to stop at.
+  F5 and `PureBasic: Debug` still start a session directly.
+
+## [0.2.10] - 2026-09-21
+
+### Fixed
+
+- **A file being made opens the output panel too.** An unsaved file is not a PureBasic file when it
+  appears -- it has no language until it is given a name -- so the panel was never asked for and never
+  showed. It is asked for on the documents that are open, whichever event comes next, which covers a
+  new file, one newly named, and one opened from disk.
+- **A build that fails is no longer a box.** With a breakpoint set, the play button started a session,
+  the session could not build the file, and VS Code announced the failed launch in a notification.
+  The build happens before any session exists now: the line is underlined, the compiler's log goes to
+  the terminal, and nothing is started -- the same as a plain run. The session reuses that build
+  rather than compiling the file a second time.
+- Asking for a session with the debugger switched off says so in the status bar rather than in a box.
+
 ## [0.2.9] - 2026-09-21
 
 ### Added

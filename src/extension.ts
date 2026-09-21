@@ -635,12 +635,10 @@ async function compileToExecutable(): Promise<void> {
  * `PureBasic: Run` -- under the debugger when there is something to stop at,
  * and in a window of its own when there is not.
  *
- * A run under the debugger is a different thing: the program is held before its
- * first line while breakpoints are set, it stops at them, and it costs the
- * debugger's overhead all the while.  So it is only what the play button does
- * when both of the conditions for it are met: the debugger switched on, which
- * is the bug button in green, and at least one breakpoint in the gutter to stop
- * at.  Otherwise the button does what it always did, which is faster.
+ * The debugger button is what decides: on -- green -- the program is built with
+ * the debugger in it and run under it, so breakpoints stop it and the stepping
+ * commands work; off, it is a plain run in a window of its own, which is
+ * faster.  With no breakpoints set there is simply nothing to stop at.
  */
 async function runOrDebug(): Promise<void> {
 	const document = await compilableDocument();
@@ -665,9 +663,9 @@ async function runOrDebug(): Promise<void> {
 	await runInPanel(document);
 }
 
-/** Whether a run should be a run under the debugger. */
+/** Whether a run should be a run under the debugger: the debugger button decides. */
 function debuggingRequested(): boolean {
-	return compilerSettings().debugger && vscode.debug.breakpoints.length > 0;
+	return compilerSettings().debugger;
 }
 
 /**

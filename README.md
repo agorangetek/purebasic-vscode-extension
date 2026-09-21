@@ -32,16 +32,16 @@ TextMate scopes, so your theme decides every colour — nothing is pinned.
 * **Run** — builds the open file, then starts it, with everything it prints --
   `Debug` output above all -- going to the **Debug Output** panel in the
   secondary side bar, the right-hand one, where it can be read beside the code
-  and stays put. With the debugger switched on (the bug button, green) and at
-  least one breakpoint in the gutter to stop at, it runs under the debugger
-  instead, so it stops at those breakpoints. With either of those missing it is
-  a plain run, which is faster. A program that reads from the keyboard wants
+  and stays put. The debugger button decides what the play button does: with it
+  on -- green -- the file is built with the debugger in it and run under it, so
+  breakpoints stop it and the stepping commands work; with it off it is a plain
+  run, which is faster. A program that reads from the keyboard wants
   `PureBasic: Run in a Terminal`, which runs it in a terminal instead. The compiler talks in the editor's PureBasic terminal, where its
   messages stay as a log, and the program opens in a Terminal window so that its
   output -- `Debug` output above all, which only exists when the debugger is on --
   is somewhere it can be read. The window stays open when the program ends, so
   nothing scrolls away.
-* **Debug** — F5 (or `PureBasic: Debug`) builds the file with the debugger in it and runs it under
+* **Debug** — F5 (or `PureBasic: Debug` from the palette) builds the file with the debugger in it and runs it under
   PureBasic's own debugger: breakpoints in the gutter, Continue, Step In, Step Over and Step Out, a
   call stack from the procedure history, and variables -- values, structures with their members, and
   arrays, lists and maps loaded as they are opened -- in the Debug console, where the program's
