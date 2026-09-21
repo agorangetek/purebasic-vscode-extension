@@ -490,9 +490,10 @@ export function placeBuiltFile(staged: string, destination: string): void {
  * a line of an included file is named in two, as
  * `Error: in included file '<path>'` and then the `Line 12 - <message>` that
  * belongs to it.  A link that failed names no line at all -- the compiler says
- * `Error: Linker` and passes on what the linker said, which is where a missing
- * library is spelled out (`error: no such file or directory: '<path>'`) -- so
- * that message is taken whole, and belongs to the file that was built.
+ * `Error: Linker` and passes on what the linker said -- and is deliberately not
+ * read as an error here: a problem the editor cannot put a line under would be
+ * marked on a line that is not at fault, so it is left to the build log in the
+ * terminal, where the linker's own message is.
  *
  * Kept here rather than only shown in the terminal so a caller can act on them,
  * which is what puts them under the line in the editor.
@@ -502,8 +503,6 @@ export function parseCompilerOutput(text: string): CompilerError[] {
 	/** The included file a following `Line N - ...` belongs to, if any. */
 	let file = '';
 	let severity: CompilerError['severity'] = 'error';
-	/** Inside the linker's own lines, which name no source line. */
-	let linker = false;
 
 	for (const line of text.split('\n')) {
 		const included = /^\s*(Error|Warning)\s*:\s*in included file\s+'([^']+)'\s*$/i.exec(line.trim());
@@ -526,24 +525,6 @@ export function parseCompilerOutput(text: string): CompilerError[] {
 		if (detail && file) {
 			errors.push({ file, line: Number(detail[1]), message: detail[2]!.trim(), severity });
 			file = '';
-			continue;
-		}
-
-		if (/^\s*Error\s*:\s*Linker\s*$/i.test(line.trim())) {
-			linker = true;
-			continue;
-		}
-		if (linker) {
-			// the linker names its tool and then the error -- `clang++: error:
-			// no such file or directory: '<path>'` -- and the tool is its own
-			// business, so only what it said is kept
-			const said = /^(?:[^\s:]+:\s*)?(error\s*:.*)$/i.exec(line.trim());
-			if (said) {
-				errors.push({ file: '', line: 0, message: said[1]!.trim(), severity: 'error' });
-				continue;
-			}
-			// the linker's account is done at the blank line that ends it
-			if (line.trim() === '') linker = false;
 		}
 	}
 	return errors;

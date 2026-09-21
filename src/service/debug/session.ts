@@ -58,13 +58,6 @@ export interface DebugHost {
 	/** The program's own output, for the panel that shows it. */
 	output(stream: 'stdout' | 'stderr', text: string): void;
 	/**
-	 * A problem with the program itself, for the editor's Problems pane.
-	 *
-	 * A message of `''` takes away the one a previous launch left, which is what
-	 * a launch that worked says.
-	 */
-	problem(program: string, message: string): void;
-	/**
 	 * Say that a launch failed, with the whole account of it a click away.
 	 *
 	 * The editor's own prompt for a failed launch cannot carry the buttons this
@@ -298,14 +291,13 @@ export class PureBasicDebugSession {
 			// the console never printed a prompt, so there is no debugger here to
 			// talk to: the program was stopped before it.  What it printed on the
 			// way out -- the loader saying a library is not where it looks, above
-			// all -- is the only account of why.  It is a problem with the program
-			// rather than output from it, so it goes to the Problems pane, and the
-			// alert is left to the host, which can give it the buttons this cannot
+			// all -- is the only account of why.  It is not something the editor
+			// can put a line under, so it is not made a problem: the alert is the
+			// host's to give the buttons this cannot, and its Show Logs the whole
 			const said = withoutBanner(greeting);
 			const why = `the program stopped before the debugger could start${said !== '' ? `: ${said}` : ''}`;
 			this.preferences.restore();
 			this.preferences = undefined;
-			this.host.problem(options.program, said !== '' ? said : 'the program could not be started');
 			this.host.alert(why, [
 				why,
 				'',
@@ -316,8 +308,6 @@ export class PureBasicDebugSession {
 			this.failQuietly(request, why);
 			return;
 		}
-		// the program is there, so a problem a launch that failed left is gone
-		this.host.problem(options.program, '');
 		const listed = await this.console.command('files');
 		this.files = parseFiles(listed);
 		this.host.trace(

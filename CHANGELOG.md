@@ -4,6 +4,25 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.7] - 2026-09-21
+
+### Changed
+
+- **A problem that names no line is no longer marked in the editor at all.** The
+  loader refusing to start a program, and a link that failed, name no source
+  line, so a diagnostic for either had to be hung on a line that is not at fault
+  -- and VS Code draws every diagnostic as a marker, at least one character
+  wide, so there is no way to list one in the Problems pane without underlining
+  something. Both are dropped from the Problems pane as of this release:
+  - a launch that fails is still said, as a warning with **OK** and **Show
+    Logs**, and Show Logs holds the whole account (loader message, program,
+    executable, directory) in the output channel this extension's logs go to;
+  - a build that fails at the link step is left to the build log in the
+    terminal, which is where the linker's own message is.
+
+  A compiler error that names a real line is unchanged: it is still a problem
+  under that line.
+
 ## [1.0.6] - 2026-09-21
 
 ### Fixed

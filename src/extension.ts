@@ -821,69 +821,9 @@ function reportCompilerErrors(document: vscode.TextDocument, output: string): vo
 
 /** The line the compiler named, as a range, whether or not the file is open. */
 function lineRange(document: vscode.TextDocument | undefined, line: number): vscode.Range {
-	// a line of 0 is a problem with no line of its own: nothing to underline
-	if (line <= 0) return noLineRange(document);
 	const index = Math.max(line - 1, 0);
 	if (document && index < document.lineCount) return document.lineAt(index).range;
 	return new vscode.Range(index, 0, index, Number.MAX_SAFE_INTEGER);
-}
-
-/**
- * A range that marks no text, for a problem that names no line.
- *
- * A problem with no line of its own -- the loader refusing to start a program, a
- * link that failed -- still has to be given a range, and VS Code fills an empty
- * one in with the word it is in (`getWordRangeAtPosition`), so an empty range at
- * the start of a line would underline whatever word happens to be there and
- * point the reader at a line that is not at fault.  The range is therefore put
- * where no word encloses it: the problem is listed in the Problems pane and
- * nothing is underlined in the editor.  The top of the file is tried first, so
- * the entry sits as near the top as the file allows.
- */
-function noLineRange(document: vscode.TextDocument | undefined): vscode.Range {
-	if (!document) return new vscode.Range(0, 0, 0, 0);
-
-	const places: vscode.Position[] = [new vscode.Position(0, 0)];
-	// enough of the file to find a line that begins or ends between words, and
-	// bounded so that a file of unbroken words cannot make this walk all of it
-	const limit = Math.min(document.lineCount, 200);
-	for (let line = 0; line < limit; line++) {
-		const range = document.lineAt(line).range;
-		places.push(range.start, range.end);
-	}
-	places.push(document.positionAt(document.getText().length));
-
-	for (const place of places) {
-		if (!document.getWordRangeAtPosition(place)) return new vscode.Range(place, place);
-	}
-	return new vscode.Range(0, 0, 0, 0);
-}
-
-/**
- * A program that will not run, in the Problems pane.
- *
- * The reason the loader gives -- a library it cannot find, above all -- is not
- * something the program printed, and it is not tied to a source line: it belongs
- * to the file as a whole, and the Problems pane is where a reader looks for
- * something to act on.  An empty message is a launch that worked, and takes away
- * the problem a failed one left.
- *
- * It goes in the compiler's own collection, so a build clears it the way a build
- * clears compiler errors: a file that has just been built has what this build
- * said about it and nothing left over from an earlier run.
- */
-function reportProgramProblem(program: string, message: string): void {
-	const collection = compilerDiagnostics;
-	if (!collection) return;
-
-	const uri = vscode.Uri.file(program);
-	if (message === '') {
-		collection.delete(uri);
-		return;
-	}
-
-	const document = vscode.workspace.textDocuments.find((open) => open.uri.fsPath === program);
-	collection.set(uri, [new vscode.Diagnostic(lineRange(document, 0), message, vscode.DiagnosticSeverity.Error)]);
 }
 
 /**
@@ -1532,7 +1472,6 @@ function debugAdapter(): vscode.DebugAdapter {
 		showBuild: (target, command, output, note) =>
 			showBuildLog(target, command, output, note, dirname(target), hostPlatform()),
 		output: (_stream, text) => outputPanel.append(text),
-		problem: (program, message) => reportProgramProblem(program, message),
 		alert: (message, details) => void showLaunchAlert(message, details),
 	});
 
