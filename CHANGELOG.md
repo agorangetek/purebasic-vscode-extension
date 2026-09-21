@@ -4,6 +4,16 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.14] - 2026-09-21
+
+### Fixed
+
+- **A debug session prints the program's output and nothing else.** The adapter asks the debugger for
+  the variable dump, the procedure history and the file list as it goes, and every answer to those was
+  going into the debug console as though the program had printed it -- `On Line 32 (...) called:`,
+  `--> Work(...)`, `Main source variables:` and the rest, mixed in with the `Debug` output. Only what
+  arrives while the program is actually running is passed on as its output now.
+
 ## [0.2.13] - 2026-09-21
 
 ### Fixed

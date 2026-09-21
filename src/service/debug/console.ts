@@ -22,6 +22,16 @@ export interface ConsoleCallbacks {
 /** The prompt the console prints when it wants a command. */
 const PROMPT = 'DEBUGGER::';
 
+/**
+ * The commands after which the program is running.
+ *
+ * Only then is what arrives the program's own output.  Everything else the
+ * console prints is an answer to something this adapter asked -- the variable
+ * dump, the procedure history, the list of files -- and putting that in the
+ * debug console alongside the program's output would be burying it.
+ */
+const RUNNING = new Set(['run', 'step']);
+
 export class DebugConsole {
 	private pty: PtyProcess;
 	private callbacks: ConsoleCallbacks;
@@ -141,7 +151,9 @@ export class DebugConsole {
 
 	private forwardLine(line: string): void {
 		// the console echoes what is typed at it; that is not the program talking
-		if (this.pending && line.trim() === this.pending.command.trim()) return;
+		if (!this.pending || line.trim() === this.pending.command.trim()) return;
+		// and neither is an answer to a question this adapter asked
+		if (!RUNNING.has(this.pending.command.trim())) return;
 		for (const printed of parseProgramOutput(line)) this.callbacks.onOutput?.(printed.stream, printed.text);
 	}
 
