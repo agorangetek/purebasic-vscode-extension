@@ -625,7 +625,34 @@ async function compileToExecutable(): Promise<void> {
 }
 
 /**
- * `PureBasic: Run` -- build the file, and start it in a window of its own.
+ * `PureBasic: Run` -- under the debugger when there is something to stop at,
+ * and in a window of its own when there is not.
+ *
+ * A run under the debugger is a different thing: the program is held before its
+ * first line while breakpoints are set, it stops at them, and it costs the
+ * debugger's overhead all the while.  So it is only what the play button does
+ * when both of the conditions for it are met: the debugger switched on, which
+ * is the bug button in green, and at least one breakpoint in the gutter to stop
+ * at.  Otherwise the button does what it always did, which is faster.
+ */
+async function runOrDebug(): Promise<void> {
+	const document = await compilableDocument();
+	if (!document) return;
+
+	if (debuggingRequested()) {
+		await startDebugSession(document.uri.fsPath);
+		return;
+	}
+	await runInTerminal(document);
+}
+
+/** Whether a run should be a run under the debugger. */
+function debuggingRequested(): boolean {
+	return compilerSettings().debugger && vscode.debug.breakpoints.length > 0;
+}
+
+/**
+ * Build the file, and start it in a window of its own.
  *
  * The build comes first, so a file that does not compile starts nothing and has
  * its error underlined; the command that starts the program goes to the
@@ -634,10 +661,7 @@ async function compileToExecutable(): Promise<void> {
  * emulator on Linux, a console window on Windows -- and where it has none, it
  * runs in the build terminal rather than not at all.
  */
-async function runOrCompile(): Promise<void> {
-	const document = await compilableDocument();
-	if (!document) return;
-
+async function runInTerminal(document: vscode.TextDocument): Promise<void> {
 	const settings = compilerSettings();
 	const platform = hostPlatform();
 	const source = document.uri.fsPath;
@@ -801,7 +825,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	}
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('purebasic.run', () => runOrCompile()),
+		vscode.commands.registerCommand('purebasic.run', () => runOrDebug()),
 		vscode.commands.registerCommand('purebasic.compile', () => compileToExecutable()),
 		// Two commands, not one toggle: the title-bar button's icon belongs to
 		// the command, so turning it on and turning it off have to be separate
@@ -1363,7 +1387,25 @@ function newDebugConfiguration(program: string): vscode.DebugConfiguration {
 async function debugOpenFile(): Promise<void> {
 	const document = await compilableDocument();
 	if (!document) return;
-	await vscode.debug.startDebugging(undefined, newDebugConfiguration(document.uri.fsPath));
+	await startDebugSession(document.uri.fsPath);
+}
+
+/**
+ * Start a session for a file, if the debugger is switched on.
+ *
+ * The bug button in the title bar is the master switch for the whole
+ * debugger, not just for the `-d` in the build: with it off there is no
+ * debugger in the program to talk to, so a session is refused with a word
+ * about why rather than failing somewhere further in.
+ */
+async function startDebugSession(program: string): Promise<void> {
+	if (!compilerSettings().debugger) {
+		void vscode.window.showInformationMessage(
+			'PureBasic: the debugger is off. Turn it on with the bug button in the editor title bar.',
+		);
+		return;
+	}
+	await vscode.debug.startDebugging(undefined, newDebugConfiguration(program));
 }
 
 export function deactivate(): void {

@@ -224,9 +224,14 @@ export class PureBasicDebugSession {
 		};
 		this.options = options;
 
-		// the debugger is what is being asked for, whatever the setting says
-		const settings: CompilerSettings = { ...options.settings, debugger: true };
-		const build = await this.host.build(program, settings, options.target);
+		// without the debugger in the program there is nothing to talk to, and
+		// no breakpoint to stop at: a session for it is refused rather than
+		// started and left hanging
+		if (!options.settings.debugger) {
+			this.fail(request, 'the PureBasic debugger is off');
+			return;
+		}
+		const build = await this.host.build(program, options.settings, options.target);
 		if (!build.ok) {
 			this.host.showBuild(options.target, build.command, build.output, 'the build failed, so nothing was started');
 			this.fail(request, 'the build failed');

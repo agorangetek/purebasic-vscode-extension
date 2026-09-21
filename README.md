@@ -26,8 +26,10 @@ TextMate scopes, so your theme decides every colour — nothing is pinned.
 * **Smart Enter** — pressing Enter on a block opener closes the block and puts
   the caret in its body.
 * **Run** — builds the open file, then starts the program in a **window of its
-  own**. This is a plain run: breakpoints are not stopped at. Use **Debug**
-  (below) or F5 for that. The compiler talks in the editor's PureBasic terminal, where its
+  own**. With the debugger switched on (the bug button, green) and at least one
+  breakpoint in the gutter to stop at, it runs under the debugger instead, so it
+  stops at those breakpoints. With either of those missing it is a plain run,
+  which is faster. The compiler talks in the editor's PureBasic terminal, where its
   messages stay as a log, and the program opens in a Terminal window so that its
   output -- `Debug` output above all, which only exists when the debugger is on --
   is somewhere it can be read. The window stays open when the program ends, so

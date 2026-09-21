@@ -4,6 +4,20 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.7] - 2026-09-21
+
+### Changed
+
+- **Run uses the debugger when there is something to stop at**, which is both of these at once: the
+  debugger switched on -- the bug button in green -- and at least one breakpoint in the gutter.
+  Otherwise it does what it always did, a plain run in a window of its own without the debugger's
+  overhead. The Debug button is still there to start a session on its own say-so, and it is only
+  offered while the debugger is on.
+- **No more dropdown on the play button.** Run, Debug and Compile are plain title-bar buttons, so no
+  menu of debug configurations hangs off the play button any more.
+- Starting a session with the debugger switched off is refused with a word about why, rather than
+  begun and left with nothing to talk to.
+
 ## [0.2.6] - 2026-09-21
 
 ### Added
