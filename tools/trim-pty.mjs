@@ -18,7 +18,6 @@ const gone = [
 	'src',
 	'scripts',
 	'third_party',
-	'typings',
 ];
 
 for (const path of gone) rmSync(join(root, path), { recursive: true, force: true });

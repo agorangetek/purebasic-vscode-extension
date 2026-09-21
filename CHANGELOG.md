@@ -4,6 +4,28 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.5] - 2026-09-21
+
+### Added
+
+- **A debugger.** F5, or `PureBasic: Debug`, builds the file with the debugger in it and starts it
+  under PureBasic's own debugger engine -- the one the standalone debugger drives -- through a DAP
+  front-end in this extension: breakpoints in the gutter, Continue, Step In, Step Over and Step Out,
+  a call stack from the procedure history, and a variables view in the Debug console covering values,
+  structures with their members, and arrays, lists and maps fetched as they are opened. The program's
+  `Debug` output lands there too, and a runtime error stops the program on the line that caused it.
+  Step Over and Step Out are worked out from temporary breakpoints, the command-line debugger itself
+  stepping only a line at a time.
+- Launch configurations for the `purebasic` debugger type, so a `.vscode/launch.json` can name the
+  source, its working directory and its command line, with the compiler settings, the platform and
+  the build's destination filled in from the extension's own.
+
+### Changed
+
+- The extension carries `node-pty`, whose prebuilt binaries give the debugged program the terminal
+  its debugger insists on. Those are there for macOS and Windows; debugging on Linux waits for a
+  build of that library for the platform. Nothing else is affected by it.
+
 ## [0.2.4] - 2026-09-21
 
 ### Added

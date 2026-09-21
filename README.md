@@ -31,6 +31,13 @@ TextMate scopes, so your theme decides every colour — nothing is pinned.
   output -- `Debug` output above all, which only exists when the debugger is on --
   is somewhere it can be read. The window stays open when the program ends, so
   nothing scrolls away.
+* **Debug** — F5 (or `PureBasic: Debug`) builds the file with the debugger in it and runs it under
+  PureBasic's own debugger: breakpoints in the gutter, Continue, Step In, Step Over and Step Out, a
+  call stack from the procedure history, and variables -- values, structures with their members, and
+  arrays, lists and maps loaded as they are opened -- in the Debug console, where the program's
+  `Debug` output goes as well. A runtime error stops the program on the line that caused it.
+  The adapter is this extension's; the debugger doing the work is the one a `-d` build carries, which
+  is the same engine the standalone debugger drives.
 * **Compile errors in the editor** — the line the compiler stopped at is
   underlined under your cursor, with what it said about it, and is listed in the
   Problems panel. An error inside an included file is marked in that file.
@@ -61,3 +68,7 @@ PureBasic 6.x, with `pbcompiler` found in the PureBasic installation or on the
 PATH. macOS, Linux and Windows are all supported: the compiler switches, the
 places the compiler is looked for, and the window the program opens in are each
 chosen per platform.
+
+Debugging needs a terminal for the program being debugged, which the packaged `node-pty` provides:
+its prebuilt binaries are there for macOS and Windows. On Linux, debugging waits for a build of that
+library for the platform; compiling and running are unaffected.
