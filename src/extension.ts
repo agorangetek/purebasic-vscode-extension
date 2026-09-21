@@ -641,6 +641,10 @@ async function compileToExecutable(): Promise<void> {
  * faster.  With no breakpoints set there is simply nothing to stop at.
  */
 async function runOrDebug(): Promise<void> {
+	// every run starts with an empty debug console: the last one's output has
+	// been read by now, and mixing the two makes neither of them easier
+	clearDebugConsole();
+
 	const document = await compilableDocument();
 	if (!document) return;
 
@@ -661,6 +665,13 @@ async function runOrDebug(): Promise<void> {
 		return;
 	}
 	await runInPanel(document);
+}
+
+/** Empty VS Code's debug console, whatever it happens to be showing. */
+function clearDebugConsole(): void {
+	void vscode.commands
+		.executeCommand('workbench.debug.panel.action.clearReplAction')
+		.then(undefined, () => undefined);
 }
 
 /** Whether a run should be a run under the debugger: the debugger button decides. */
