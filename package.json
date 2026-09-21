@@ -2,11 +2,11 @@
 	"name": "purebasic",
 	"displayName": "PureBasic",
 	"description": "PureBasic language support for Visual Studio Code: code completion, hover, signature help and document outline.",
-	"version": "0.2.7",
+	"version": "0.2.8",
 	"publisher": "agorangetek",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.75.0",
+		"vscode": "^1.90.0",
 		"node": ">=18"
 	},
 	"categories": [
@@ -27,7 +27,8 @@
 	"activationEvents": [
 		"onLanguage:purebasic",
 		"onDebug",
-		"onDebugResolve:purebasic"
+		"onDebugResolve:purebasic",
+		"onView:purebasic.debugOutput"
 	],
 	"contributes": {
 		"languages": [
@@ -252,6 +253,12 @@
 				"title": "PureBasic: Compiler Settings",
 				"category": "PureBasic",
 				"icon": "$(settings-gear)"
+			},
+			{
+				"command": "purebasic.runInTerminal",
+				"title": "PureBasic: Run in a Terminal",
+				"category": "PureBasic",
+				"icon": "$(terminal)"
 			}
 		],
 		"keybindings": [
@@ -374,7 +381,25 @@
 					}
 				]
 			}
-		]
+		],
+		"viewsContainers": {
+			"auxiliarybar": [
+				{
+					"id": "purebasicDebug",
+					"title": "PureBasic Debug",
+					"icon": "resources/debugger-on-dark.svg"
+				}
+			]
+		},
+		"views": {
+			"purebasicDebug": [
+				{
+					"id": "purebasic.debugOutput",
+					"name": "Debug Output",
+					"type": "webview"
+				}
+			]
+		}
 	},
 	"scripts": {
 		"gen-data": "node tools/gen-data.mjs",

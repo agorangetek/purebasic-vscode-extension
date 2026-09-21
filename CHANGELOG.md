@@ -4,6 +4,22 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.2.8] - 2026-09-21
+
+### Added
+
+- **A Debug Output panel in the secondary side bar**, where the program's own output goes: `Debug`
+  statements, anything else the program prints, and -- for a run under the debugger -- what the
+  debugger has to say about it. It has Clear and Stop, and keeps the end of a long run.
+- `PureBasic: Run in a Terminal`, for a program that reads from the keyboard.
+
+### Changed
+
+- **Run no longer opens a Terminal window of its own.** The program is started by the extension with
+  its output going to that panel, which is what makes the panel possible; its own window, for a
+  windowed program, is unaffected. The compiler's messages still go to the editor's terminal.
+- The extension now asks for VS Code 1.90 or later, for the secondary side bar.
+
 ## [0.2.7] - 2026-09-21
 
 ### Changed

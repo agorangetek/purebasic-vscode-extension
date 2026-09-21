@@ -54,6 +54,8 @@ export interface DebugHost {
 	): Promise<{ ok: boolean; command: string; output: string }>;
 	/** Put a finished build in the terminal, where compiler messages belong. */
 	showBuild(target: string, command: string, output: string, note: string): void;
+	/** The program's own output, for the panel that shows it. */
+	output(stream: 'stdout' | 'stderr', text: string): void;
 }
 
 /** Where the debug session is, and what it runs. */
@@ -253,9 +255,7 @@ export class PureBasicDebugSession {
 		});
 
 		this.console = new DebugConsole(started, {
-			onOutput: (stream, text) => {
-				this.event('output', { category: stream, output: text });
-			},
+			onOutput: (stream, text) => this.report(stream, text),
 			onExit: () => {
 				this.finish();
 			},
@@ -351,7 +351,7 @@ export class PureBasicDebugSession {
 	/** Work out why the program is where it is, and tell the editor. */
 	private async stoppedAfter(reply: string, kind: Stop): Promise<void> {
 		const errors = parseErrors(reply);
-		for (const error of errors) this.event('output', { category: 'stderr', output: `${error.message}\n` });
+		for (const error of errors) this.report('stderr', `${error.message}\n`);
 
 		const location = (await this.currentLocation()) ?? { file: '', line: 0 };
 		await this.clearTemporary();
@@ -619,6 +619,12 @@ export class PureBasicDebugSession {
 	private say(message: DapMessage): void {
 		this.sequence += 1;
 		this.onMessage({ ...message, seq: this.sequence });
+	}
+
+	/** Something the program printed: to the editor, and to the panel. */
+	private report(stream: 'stdout' | 'stderr', text: string): void {
+		this.event('output', { category: stream, output: text });
+		this.host.output(stream, text);
 	}
 
 	private respond(request: DapMessage, body?: Record<string, unknown>): void {

@@ -4,6 +4,7 @@
  * All the language logic lives in ./service (editor-agnostic, plain objects);
  * this file only translates between those plain objects and the vscode API.
  */
+import { spawn } from 'node:child_process';
 import { realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import * as vscode from 'vscode';
@@ -60,6 +61,8 @@ let index: PbIndex;
 let output: vscode.OutputChannel;
 /** The lines the last build could not compile, for the editor to underline. */
 let compilerDiagnostics: vscode.DiagnosticCollection | undefined;
+/** Where the program's own output is shown. */
+let outputPanel: DebugOutputPanel;
 
 function config() {
 	const c = vscode.workspace.getConfiguration('purebasic');
@@ -643,7 +646,7 @@ async function runOrDebug(): Promise<void> {
 		await startDebugSession(document.uri.fsPath);
 		return;
 	}
-	await runInTerminal(document);
+	await runInPanel(document);
 }
 
 /** Whether a run should be a run under the debugger. */
@@ -660,6 +663,40 @@ function debuggingRequested(): boolean {
  * offer, the program opens in it -- a Terminal window on macOS, a terminal
  * emulator on Linux, a console window on Windows -- and where it has none, it
  * runs in the build terminal rather than not at all.
+ */
+async function runInPanel(document: vscode.TextDocument): Promise<void> {
+	const settings = compilerSettings();
+	const platform = hostPlatform();
+	const source = document.uri.fsPath;
+	const cwd = dirname(source);
+	const target = temporaryOutputFor(source, platform);
+	const build = await buildFile(document, settings, platform, target);
+
+	if (!build.ok) {
+		showBuildLog(target, build.command, build.output, 'nothing was started: the build failed', cwd, platform);
+		void vscode.window.setStatusBarMessage('PureBasic: the build failed, so nothing was started', 5000);
+		return;
+	}
+
+	// the program is started here rather than in a terminal so that what it
+	// prints -- `Debug` output above all -- has somewhere to be shown
+	const program = spawn(target, splitCommandLine(settings.commandLine), { cwd });
+	trace(`compiler: running ${target}`);
+	outputPanel.begin(basename(source), () => program.kill());
+	program.stdout?.on('data', (chunk: Buffer) => outputPanel.append(chunk.toString()));
+	program.stderr?.on('data', (chunk: Buffer) => outputPanel.append(chunk.toString()));
+	program.on('error', (error) => outputPanel.finish(`[PureBasic] the program could not be started: ${String(error)}`));
+	program.on('exit', (code, signal) =>
+		outputPanel.finish(`[PureBasic] the program ${signal ? `was stopped (${signal})` : `exited with ${code}`}`),
+	);
+}
+
+/**
+ * The same run, in a terminal of its own.
+ *
+ * A program that reads from the keyboard needs a terminal, and so does one whose
+ * output is wanted beside the compiler's; the play button no longer does this,
+ * but the command is here for when it is what is wanted.
  */
 async function runInTerminal(document: vscode.TextDocument): Promise<void> {
 	const settings = compilerSettings();
@@ -684,6 +721,13 @@ async function runInTerminal(document: vscode.TextDocument): Promise<void> {
 	showBuildLog(target, build.command, build.output, 'starting the program', cwd, platform);
 	const terminal = terminalFor('PureBasic', cwd);
 	terminal.sendText(launch ?? shellCommand([target, ...args], platform), true);
+}
+
+/** `PureBasic: Run in a Terminal` -- for a program that wants a keyboard. */
+async function runInTerminalCommand(): Promise<void> {
+	const document = await compilableDocument();
+	if (!document) return;
+	await runInTerminal(document);
 }
 
 /**
@@ -811,6 +855,12 @@ async function chooseCompilerSettings(): Promise<void> {
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	output = vscode.window.createOutputChannel('PureBasic');
+	outputPanel = new DebugOutputPanel();
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(DebugOutputPanel.viewType, outputPanel, {
+			webviewOptions: { retainContextWhenHidden: true },
+		}),
+	);
 	index = new PbIndex(config().maxFiles);
 	compilerDiagnostics = vscode.languages.createDiagnosticCollection('purebasic');
 	context.subscriptions.push(output, compilerDiagnostics);
@@ -841,6 +891,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}),
 		vscode.debug.registerDebugConfigurationProvider('purebasic', new DebugConfigurations()),
 		vscode.commands.registerCommand('purebasic.debug', () => debugOpenFile()),
+		vscode.commands.registerCommand('purebasic.runInTerminal', () => runInTerminalCommand()),
 		vscode.commands.registerCommand('purebasic.refreshKeywords', () => refreshKeywords(context, true)),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration('purebasic.keywords.path')) void refreshKeywords(context, true);
@@ -1304,6 +1355,7 @@ function debugAdapter(): vscode.DebugAdapter {
 		build: (source, settings, target) => buildForDebug(source, settings, target),
 		showBuild: (target, command, output, note) =>
 			showBuildLog(target, command, output, note, dirname(target), hostPlatform()),
+		output: (_stream, text) => outputPanel.append(text),
 	});
 
 	const messages = new vscode.EventEmitter<vscode.DebugProtocolMessage>();
@@ -1406,6 +1458,126 @@ async function startDebugSession(program: string): Promise<void> {
 		return;
 	}
 	await vscode.debug.startDebugging(undefined, newDebugConfiguration(program));
+}
+
+
+/*
+ * The debug output panel.
+ *
+ * What the program itself prints -- `Debug` statements above all, which are
+ * what a debugger is for -- goes to a view of its own in the secondary side
+ * bar, beside the code rather than over it.  The compiler's messages stay in
+ * the editor's terminal: they are the log of a build, not something the
+ * program said.
+ *
+ * A run under the debugger fills this panel from the debugger's own output, and
+ * a plain run fills it by being started here rather than in a terminal, which
+ * is what makes both of them readable in one place.  A program that reads from
+ * the keyboard still wants a terminal, and `PureBasic: Run in a Terminal` is
+ * there for it.
+ */
+class DebugOutputPanel implements vscode.WebviewViewProvider {
+	static readonly viewType = 'purebasic.debugOutput';
+	/** The lines shown, replayed when the view is opened again. */
+	private lines: string[] = [];
+	private view: vscode.WebviewView | undefined;
+	/** How to stop what is running, while something is. */
+	private stopping: (() => void) | undefined;
+
+	resolveWebviewView(view: vscode.WebviewView): void {
+		this.view = view;
+		view.webview.options = { enableScripts: true };
+		view.webview.html = outputHtml();
+		view.webview.onDidReceiveMessage((message: { type?: string }) => {
+			if (message.type === 'stop') this.stop();
+			if (message.type === 'clear') this.clear();
+		});
+		view.onDidDispose(() => {
+			this.view = undefined;
+		});
+		this.post({ type: 'reset' });
+		for (const line of this.lines) this.post({ type: 'append', text: line });
+	}
+
+	/** A run is starting: the panel is emptied, named, and shown. */
+	begin(name: string, stopping: () => void): void {
+		this.stopping = stopping;
+		this.lines = [];
+		this.post({ type: 'reset', title: name });
+		// the view's own command rather than its container's: a view that is the
+		// only one of its container has no container command to reveal
+		void vscode.commands.executeCommand(`${DebugOutputPanel.viewType}.focus`);
+	}
+
+	append(text: string): void {
+		this.write(text);
+		this.post({ type: 'append', text });
+	}
+
+	/** The program is gone, and how it went. */
+	finish(note: string): void {
+		this.stopping = undefined;
+		this.write(`${note}\n`);
+		this.post({ type: 'note', text: note });
+	}
+
+	clear(): void {
+		this.lines = [];
+		this.post({ type: 'reset' });
+	}
+
+	/** Stop what is running, if anything is. */
+	private stop(): void {
+		const stopping = this.stopping;
+		this.stopping = undefined;
+		stopping?.();
+	}
+
+	private write(text: string): void {
+		this.lines.push(text);
+		// a long-running program prints a great deal: the panel keeps the end
+		if (this.lines.length > 4000) this.lines.splice(0, this.lines.length - 4000);
+	}
+
+	private post(message: Record<string, unknown>): void {
+		void this.view?.webview.postMessage(message);
+	}
+}
+
+/** The panel's page: the output, and the two buttons. */
+function outputHtml(): string {
+	return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+	body { margin: 0; color: var(--vscode-foreground); font-family: var(--vscode-editor-font-family, monospace); font-size: var(--vscode-editor-font-size, 12px); }
+	#bar { position: sticky; top: 0; display: flex; align-items: center; gap: 6px; padding: 4px 6px; background: var(--vscode-sideBar-background); border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
+	#title { flex: 1; opacity: .8; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+	button { border: none; padding: 2px 8px; cursor: pointer; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+	pre { margin: 0; padding: 6px; white-space: pre-wrap; word-break: break-word; }
+</style></head><body>
+	<div id="bar"><span id="title"></span><button id="clear">Clear</button><button id="stop">Stop</button></div>
+	<pre id="out"></pre>
+	<script>
+		const api = acquireVsCodeApi();
+		const out = document.getElementById('out');
+		const title = document.getElementById('title');
+		const toBottom = () => window.scrollTo(0, document.body.scrollHeight);
+		document.getElementById('clear').addEventListener('click', () => api.postMessage({ type: 'clear' }));
+		document.getElementById('stop').addEventListener('click', () => api.postMessage({ type: 'stop' }));
+		window.addEventListener('message', (event) => {
+			const message = event.data;
+			if (message.type === 'reset') {
+				out.textContent = '';
+				if (message.title !== undefined) title.textContent = message.title;
+			} else if (message.type === 'append') {
+				out.textContent += message.text;
+				toBottom();
+			} else if (message.type === 'note') {
+				out.textContent += (out.textContent ? '\n' : '') + message.text + '\n';
+				toBottom();
+			}
+		});
+	</script>
+</body></html>`;
 }
 
 export function deactivate(): void {

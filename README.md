@@ -25,11 +25,14 @@ TextMate scopes, so your theme decides every colour — nothing is pinned.
   written.
 * **Smart Enter** — pressing Enter on a block opener closes the block and puts
   the caret in its body.
-* **Run** — builds the open file, then starts the program in a **window of its
-  own**. With the debugger switched on (the bug button, green) and at least one
-  breakpoint in the gutter to stop at, it runs under the debugger instead, so it
-  stops at those breakpoints. With either of those missing it is a plain run,
-  which is faster. The compiler talks in the editor's PureBasic terminal, where its
+* **Run** — builds the open file, then starts it, with everything it prints --
+  `Debug` output above all -- going to the **Debug Output** panel in the
+  secondary side bar, the right-hand one, where it can be read beside the code
+  and stays put. With the debugger switched on (the bug button, green) and at
+  least one breakpoint in the gutter to stop at, it runs under the debugger
+  instead, so it stops at those breakpoints. With either of those missing it is
+  a plain run, which is faster. A program that reads from the keyboard wants
+  `PureBasic: Run in a Terminal`, which runs it in a terminal instead. The compiler talks in the editor's PureBasic terminal, where its
   messages stay as a log, and the program opens in a Terminal window so that its
   output -- `Debug` output above all, which only exists when the debugger is on --
   is somewhere it can be read. The window stays open when the program ends, so
@@ -38,7 +41,8 @@ TextMate scopes, so your theme decides every colour — nothing is pinned.
   PureBasic's own debugger: breakpoints in the gutter, Continue, Step In, Step Over and Step Out, a
   call stack from the procedure history, and variables -- values, structures with their members, and
   arrays, lists and maps loaded as they are opened -- in the Debug console, where the program's
-  `Debug` output goes as well. A runtime error stops the program on the line that caused it.
+  `Debug` output goes as well -- and to the Debug Output panel, with the rest of
+  what the program prints. A runtime error stops the program on the line that caused it.
   The adapter is this extension's; the debugger doing the work is the one a `-d` build carries, which
   is the same engine the standalone debugger drives.
 * **Compile errors in the editor** — the line the compiler stopped at is
