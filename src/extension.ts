@@ -641,9 +641,11 @@ async function compileToExecutable(): Promise<void> {
  * faster.  With no breakpoints set there is simply nothing to stop at.
  */
 async function runOrDebug(): Promise<void> {
-	// every run starts with an empty debug console: the last one's output has
-	// been read by now, and mixing the two makes neither of them easier
+	// every run starts with an empty debug console and an empty build terminal:
+	// the last one's output has been read by now, and mixing the two makes
+	// neither of them easier
 	clearDebugConsole();
+	clearCompilerTerminal();
 
 	const document = await compilableDocument();
 	if (!document) return;
@@ -671,6 +673,22 @@ async function runOrDebug(): Promise<void> {
 function clearDebugConsole(): void {
 	void vscode.commands
 		.executeCommand('workbench.debug.panel.action.clearReplAction')
+		.then(undefined, () => undefined);
+}
+
+/**
+ * Empty the terminal the compiler writes in.
+ *
+ * It is this extension's own terminal, so it is shown first -- without taking
+ * the focus -- and then cleared; when there is none yet there is nothing to
+ * clear, which is not a failure.
+ */
+function clearCompilerTerminal(): void {
+	const terminal = terminals.get('PureBasic')?.terminal;
+	if (!terminal) return;
+	terminal.show(true);
+	void vscode.commands
+		.executeCommand('workbench.action.terminal.clear')
 		.then(undefined, () => undefined);
 }
 

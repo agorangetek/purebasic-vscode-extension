@@ -4,6 +4,15 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.2] - 2026-09-21
+
+### Added
+
+- **The play button empties the compiler's terminal too**, along with the debug console. The build log of
+  the last run has been read by then, and a terminal holding several runs' worth of it is harder to read
+  than an empty one. The terminal is only cleared when it exists, so the first run of a session has
+  nothing to do.
+
 ## [1.0.1] - 2026-09-21
 
 ### Added
