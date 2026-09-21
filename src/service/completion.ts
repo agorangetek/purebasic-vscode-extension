@@ -46,6 +46,7 @@ function symbolKindToCompletion(kind: PbSymbol['kind']): PbCompletionKind {
 		case 'procedure':
 		case 'declare':
 		case 'prototype':
+		case 'import':
 			return 'function';
 		case 'structure':
 		case 'interface':
@@ -67,8 +68,13 @@ function symbolKindToCompletion(kind: PbSymbol['kind']): PbCompletionKind {
 	}
 }
 
+/** The kinds that name a procedure, and so take a call's parentheses. */
+function isCallableKind(kind: PbSymbol['kind']): boolean {
+	return kind === 'procedure' || kind === 'declare' || kind === 'prototype' || kind === 'import';
+}
+
 function symbolDetail(symbol: PbSymbol): string {
-	if (symbol.kind === 'procedure' || symbol.kind === 'declare' || symbol.kind === 'prototype') {
+	if (isCallableKind(symbol.kind)) {
 		const suffix = symbol.returns ? `.${symbol.returns}` : '';
 		return `${symbol.kind} ${symbol.name}(${symbol.params ?? ''})${suffix}`;
 	}
@@ -102,8 +108,7 @@ export function symbolToCompletionItem(
 	options: SymbolItemOptions = {},
 ): PbCompletionItem {
 	const { snippet = false, group = '', labelDescription, address = false } = options;
-	const isCallable =
-		symbol.kind === 'procedure' || symbol.kind === 'declare' || symbol.kind === 'prototype';
+	const isCallable = isCallableKind(symbol.kind);
 	const params = parameterNames(symbol.params);
 
 	let insertText = symbol.name;
@@ -347,8 +352,8 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 	 * *with* a prototype type is still a variable, and is offered.
 	 */
 	const SIGIL_TARGETS: Record<string, readonly PbSymbolKind[]> = {
-		'@': ['procedure', 'declare', 'variable', 'list', 'map', 'array'],
-		'*': ['procedure', 'declare', 'variable', 'list', 'map', 'array'],
+		'@': ['procedure', 'declare', 'import', 'variable', 'list', 'map', 'array'],
+		'*': ['procedure', 'declare', 'import', 'variable', 'list', 'map', 'array'],
 		'?': ['label'],
 	};
 	const targets = sigil === undefined ? undefined : SIGIL_TARGETS[sigil];

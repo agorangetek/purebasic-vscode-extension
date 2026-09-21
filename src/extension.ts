@@ -188,6 +188,7 @@ function toSymbolKind(kind: PbSymbol['kind']): vscode.SymbolKind {
 		case 'procedure':
 		case 'declare':
 		case 'prototype':
+		case 'import':
 		case 'macro':
 			return vscode.SymbolKind.Function;
 		case 'structure':

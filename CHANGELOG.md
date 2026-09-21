@@ -4,6 +4,25 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.8] - 2026-09-21
+
+### Fixed
+
+- **A function declared in an `Import` or `ImportC` body is offered by
+  completion, hover, signature help and the outline.** The body names the library
+  once, on the `Import` line, and then declares the library's contents as bare
+  names -- `resonance_new.i(channels.l, sample_rate.f)`, `resonance_free(*r)` --
+  so nothing in the scanner recognised the line: the function was missing from
+  completion and its parameters from signature help, while a `Declare` or a
+  `Procedure` beside it was listed. Every declaration in the body is now read as
+  what it is -- a name with a parameter list is an imported function, a name
+  without one an imported variable -- with the parameter list and the `.type`
+  return type read off the line, so the completion detail and the signature label
+  show the call the compiler checks. The optional `As "SymbolName"` is recognised
+  and dropped, because it names the symbol inside the library and not the name
+  the source uses, and the keywords that can sit between declarations
+  (`CompilerIf (...)` among them) are not taken for names.
+
 ## [1.0.7] - 2026-09-21
 
 ### Changed

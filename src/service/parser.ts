@@ -12,6 +12,7 @@
  * suffixes, `\` for member access, 20-odd folding blocks, and `;` as the only
  * comment.  Those differences are the whole of this file.
  */
+import { canonicalKeyword } from './builtins.ts';
 import type { PbDocument, PbPosition, PbSymbol, PbSymbolKind } from './types.ts';
 
 /** The blocks whose bodies this scanner tracks. */
@@ -243,6 +244,21 @@ const PROC_RE =
 const OPEN_RE =
 	/^\s*(structureunion|structure|interface|declaremodule|module|macro|datasection|importc|import|enumerationbinary|enumeration)\b\s*(?:\.([A-Za-z_]\w*))?\s*([A-Za-z_]\w*)?/i;
 
+/*
+ * One declaration inside an `Import`/`ImportC` body.
+ *
+ * The body names the library once, on the `Import` line, and then declares its
+ * contents as bare names, so the shape of the line is all there is to go on: a
+ * name, an optional type, an optional parameter list, and an optional
+ * `As "SymbolName"` naming the symbol inside the library -- which is not the
+ * name the source uses, so it is dropped here.  A declaration with a parameter
+ * list is a function; one without is an imported variable.  The `As` clause
+ * fixes the quoted symbol, so this is matched against the source line: masking
+ * blanks the quotes out and the clause would no longer be recognised.
+ */
+const IMPORT_DECL_RE =
+	/^\s*(\*?[A-Za-z_]\w*\$?)(?:\s*\.\s*([A-Za-z_]\w*))?\s*(\(.*\))?\s*(?:As\s+"[^"]*")?\s*(?:;.*)?$/i;
+
 const CLOSE_RE = /^\s*(endprocedure|endstructureunion|endstructure|endinterface|enddeclaremodule|endmodule|endmacro|enddatasection|endimport|endenumeration)\b/i;
 
 // matched against the masked text (where the quoted path is blank), so the
@@ -450,6 +466,31 @@ export function parseDocument(uri: string, text: string): PbDocument {
 				stack.push({ kind, name: kind === 'structureunion' ? scopeName : name, symbol });
 			}
 			continue;
+		}
+
+		/*
+		 * An Import/ImportC body declares the library's contents as bare names,
+		 * which is why no rule above has claimed the line.  A reserved word here
+		 * is a directive sitting between declarations (`CompilerIf (...)`), never a
+		 * name being declared, and is left to the rules below.
+		 */
+		if (stack[stack.length - 1]?.kind === 'import') {
+			const imported = IMPORT_DECL_RE.exec(source);
+			if (imported && canonicalKeyword(imported[1]!) === undefined) {
+				const name = imported[1]!;
+				const pointer = name.startsWith('*') || undefined;
+				if (imported[3] !== undefined) {
+					// a parameter list makes it a function
+					add(name, 'import', i, source, {
+						params: paramListOf(source),
+						returns: imported[2],
+						pointer,
+					});
+				} else {
+					add(name, 'variable', i, source, { type: imported[2], pointer });
+				}
+				continue;
+			}
 		}
 
 		// enumeration members are module-level constants

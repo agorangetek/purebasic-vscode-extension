@@ -14,6 +14,8 @@ export type PbSymbolKind =
 	| 'procedure'
 	| 'declare'
 	| 'prototype'
+	/** A function declared in an `Import`/`ImportC` body. */
+	| 'import'
 	| 'structure'
 	| 'interface'
 	| 'module'
