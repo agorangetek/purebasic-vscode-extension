@@ -4,6 +4,20 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.4] - 2026-09-21
+
+### Fixed
+
+- **A function imported with a return type is coloured as a function.** An
+  `Import` or `ImportC` body declares each function as a bare name, its return
+  type and its parameters -- `resonance_new.i(channels.l, sample_rate.f)` -- with
+  no `Declare` in front of it, and the rule that colours a call knew only a name
+  followed straight by its parenthesis. The name of a declaration written that
+  way kept the colour of ordinary text while the rest of its block was coloured,
+  so an imported function read as a variable. The Import body is now the block
+  that says a line declares a function, and the declared name is coloured the way
+  `DeclareDLL test.i(a.l)` already colours its own.
+
 ## [1.0.3] - 2026-09-21
 
 ### Fixed

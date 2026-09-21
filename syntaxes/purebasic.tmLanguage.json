@@ -21,6 +21,9 @@
 			"include": "#numbers"
 		},
 		{
+			"include": "#imports"
+		},
+		{
 			"include": "#structures"
 		},
 		{
@@ -110,6 +113,85 @@
 					"match": "(?<![A-Za-z0-9_])\\d+(?:e[+-]?\\d+)?(?![A-Za-z0-9_])"
 				}
 			]
+		},
+		"imports": {
+			"begin": "(?i)\\b(ImportC?)\\b",
+			"beginCaptures": {
+				"1": {
+					"name": "keyword.other.preprocessor.purebasic"
+				}
+			},
+			"end": "(?i)\\b(EndImport)\\b",
+			"endCaptures": {
+				"1": {
+					"name": "keyword.other.preprocessor.purebasic"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#imported-name"
+				},
+				{
+					"include": "#asm"
+				},
+				{
+					"include": "#comments"
+				},
+				{
+					"include": "#strings"
+				},
+				{
+					"include": "#numbers"
+				},
+				{
+					"include": "#structures"
+				},
+				{
+					"include": "#declarations"
+				},
+				{
+					"include": "#builtins"
+				},
+				{
+					"include": "#members"
+				},
+				{
+					"include": "#declared-calls"
+				},
+				{
+					"include": "#labels"
+				},
+				{
+					"include": "#specials"
+				},
+				{
+					"include": "#statements"
+				},
+				{
+					"include": "#operators"
+				},
+				{
+					"include": "#constants"
+				},
+				{
+					"include": "#keywords"
+				},
+				{
+					"include": "#type-suffix"
+				},
+				{
+					"include": "#identifiers"
+				}
+			]
+		},
+		"imported-name": {
+			"comment": "One imported function: the name alone is scoped, so the return type keeps the normal text that `DeclareDLL test.i(a.l)` gives it.  The name is captured rather than matched whole because the line it starts may be indented, and that indentation is not part of the name.",
+			"match": "^[ \\t]*([A-Za-z_]\\w*)(?=\\s*(?:\\.[A-Za-z_]\\w*)?\\s*\\()",
+			"captures": {
+				"1": {
+					"name": "entity.name.function.purebasic"
+				}
+			}
 		},
 		"structures": {
 			"begin": "(?i)\\b(StructureUnion|Structure|Interface)\\b(?:\\s*\\.\\s*(?:(?i:(?:[bawculifqds]|p-(?:ascii|unicode|bstr|variant|utf8)))(?![A-Za-z0-9_])|([A-Za-z_]\\w*)))?\\s*(?:[A-Za-z_]\\w*)?",

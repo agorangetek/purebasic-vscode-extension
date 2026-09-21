@@ -132,6 +132,30 @@ for (const item of data.items) {
 const BUILTIN_TYPE = '(?i:(?:[bawculifqds]|p-(?:ascii|unicode|bstr|variant|utf8)))(?![A-Za-z0-9_])';
 const TYPE_NAME = '([A-Za-z_]\\w*)';
 
+/*
+ * The rules that are tried at every position, in the order that decides a tie.
+ * The Import block below replays them, so that a line inside an Import body
+ * keeps every colour it would have outside one; the block only adds a rule of
+ * its own, it does not take anything away.
+ */
+const RULES = [
+	{ include: '#structures' },
+	{ include: '#declarations' },
+	{ include: '#builtins' },
+	{ include: '#members' },
+	{ include: '#declared-calls' },
+	{ include: '#labels' },
+	{ include: '#specials' },
+	{ include: '#statements' },
+	{ include: '#operators' },
+	{ include: '#constants' },
+	{ include: '#keywords' },
+	{ include: '#type-suffix' },
+	// last, so it only catches what nothing else claimed: a plain identifier,
+	// which the IDE colours like the code it sits in rather than as text
+	{ include: '#identifiers' },
+];
+
 export const grammar = {
 	$schema: 'https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json',
 	name: 'PureBasic',
@@ -142,21 +166,10 @@ export const grammar = {
 		{ include: '#comments' },
 		{ include: '#strings' },
 		{ include: '#numbers' },
-		{ include: '#structures' },
-		{ include: '#declarations' },
-		{ include: '#builtins' },
-		{ include: '#members' },
-		{ include: '#declared-calls' },
-		{ include: '#labels' },
-		{ include: '#specials' },
-		{ include: '#statements' },
-		{ include: '#operators' },
-		{ include: '#constants' },
-		{ include: '#keywords' },
-		{ include: '#type-suffix' },
-		// last, so it only catches what nothing else claimed: a plain identifier,
-		// which the IDE colours like the code it sits in rather than as text
-		{ include: '#identifiers' },
+		// before #keywords, which also knows `Import`: whichever comes first owns
+		// the word, and the block has to be the one that opens
+		{ include: '#imports' },
+		...RULES,
 	],
 	repository: {
 		asm: {
@@ -203,6 +216,40 @@ export const grammar = {
 					match: '(?<![A-Za-z0-9_])\\d+(?:e[+-]?\\d+)?(?![A-Za-z0-9_])',
 				},
 			],
+		},
+		/*
+		 * The body of an Import/ImportC is a block, not a flat match, for the same
+		 * reason a structure body is: outside it `name.Type(` is ambiguous -- it is
+		 * a declaration (`Dim arr.i(10)`, `Define x.i`) or a member access
+		 * (`foo.Bar(2)`) and the IDE paints those as a name and a structure, not as
+		 * a call.  Only the block says "this line declares a function", because an
+		 * imported function has no Declare keyword to key off: it is written as a
+		 * bare name, its return type, and its parameters, which is what
+		 * `resonance_new.i(channels.l, sample_rate.f)` is.  The IDE colours that
+		 * name the way it colours a procedure, so that is what it gets here.
+		 */
+		imports: {
+			begin: '(?i)\\b(ImportC?)\\b',
+			beginCaptures: { 1: { name: 'keyword.other.preprocessor.purebasic' } },
+			end: '(?i)\\b(EndImport)\\b',
+			endCaptures: { 1: { name: 'keyword.other.preprocessor.purebasic' } },
+			patterns: [
+				// first, so it wins the tie against the `#identifiers` rule that
+				// would otherwise leave the name unscoped, and against a library
+				// command of the same name further down the list
+				{ include: '#imported-name' },
+				{ include: '#asm' },
+				{ include: '#comments' },
+				{ include: '#strings' },
+				{ include: '#numbers' },
+				...RULES,
+			],
+		},
+		'imported-name': {
+			comment:
+				'One imported function: the name alone is scoped, so the return type keeps the normal text that `DeclareDLL test.i(a.l)` gives it.  The name is captured rather than matched whole because the line it starts may be indented, and that indentation is not part of the name.',
+			match: '^[ \\t]*([A-Za-z_]\\w*)(?=\\s*(?:\\.[A-Za-z_]\\w*)?\\s*\\()',
+			captures: { 1: { name: 'entity.name.function.purebasic' } },
 		},
 		/*
 		 * The body of a Structure, Interface or StructureUnion is a block, not a
