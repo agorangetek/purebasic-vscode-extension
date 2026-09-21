@@ -4,7 +4,10 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [0.2.14] - 2026-09-21
+## [1.0.0] - 2026-09-21
+
+The debugger, the run and compile buttons, the output panel and the
+editor's own diagnostics, at the point where they do what they say.
 
 ### Fixed
 
@@ -13,10 +16,6 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
   going into the debug console as though the program had printed it -- `On Line 32 (...) called:`,
   `--> Work(...)`, `Main source variables:` and the rest, mixed in with the `Debug` output. Only what
   arrives while the program is actually running is passed on as its output now.
-
-## [0.2.13] - 2026-09-21
-
-### Fixed
 
 - **A breakpoint on the first line now stops the program.** The debugger halts before the first line --
   that is what makes breakpoints possible at all -- and continuing from a line never stops on that same
