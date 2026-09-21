@@ -59,6 +59,8 @@ const LANGUAGE = 'purebasic';
 
 let index: PbIndex;
 let output: vscode.OutputChannel;
+/** The build that has just happened, so a debug session does not repeat it. */
+let lastBuild: { source: string; target: string; at: number; ok: boolean; command: string; output: string } | undefined;
 /** The lines the last build could not compile, for the editor to underline. */
 let compilerDiagnostics: vscode.DiagnosticCollection | undefined;
 /** Where the program's own output is shown. */
@@ -571,7 +573,9 @@ async function buildFile(
 	building.dispose();
 
 	reportCompilerErrors(document, result.output);
-	return { command, output: result.output, ok: result.code === 0 };
+	const outcome = { command, output: result.output, ok: result.code === 0 };
+	lastBuild = { source, target, at: Date.now(), ...outcome };
+	return outcome;
 }
 
 /**
@@ -643,6 +647,18 @@ async function runOrDebug(): Promise<void> {
 	if (!document) return;
 
 	if (debuggingRequested()) {
+		// built here, before any session exists: a build that fails is the
+		// editor's business -- the line underlined, the compiler's log in the
+		// terminal -- and a session that failed to launch would say so in a box
+		const settings = compilerSettings();
+		const platform = hostPlatform();
+		const target = debugOutputFor(document.uri.fsPath, platform);
+		const build = await buildFile(document, settings, platform, target);
+		if (!build.ok) {
+			showBuildLog(target, build.command, build.output, 'nothing was started: the build failed', dirname(document.uri.fsPath), platform);
+			void vscode.window.setStatusBarMessage('PureBasic: the build failed, so nothing was started', 5000);
+			return;
+		}
 		await startDebugSession(document.uri.fsPath);
 		return;
 	}
@@ -950,18 +966,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
 		}),
 	);
 
-	if (vscode.window.activeTextEditor?.document.languageId === LANGUAGE) outputPanel.reveal();
+	/*
+	 * The output panel opens itself for a PureBasic file.
+	 *
+	 * Asked of the open documents rather than of the event that has just fired,
+	 * because a file being made is not a PureBasic file when it appears: an
+	 * unsaved one has no language until it is given a name, so the event that
+	 * matters is whichever comes next, and the answer is the same every time.
+	 */
+	const revealForPureBasic = () => {
+		if (vscode.workspace.textDocuments.some((open) => open.languageId === LANGUAGE)) outputPanel.reveal();
+	};
+	context.subscriptions.push(
+		vscode.workspace.onDidOpenTextDocument(() => revealForPureBasic()),
+		vscode.workspace.onDidSaveTextDocument(() => revealForPureBasic()),
+		vscode.workspace.onDidChangeTextDocument(() => revealForPureBasic()),
+		vscode.window.onDidChangeActiveTextEditor(() => revealForPureBasic()),
+	);
+	revealForPureBasic();
 
 	// keep the index in sync with edits
 	context.subscriptions.push(
 		vscode.workspace.onDidOpenTextDocument((doc) => {
-			if (doc.languageId !== LANGUAGE) return;
-			indexOf(doc);
-			// a PureBasic file, opened or newly made: its output has a home
-			outputPanel.reveal();
-		}),
-		vscode.window.onDidChangeActiveTextEditor((editor) => {
-			if (editor?.document.languageId === LANGUAGE) outputPanel.reveal();
+			if (doc.languageId === LANGUAGE) indexOf(doc);
 		}),
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			if (event.document.languageId === LANGUAGE) indexOf(event.document);
@@ -1387,6 +1414,13 @@ async function buildForDebug(
 	settings: CompilerSettings,
 	target: string,
 ): Promise<{ ok: boolean; command: string; output: string }> {
+	// a session started by the play button is started a moment after that button
+	// built the very same executable: building it again would only be slower
+	if (lastBuild && lastBuild.source === source && lastBuild.target === target && Date.now() - lastBuild.at < 15000) {
+		const { ok, command, output } = lastBuild;
+		return { ok, command, output };
+	}
+
 	const platform = hostPlatform();
 	const compiler = resolveCompiler(settings.path, platform);
 	const args = [...compilerArguments(settings, target, platform), source];
@@ -1462,8 +1496,9 @@ async function debugOpenFile(): Promise<void> {
  */
 async function startDebugSession(program: string): Promise<void> {
 	if (!compilerSettings().debugger) {
-		void vscode.window.showInformationMessage(
-			'PureBasic: the debugger is off. Turn it on with the bug button in the editor title bar.',
+		void vscode.window.setStatusBarMessage(
+			'PureBasic: the debugger is off -- turn it on with the bug button in the title bar',
+			5000,
 		);
 		return;
 	}
