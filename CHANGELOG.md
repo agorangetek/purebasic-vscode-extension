@@ -4,6 +4,30 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.9] - 2026-09-22
+
+### Fixed
+
+- **A `.pbi` is indexed whether or not its tab is open.** The workspace scan asked
+  `workspace.findFiles` for `**/*.{pb,pbi}`, which answers with the editor's
+  search view of the workspace and not with the files on disk: a folder hidden by
+  `files.exclude` or `search.exclude`, a path past the search's result cap, and a
+  folder reached through a link were all absent from that answer, so an
+  `IncludeFile` chain running through one of them resolved to nothing and the
+  file it named offered no symbols. The workspace folders are now read directly,
+  the root and every subdirectory below it, and a file the scan still cannot see
+  -- a shared `.pbi` kept outside the folders -- is read by the include walk.
+- **Closing a `.pbi` no longer takes its symbols out of completion.** The index
+  dropped a file the moment its tab closed, so a file that includes it lost those
+  symbols until the tab was opened again. A closed file is now removed and read
+  back from disk, so what it contributes is its saved text and not a buffer that
+  is gone.
+- **The include walk runs when a file is opened, saved or closed, not once at
+  startup.** A main file opened after activation never had its chain read, and a
+  file whose `IncludePath` was declared by a file read later in the walk was
+  never found through it: the search paths are now collected again as the walk
+  reads a document that adds one.
+
 ## [1.0.8] - 2026-09-21
 
 ### Fixed

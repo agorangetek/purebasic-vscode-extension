@@ -210,12 +210,12 @@ function toSymbolKind(kind: PbSymbol['kind']): vscode.SymbolKind {
 	}
 }
 
-/** Index every .pb/.pbi file in the workspace, in the background. */
+/** Index every .pb/.pbi file under the workspace folders, in the background. */
 async function indexWorkspace(): Promise<void> {
 	const cfg = config();
 	if (!cfg.workspace) return;
 
-	const files = await vscode.workspace.findFiles('**/*.{pb,pbi}', '**/node_modules/**', cfg.maxFiles);
+	const files = await findPureBasicFiles(cfg.maxFiles);
 	trace(`indexing ${files.length} workspace files`);
 	for (const file of files) {
 		try {
@@ -233,28 +233,117 @@ async function indexWorkspace(): Promise<void> {
 	trace(`index: ${JSON.stringify(index.stats())}`);
 
 	/*
-	 * An IncludeFile may name a file the glob never saw: outside the folder, or
+	 * An IncludeFile may name a file the walk never saw: outside the folder, or
 	 * reachable only from an open document.  A suggestion is only correct when an
 	 * include chain leads to the file, so walk the chain from the open documents
 	 * and read whatever is still missing.
 	 */
-	const seeds = vscode.workspace.textDocuments
-		.filter((doc) => doc.languageId === LANGUAGE)
-		.map((doc) => doc.uri.toString());
-	await indexIncludedFiles(seeds);
+	await indexIncludedFiles(openPureBasicUris());
 }
 
-/** Read and index the files the given documents include, transitively. */
+/** The extensions a PureBasic source is written with. */
+const SOURCE_EXTENSIONS = ['.pb', '.pbi'];
+
+/** Whether a file name is a PureBasic source, by its extension and not its case. */
+function isSourceName(name: string): boolean {
+	const dot = name.lastIndexOf('.');
+	if (dot <= 0) return false;
+	return SOURCE_EXTENSIONS.includes(name.slice(dot).toLowerCase());
+}
+
+/**
+ * Every .pb/.pbi file under the workspace folders: the root of each folder and
+ * every subdirectory below it, however deep.
+ *
+ * The tree is read directly rather than through `workspace.findFiles`, because
+ * that answers with the editor's search view of the workspace and not with the
+ * files on disk.  A folder hidden by `files.exclude` or `search.exclude`, a path
+ * past the search's `maxResults`, and a folder only reachable through a link are
+ * all missing from that answer -- so an include chain running through one of
+ * them resolved to nothing, and the .pbi it names was never in the index to be
+ * linked to.  Reading the directories themselves is what makes the index cover
+ * the whole project, which is what the include chain is resolved against.
+ */
+async function findPureBasicFiles(limit: number): Promise<vscode.Uri[]> {
+	const files: vscode.Uri[] = [];
+	// a directory is read once, however many paths lead to it
+	const read = new Set<string>();
+	const queue: vscode.Uri[] = [];
+	for (const folder of vscode.workspace.workspaceFolders ?? []) queue.push(folder.uri);
+
+	while (queue.length > 0 && files.length < limit) {
+		const directory = queue.shift()!;
+		const key = directory.toString();
+		if (read.has(key)) continue;
+		read.add(key);
+
+		let entries: [string, vscode.FileType][];
+		try {
+			entries = await vscode.workspace.fs.readDirectory(directory);
+		} catch (error) {
+			// unreadable: a folder the user cannot open, or one just deleted
+			trace(`cannot read ${key}: ${String(error)}`);
+			continue;
+		}
+
+		for (const [name, type] of entries) {
+			const child = vscode.Uri.joinPath(directory, name);
+			// a linked source file is a source file, and is read through the link
+			if (isSourceName(name)) {
+				files.push(child);
+				continue;
+			}
+			// a linked directory is not descended into: the link may point anywhere,
+			// including back into a parent, and the walk is of this project's tree
+			if (type & vscode.FileType.SymbolicLink) continue;
+			if (type & vscode.FileType.Directory) queue.push(child);
+		}
+	}
+
+	if (files.length >= limit) trace(`workspace scan reached the ${limit} file cap`);
+	return files.slice(0, limit);
+}
+
+/** The uris of the open PureBasic documents, the roots an include walk starts from. */
+function openPureBasicUris(): string[] {
+	return vscode.workspace.textDocuments
+		.filter((doc) => doc.languageId === LANGUAGE)
+		.map((doc) => doc.uri.toString());
+}
+
+/**
+ * Read and index the files the given documents include, transitively.
+ *
+ * The walk reaches what the workspace scan cannot: a .pbi the project keeps
+ * outside the folders -- a shared file in a sibling directory, say -- and one
+ * past the scan's file cap.  It is run again whenever a document is opened,
+ * saved or closed, and not just once when the extension starts, because an
+ * include chain is only as good as the documents it is built from: a file that
+ * is closed (or evicted by the bounded index) is no longer one of them until it
+ * is read back from disk.
+ */
 async function indexIncludedFiles(seeds: readonly string[]): Promise<void> {
+	if (!config().workspace) return;
+
 	const limit = config().maxFiles;
-	const searchPaths = includeSearchPaths(index);
+	let searchPaths = includeSearchPaths(index);
 	const seen = new Set(seeds);
 	const queue = [...seeds];
 
 	while (queue.length > 0 && seen.size <= limit) {
 		const uri = queue.shift()!;
-		const parsed = index.get(uri);
-		if (!parsed) continue;
+		let parsed = index.get(uri);
+		if (!parsed) {
+			/*
+			 * A seed can be missing: the bounded index drops the oldest entry when
+			 * the workspace scan overflows it, and closing a tab drops one outright.
+			 * An open document is still the authority on its own text, so it is
+			 * re-read here rather than skipped, which would silently end the walk.
+			 */
+			const open = vscode.workspace.textDocuments.find((doc) => doc.uri.toString() === uri);
+			if (!open) continue;
+			parsed = indexOf(open);
+		}
 
 		for (const target of parsed.includes) {
 			for (const candidate of resolveIncludeTargets(pathOfUri(uri), target, searchPaths)) {
@@ -271,10 +360,17 @@ async function indexIncludedFiles(seeds: readonly string[]): Promise<void> {
 				try {
 					const bytes = await vscode.workspace.fs.readFile(file);
 					const added = file.toString();
-					index.index(added, Buffer.from(bytes).toString('utf8'));
+					const document = index.index(added, Buffer.from(bytes).toString('utf8'));
 					seen.add(added);
 					queue.push(added);
 					trace(`indexed included file ${candidate}`);
+					/*
+					 * IncludePath is how a project keeps its sources in a tree, and a
+					 * file that has just been read may be the one that declares the
+					 * directory a later include needs.  The paths are collected once
+					 * per document that adds one, not per step.
+					 */
+					if (document.includePaths.length > 0) searchPaths = includeSearchPaths(index);
 				} catch {
 					// not there (or not readable): the compiler would not find it either
 				}
@@ -1066,7 +1162,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
 	// keep the index in sync with edits
 	context.subscriptions.push(
 		vscode.workspace.onDidOpenTextDocument((doc) => {
-			if (doc.languageId === LANGUAGE) indexOf(doc);
+			if (doc.languageId !== LANGUAGE) return;
+			indexOf(doc);
+			/*
+			 * The workspace scan covers the tree, but it cannot cover a file the
+			 * project keeps outside the folders -- a shared .pbi in a sibling
+			 * directory, say.  A document that is opened is a root of its own
+			 * translation unit, so its chain is walked here as well.
+			 */
+			void indexIncludedFiles([doc.uri.toString()]);
 		}),
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			if (event.document.languageId === LANGUAGE) indexOf(event.document);
@@ -1074,8 +1178,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
 			// stopped at, and should not keep its squiggle until the next build
 			compilerDiagnostics?.delete(event.document.uri);
 		}),
+		vscode.workspace.onDidSaveTextDocument((doc) => {
+			if (doc.languageId !== LANGUAGE) return;
+			// an IncludeFile added to the saved text may name a file the index does
+			// not have yet, so the chain is walked again from what was saved
+			indexOf(doc);
+			void indexIncludedFiles([doc.uri.toString()]);
+		}),
 		vscode.workspace.onDidCloseTextDocument((doc) => {
-			if (doc.languageId === LANGUAGE) index.remove(doc.uri.toString());
+			if (doc.languageId !== LANGUAGE) return;
+			/*
+			 * A closed file is no longer the authority on its own text, but it may
+			 * still be part of an open file's chain: dropping it outright took its
+			 * symbols out of completion until its tab was opened again.  It is
+			 * removed and then read back from disk, so what it contributes is the
+			 * saved text and not a buffer that is gone.
+			 */
+			index.remove(doc.uri.toString());
+			void indexIncludedFiles(openPureBasicUris());
 		}),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			// only the settings the index is built from: a change to, say, the
