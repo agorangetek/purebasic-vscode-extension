@@ -1,6 +1,6 @@
 {
- "source": "PureBasic 1888 library commands and 120 keywords",
- "count": 2008,
+ "source": "PureBasic 1888 library commands, 11 compiler functions and 120 keywords",
+ "count": 2019,
  "keywords": [
   "Procedure",
   "EndProcedure",
@@ -52987,6 +52987,293 @@
       {
        "mode": "",
        "name": "Height",
+       "type": ""
+      }
+     ],
+     "callIndex": 0
+    }
+   ]
+  },
+  {
+   "id": "bool|command",
+   "name": "Bool",
+   "lower": "bool",
+   "kind": "function",
+   "category": "Compiler",
+   "library": "compiler",
+   "signatures": [
+    {
+     "text": "Result = Bool(<boolean expression>)",
+     "label": "Bool(<boolean expression>)",
+     "params": [
+      {
+       "mode": "",
+       "name": "Expression",
+       "type": ""
+      }
+     ],
+     "callIndex": 9
+    }
+   ]
+  },
+  {
+   "id": "sizeof|command",
+   "name": "SizeOf",
+   "lower": "sizeof",
+   "kind": "function",
+   "category": "Compiler",
+   "library": "compiler",
+   "signatures": [
+    {
+     "text": "Size = SizeOf(Type)",
+     "label": "SizeOf(Type)",
+     "params": [
+      {
+       "mode": "",
+       "name": "Type",
+       "type": ""
+      }
+     ],
+     "callIndex": 7
+    }
+   ]
+  },
+  {
+   "id": "offsetof|command",
+   "name": "OffsetOf",
+   "lower": "offsetof",
+   "kind": "function",
+   "category": "Compiler",
+   "library": "compiler",
+   "signatures": [
+    {
+     "text": "Index = OffsetOf(Structure\\Field)",
+     "label": "OffsetOf(Structure\\Field)",
+     "params": [
+      {
+       "mode": "",
+       "name": "Field",
+       "type": ""
+      }
+     ],
+     "callIndex": 8
+    }
+   ]
+  },
+  {
+   "id": "typeof|command",
+   "name": "TypeOf",
+   "lower": "typeof",
+   "kind": "function",
+   "category": "Compiler",
+   "library": "compiler",
+   "signatures": [
+    {
+     "text": "Type = TypeOf(Object)",
+     "label": "TypeOf(Object)",
+     "params": [
+      {
+       "mode": "",
+       "name": "Object",
+       "type": ""
+      }
+     ],
+     "callIndex": 7
+    }
+   ]
+  },
+  {
+   "id": "subsystem|command",
+   "name": "Subsystem",
+   "lower": "subsystem",
+   "kind": "function",
+   "category": "Compiler",
+   "library": "compiler",
+   "signatures": [
+    {
+     "text": "Result = Subsystem(<constant string expression>)",
+     "label": "Subsystem(<constant string expression>)",
+     "params": [
+      {
+       "mode": "",
+       "name": "Name$",
+       "type": "constant string expression"
+      }
+     ],
+     "callIndex": 9
+    }
+   ]
+  },
+  {
+   "id": "defined|command",
+   "name": "Defined",
+   "lower": "defined",
+   "kind": "function",
+   "category": "Compiler",
+   "library": "compiler",
+   "signatures": [
+    {
+     "text": "Result = Defined(Name, Type)",
+     "label": "Defined(Name, Type)",
+     "params": [
+      {
+       "mode": "",
+       "name": "Name",
+       "type": ""
+      },
+      {
+       "mode": "",
+       "name": "Type",
+       "type": ""
+      }
+     ],
+     "callIndex": 9
+    }
+   ]
+  },
+  {
+   "id": "comparestructure|command",
+   "name": "CompareStructure",
+   "lower": "comparestructure",
+   "kind": "function",
+   "category": "Compiler",
+   "library": "compiler",
+   "signatures": [
+    {
+     "text": "Result = CompareStructure(*Pointer1, *Pointer2, Structure [, Flags])",
+     "label": "CompareStructure(*Pointer1, *Pointer2, Structure [, Flags])",
+     "params": [
+      {
+       "mode": "",
+       "name": "*Pointer1",
+       "type": ""
+      },
+      {
+       "mode": "",
+       "name": "*Pointer2",
+       "type": ""
+      },
+      {
+       "mode": "",
+       "name": "Structure",
+       "type": ""
+      },
+      {
+       "mode": "optional",
+       "name": "Flags",
+       "type": ""
+      }
+     ],
+     "callIndex": 9
+    }
+   ]
+  },
+  {
+   "id": "initializestructure|command",
+   "name": "InitializeStructure",
+   "lower": "initializestructure",
+   "kind": "sub",
+   "category": "Compiler",
+   "library": "compiler",
+   "signatures": [
+    {
+     "text": "InitializeStructure(*Pointer, Structure)",
+     "label": "InitializeStructure(*Pointer, Structure)",
+     "params": [
+      {
+       "mode": "",
+       "name": "*Pointer",
+       "type": ""
+      },
+      {
+       "mode": "",
+       "name": "Structure",
+       "type": ""
+      }
+     ],
+     "callIndex": 0
+    }
+   ]
+  },
+  {
+   "id": "copystructure|command",
+   "name": "CopyStructure",
+   "lower": "copystructure",
+   "kind": "sub",
+   "category": "Compiler",
+   "library": "compiler",
+   "signatures": [
+    {
+     "text": "CopyStructure(*Source, *Destination, Structure)",
+     "label": "CopyStructure(*Source, *Destination, Structure)",
+     "params": [
+      {
+       "mode": "",
+       "name": "*Source",
+       "type": ""
+      },
+      {
+       "mode": "",
+       "name": "*Destination",
+       "type": ""
+      },
+      {
+       "mode": "",
+       "name": "Structure",
+       "type": ""
+      }
+     ],
+     "callIndex": 0
+    }
+   ]
+  },
+  {
+   "id": "clearstructure|command",
+   "name": "ClearStructure",
+   "lower": "clearstructure",
+   "kind": "sub",
+   "category": "Compiler",
+   "library": "compiler",
+   "signatures": [
+    {
+     "text": "ClearStructure(*Pointer, Structure)",
+     "label": "ClearStructure(*Pointer, Structure)",
+     "params": [
+      {
+       "mode": "",
+       "name": "*Pointer",
+       "type": ""
+      },
+      {
+       "mode": "",
+       "name": "Structure",
+       "type": ""
+      }
+     ],
+     "callIndex": 0
+    }
+   ]
+  },
+  {
+   "id": "resetstructure|command",
+   "name": "ResetStructure",
+   "lower": "resetstructure",
+   "kind": "sub",
+   "category": "Compiler",
+   "library": "compiler",
+   "signatures": [
+    {
+     "text": "ResetStructure(*Pointer, Structure)",
+     "label": "ResetStructure(*Pointer, Structure)",
+     "params": [
+      {
+       "mode": "",
+       "name": "*Pointer",
+       "type": ""
+      },
+      {
+       "mode": "",
+       "name": "Structure",
        "type": ""
       }
      ],

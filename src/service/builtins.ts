@@ -129,6 +129,10 @@ export function builtinMarkdown(item: PbBuiltin): string {
 
 	if (item.kind === 'keyword') {
 		parts.push(`PureBasic keyword (${item.category}).`);
+	} else if (item.category === 'Compiler') {
+		// Bool, SizeOf, OffsetOf, ... belong to no library: the compiler
+		// evaluates them itself, so calling them library commands is a lie
+		parts.push('PureBasic compiler function.');
 	} else {
 		parts.push(`PureBasic library command${item.library ? ` from the \`${item.library}\` library` : ''}.`);
 	}

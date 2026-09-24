@@ -638,6 +638,10 @@
 				{
 					"name": "entity.name.function.purebasic",
 					"match": "(?i)\\b(?:UseGIFImageDecoder|UseJPEG2000ImageDecoder|UseJPEG2000ImageEncoder|UseJPEGImageDecoder|UseJPEGImageEncoder|UsePNGImageDecoder|UsePNGImageEncoder|UseTGAImageDecoder|UseTIFFImageDecoder)\\b"
+				},
+				{
+					"name": "entity.name.function.purebasic",
+					"match": "(?i)\\b(?:Bool|SizeOf|OffsetOf|TypeOf|Subsystem|Defined|CompareStructure|InitializeStructure|CopyStructure|ClearStructure|ResetStructure)\\b"
 				}
 			]
 		},

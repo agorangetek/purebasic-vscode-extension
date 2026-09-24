@@ -4,6 +4,25 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.10] - 2026-09-24
+
+### Added
+
+- **The compiler functions complete, hover and colour: `Bool`, `SizeOf`,
+  `OffsetOf`, `TypeOf`, `Subsystem`, `Defined` and the structure helpers.** The
+  compiler evaluates these itself rather than a library, and the manual files
+  them under "Compiler Functions", so neither of the two tables this extension
+  is generated from -- the command list and the reserved words -- knows any of
+  them. Typing `Bool` offered nothing at all: `B` had 39 entries and `Bo` had
+  `BodyPick`, `Box` and `BoxedGradient`, but `Bool` was empty. They are written
+  down in `tools/gen-data.mjs` now, in the manual's own syntax, so completion,
+  hover, signature help and the grammar all carry them. A parameter the manual
+  states as prose has a real name for the snippet (`Bool(<boolean expression>)`
+  inserts `Bool(Expression)`), and the four that return nothing --
+  `InitializeStructure`, `CopyStructure`, `ClearStructure` and `ResetStructure`
+  -- are offered as commands, the rest as functions. Hover says "PureBasic
+  compiler function" instead of naming a library, because no library owns one.
+
 ## [1.0.9] - 2026-09-22
 
 ### Fixed

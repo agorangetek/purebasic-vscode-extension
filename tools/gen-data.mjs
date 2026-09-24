@@ -340,6 +340,68 @@ for (const command of commands) {
 	});
 }
 
+/* -------------------------------------------------------- compiler functions */
+
+/*
+ * The manual's "Compiler Functions" page: Bool, SizeOf, OffsetOf, TypeOf,
+ * Subsystem, Defined and the structure helpers.
+ *
+ * They are neither library commands -- `pb_commands_full.json` has none of them,
+ * which is why `Bool()` completed as nothing at all -- nor reserved words, so
+ * neither source above can supply them.  They are written down here instead.
+ *
+ * The manual states a few of their parameters as prose ("<boolean expression>"),
+ * which has no name to put in a snippet, so those entries carry the parameter
+ * names the snippet and the signature help should show.  Where the manual names
+ * its parameters they are read off the text like any command's.  The text is
+ * kept as the manual writes it, angle brackets and all, because that is what
+ * hover shows.
+ */
+const COMPILER_FUNCTIONS = [
+	{ name: 'Bool', text: 'Result = Bool(<boolean expression>)', returns: true, params: [{ name: 'Expression' }] },
+	{ name: 'SizeOf', text: 'Size = SizeOf(Type)', returns: true },
+	{ name: 'OffsetOf', text: 'Index = OffsetOf(Structure\\Field)', returns: true, params: [{ name: 'Field' }] },
+	{ name: 'TypeOf', text: 'Type = TypeOf(Object)', returns: true },
+	{
+		name: 'Subsystem',
+		text: 'Result = Subsystem(<constant string expression>)',
+		returns: true,
+		params: [{ name: 'Name$', type: 'constant string expression' }],
+	},
+	{ name: 'Defined', text: 'Result = Defined(Name, Type)', returns: true },
+	{
+		name: 'CompareStructure',
+		text: 'Result = CompareStructure(*Pointer1, *Pointer2, Structure [, Flags])',
+		returns: true,
+	},
+	{ name: 'InitializeStructure', text: 'InitializeStructure(*Pointer, Structure)', returns: false },
+	{ name: 'CopyStructure', text: 'CopyStructure(*Source, *Destination, Structure)', returns: false },
+	{ name: 'ClearStructure', text: 'ClearStructure(*Pointer, Structure)', returns: false },
+	{ name: 'ResetStructure', text: 'ResetStructure(*Pointer, Structure)', returns: false },
+];
+
+const compilerItems = [];
+for (const fn of COMPILER_FUNCTIONS) {
+	const lower = fn.name.toLowerCase();
+	// a library command of the same name would already carry the better
+	// signature; none has one today, but the guard keeps that true
+	if (seenCommand.has(lower)) continue;
+	seenCommand.add(lower);
+	const signature = parseSignature(fn.text, fn.name);
+	if (fn.params) {
+		signature.params = fn.params.map((p) => ({ mode: p.mode ?? '', name: p.name, type: p.type ?? '' }));
+	}
+	compilerItems.push({
+		id: `${lower}|command`,
+		name: fn.name,
+		lower,
+		kind: fn.returns ? 'function' : 'sub',
+		category: 'Compiler',
+		library: 'compiler',
+		signatures: [signature],
+	});
+}
+
 /* ------------------------------------------------------------------- blocks */
 
 const foldingBlock = /static var FOLDING_PAIRS := \[([\s\S]*?)\n\]/.exec(keywordsSource)?.[1] ?? '';
@@ -361,10 +423,10 @@ for (const m of foldingBlock.matchAll(
 
 // commands first: a few names are both a keyword and a library command
 // (AddElement, ClearList, ...) and the command entry carries the signature
-const items = [...commandItems, ...keywordItems];
+const items = [...commandItems, ...compilerItems, ...keywordItems];
 
 const out = {
-	source: `PureBasic ${commandItems.length} library commands and ${keywordItems.length} keywords`,
+	source: `PureBasic ${commandItems.length} library commands, ${compilerItems.length} compiler functions and ${keywordItems.length} keywords`,
 	count: items.length,
 	/** Canonical spelling of every reserved word, lower case keyed. */
 	keywords: [...canonical.values()],
@@ -410,10 +472,14 @@ writeFileSync(outFile, jsonText);
 writeFileSync(tsFile, tsText);
 
 const byLibrary = {};
-for (const item of commandItems) byLibrary[item.category] = (byLibrary[item.category] ?? 0) + 1;
+for (const item of [...commandItems, ...compilerItems]) {
+	byLibrary[item.category] = (byLibrary[item.category] ?? 0) + 1;
+}
 console.log(`wrote ${outFile}`);
 console.log(`wrote ${tsFile}`);
-console.log(`  ${keywordItems.length} keywords, ${commandItems.length} commands`);
+console.log(
+	`  ${keywordItems.length} keywords, ${commandItems.length} commands, ${compilerItems.length} compiler functions`,
+);
 console.log(`  ${blocks.length} folding blocks:`, blocks.map((b) => `${b.opener}..${b.closers.join('|')}`).join(', '));
 console.log(
 	'  top libraries:',
@@ -421,7 +487,7 @@ console.log(
 		.sort((a, b) => b[1] - a[1])
 		.slice(0, 6),
 );
-for (const want of ['messagerequester', 'addelement', 'redim', 'foreach', 'endprocedure']) {
+for (const want of ['messagerequester', 'addelement', 'redim', 'foreach', 'endprocedure', 'bool', 'sizeof']) {
 	const found = items.filter((i) => i.lower === want);
 	console.log(
 		`  check ${want.padEnd(18)} ->`,
