@@ -493,11 +493,18 @@ export function parseDocument(uri: string, text: string): PbDocument {
 			}
 		}
 
-		// enumeration members are module-level constants
+		/*
+		 * Enumeration members are module-level constants, and the `#` is part of
+		 * the name.  It is not optional in the declaration: pbcompiler 6.41
+		 * refuses a member written without one -- "Only constants are allowed in
+		 * an Enumeration" -- even though either spelling is accepted where the
+		 * constant is used.  The declaration's spelling is what is recorded, so
+		 * `#AppRed` is offered as `#AppRed` and not as `AppRed`.
+		 */
 		if (stack.length > 0 && stack[stack.length - 1]!.kind === 'enumeration') {
-			const member = /^\s*(#?)([A-Za-z_]\w*)\s*(?:=\s*(.+))?$/.exec(trimmed);
-			if (member && !/^(Case|Default)$/i.test(member[2]!)) {
-				add(member[2]!, 'enummember', i, source, { detail: source.trim() });
+			const member = /^\s*#([A-Za-z_]\w*)\s*(?:=\s*(.+))?$/.exec(trimmed);
+			if (member) {
+				add(`#${member[1]!}`, 'enummember', i, source, { detail: source.trim() });
 				continue;
 			}
 		}

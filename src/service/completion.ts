@@ -329,8 +329,9 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 	// is there before offering anything.  A member list after '.' or '\' is
 	// asked for deliberately -- the editor only triggers it on the character
 	// itself -- so it is never held back, and neither is a sigil: `@` already
-	// says a procedure address or a variable is wanted, so `@` alone lists them.
-	const sigil = /^[*@?]/.test(word) ? word[0] : undefined;
+	// says a procedure address or a variable is wanted and `#` a constant, so
+	// each alone lists what it can point at.
+	const sigil = /^[*@?#]/.test(word) ? word[0] : undefined;
 	const address = sigil !== undefined;
 	if (members === 'plain' && !address && (options.minChars ?? 0) > 0) {
 		if (word.length < (options.minChars ?? 0)) return [];
@@ -350,11 +351,16 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 	 * enum member, a macro, and a code label.  Library commands are dropped for
 	 * every sigil; a keyword cannot be addressed either.  A variable declared
 	 * *with* a prototype type is still a variable, and is offered.
+	 *
+	 * `#` is the constant marker rather than an address: it can only introduce a
+	 * compile-time constant, so after it come the document's `#Constants` and its
+	 * enumeration members, and nothing else.
 	 */
 	const SIGIL_TARGETS: Record<string, readonly PbSymbolKind[]> = {
 		'@': ['procedure', 'declare', 'import', 'variable', 'list', 'map', 'array'],
 		'*': ['procedure', 'declare', 'import', 'variable', 'list', 'map', 'array'],
 		'?': ['label'],
+		'#': ['constant', 'enummember'],
 	};
 	const targets = sigil === undefined ? undefined : SIGIL_TARGETS[sigil];
 	const wants = (kind: PbSymbolKind) => targets === undefined || targets.includes(kind);
@@ -495,8 +501,8 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 		}
 	}
 
-	// 6. the rest of the language -- no keywords after a sigil, since `@`, `*`
-	// and `?` all want a name they can point at
+	// 6. the rest of the language -- no keywords after a sigil, since `@`, `*`,
+	// `?` and `#` all want a name they can point at
 	if (options.keywords && !sigil) {
 		for (const item of allBuiltins()) {
 			if (item.kind !== 'keyword') continue;
@@ -508,9 +514,19 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 	return filterByPrefix(items, word);
 }
 
-/** Only what the typed text starts, whatever case was typed. */
+/**
+ * Only what the typed text starts, whatever case was typed.
+ *
+ * A constant is declared `#Name` but may be written `Name` where it is used, so
+ * the leading `#` is ignored on both sides of the comparison: `#App` and `App`
+ * both find `#AppRed`.  The label keeps the `#` -- that is the spelling the
+ * declaration uses and the one the item inserts.
+ */
 function filterByPrefix(items: PbCompletionItem[], word: string): PbCompletionItem[] {
 	if (word.length === 0) return items;
-	const prefix = word.replace(/^[*@?]/, '').toLowerCase();
-	return items.filter((item) => (item.filterText ?? item.label).toLowerCase().startsWith(prefix));
+	const prefix = word.replace(/^[*@?#]/, '').toLowerCase();
+	return items.filter((item) => {
+		const text = (item.filterText ?? item.label).toLowerCase();
+		return text.startsWith(prefix) || text.replace(/^#/, '').startsWith(prefix);
+	});
 }

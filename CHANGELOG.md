@@ -4,6 +4,43 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.12] - 2026-09-27
+
+### Fixed
+
+- **Choosing a constant no longer leaves the typed `#` behind.** 1.0.11 made the
+  list appear as `#` was typed, but accepting `#AppRed` from there produced
+  `##AppRed`: a completion item was letting the editor work out the range it
+  replaces, and to the editor's word definition a bare `#` is not a word at all,
+  so the range was empty and the item was inserted after the `#` rather than over
+  it. Every item now carries the range read from the line -- the same typed word
+  the service was handed -- so `#`, `#Ap` and a bare `Ap` all replace exactly
+  what was typed. A word pattern cannot express this case, since it has to match
+  a letter after the `#` and an empty range is what is left the moment `#` alone
+  has been typed.
+
+## [1.0.11] - 2026-09-27
+
+### Fixed
+
+- **`#` now offers the constants and enumeration members, as `#` itself is
+  typed.** `#` was not one of the sigils the completion knew, so it was treated
+  as an ordinary word: the pacing held the list back until three characters had
+  been typed, and `#` counted as none of them. Typing `#` gave nothing, `#Ap`
+  gave nothing, and only `#App` produced a list -- one that offered `AppRed`,
+  `AppRed`'s name without its `#`. `#` is a sigil like `@` and `?` now: it is
+  registered as a trigger, it is never held back by the minimum length, and it
+  offers exactly what it can name, the document's `#Constants` and its
+  enumeration members. The `#` is kept in the label and the inserted text.
+- **An enumeration member is recorded with its `#`.** `Enumeration` /
+  `#AppRed` used to be indexed as `AppRed`, so hover, the outline and the
+  completion label all dropped a character that is part of the name. pbcompiler
+  6.41 refuses a member written without one -- "Only constants are allowed in an
+  Enumeration" -- even though either spelling is accepted where the constant is
+  used, so the declaration's spelling is what the index now holds. The same
+  change drops the spurious `CompilerEndIf` (and any other bare directive) that
+  used to be read as a member inside an `Enumeration`.
+
 ## [1.0.10] - 2026-09-24
 
 ### Added

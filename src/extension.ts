@@ -89,11 +89,12 @@ function trace(message: string): void {
 
 /**
  * The name being typed at the caret, with its sigil, read from the line itself.
- * A sigil on its own counts -- `@` already asks for a reference, and the editor
- * needs to be told that rather than be handed an empty word.
+ * A sigil on its own counts -- `@` already asks for a reference and `#` for a
+ * constant, and the editor needs to be told that rather than be handed an empty
+ * word.
  */
 function typedWord(line: string, character: number): string {
-	return /(?:[*@?]?[A-Za-z_]\w*\$?|[*@?])$/.exec(line.slice(0, character))?.[0] ?? '';
+	return /(?:[*@?#]?[A-Za-z_]\w*\$?|[*@?#])$/.exec(line.slice(0, character))?.[0] ?? '';
 }
 
 /** Parse a document and add it to the index. */
@@ -157,7 +158,11 @@ function withTypedCase(label: string, typed: string): string {
 	return typed + label.slice(typed.length);
 }
 
-function toCompletionItem(item: PbCompletionItem, typed = ''): vscode.CompletionItem {
+function toCompletionItem(
+	item: PbCompletionItem,
+	typed = '',
+	at?: vscode.Position,
+): vscode.CompletionItem {
 	// The object form of the label is what renders the trailing file name: VS Code
 	// shows `description` dimmed right after the label, with no way to draw a row
 	// of its own for a group heading.
@@ -168,6 +173,20 @@ function toCompletionItem(item: PbCompletionItem, typed = ''): vscode.Completion
 	result.detail = item.detail;
 	result.sortText = item.sortText;
 	result.filterText = withTypedCase(item.filterText ?? item.label, typed);
+
+	/*
+	 * Replace exactly the word read from the line, not the one the editor would
+	 * guess.  They differ wherever a sigil is involved: a bare `#` is not a word
+	 * to the editor's word definition, so its default range is empty at the
+	 * moment the list is triggered by `#`, and choosing `#AppRed` from there
+	 * inserted it after the typed `#`, leaving `##AppRed`.  Taking the range from
+	 * `typed` -- the same text the service was handed -- keeps the replacement
+	 * and the filtering on the same word.
+	 */
+	if (at) {
+		const start = Math.max(0, at.character - typed.length);
+		result.range = new vscode.Range(at.line, start, at.line, at.character);
+	}
 
 	if (item.isSnippet) {
 		result.insertText = new vscode.SnippetString(item.insertText);
@@ -1470,15 +1489,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
 					trace(
 						`completion at ${position.line}:${position.character} (typed ${JSON.stringify(word)}) -> ${items.length} items`,
 					);
-					return items.map((item) => toCompletionItem(item, word));
+					return items.map((item) => toCompletionItem(item, word, position));
 				},
 			},
 			'.',
 			'\\',
-			// `@` starts a procedure address or a variable reference; `*` is
+			// `@` starts a procedure address or a variable reference and `#` a
+			// constant, so both ask for their list as they are typed; `*` is
 			// also the multiplication sign and `?` needs a label, so neither is
 			// a trigger.
 			'@',
+			'#',
 		),
 	);
 
