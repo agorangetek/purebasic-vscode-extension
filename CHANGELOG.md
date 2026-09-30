@@ -4,6 +4,24 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.14] - 2026-09-30
+
+### Changed
+
+- **The C backend is the compiler the extension looks for first, on every
+  platform.** PureBasic ships two backends and names them separately --
+  `pbcompilerc`, which generates C, and `pbcompiler`, which generates assembly
+  -- and 1.0.13 could find the C one but still preferred the assembler one
+  wherever both were installed. The search now asks for `pbcompilerc` first in
+  every folder, on Windows, Linux and macOS alike, and does the same when it
+  falls back to the PATH; only an install with no C compiler at all falls
+  through to `pbcompiler`, which is also the name macOS on Apple silicon gives
+  its one compiler. A `purebasic.compiler.path` that names a compiler still wins
+  over all of it, and now resolves through the PATH rather than being handed to
+  the system as a bare name.
+- **Note:** the C backend does not accept inline assembly, so a source that uses
+  `EnableASM` needs the assembler compiler named in `purebasic.compiler.path`.
+
 ## [1.0.13] - 2026-09-30
 
 ### Fixed

@@ -100,12 +100,77 @@ export function hostPlatform(): Platform {
 }
 
 /**
+ * The compiler file names, best guess first, without a directory.
+ *
+ * PureBasic has two backends and names them separately: `pbcompilerc` generates
+ * C, `pbcompiler` generates assembly.  The C one is asked for first on every
+ * platform -- it is the backend PureBasic is moving to, the one the reference
+ * treats as the default for a 64-bit build, and the only one that exists on
+ * every system the compiler supports.
+ *
+ * Where an install has no assembler backend at all, the C compiler is called
+ * `pbcompiler` instead: that is macOS on Apple silicon, and it is the second
+ * name that finds it there.
+ *
+ * The assembler compiler is kept behind the C one rather than dropped, because
+ * it is the only one of the two that accepts inline assembly.  A source using
+ * `EnableASM` still compiles wherever both are installed.
+ */
+function compilerNames(platform: Platform): string[] {
+	const suffix = platform === 'win32' ? '.exe' : '';
+	return [`pbcompilerc${suffix}`, `pbcompiler${suffix}`];
+}
+
+/** The folders a PureBasic install keeps its compilers in, best guess first. */
+function compilerFolders(platform: Platform): string[] {
+	const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
+	if (platform === 'darwin') {
+		return [
+			'/Applications/PureBasic.app/Contents/Resources/compilers',
+			join(home, 'Applications/PureBasic.app/Contents/Resources/compilers'),
+		];
+	}
+	if (platform === 'win32') {
+		return [
+			'C:\\Program Files\\PureBasic\\Compilers',
+			'C:\\Program Files (x86)\\PureBasic\\Compilers',
+		];
+	}
+	// a Linux install is a folder the reader unpacks, so the usual places first
+	return [
+		join(home, 'purebasic/compilers'),
+		'/opt/purebasic/compilers',
+		'/usr/local/purebasic/compilers',
+		'/usr/share/purebasic/compilers',
+		'/usr/lib/purebasic/compilers',
+	];
+}
+
+/**
+ * Where a compiler is looked for before the PATH, best guess first.
+ *
+ * The folders are tried in order and each one with both names, so the C backend
+ * wins inside the folder that is preferred for the platform -- an install that
+ * has both in the first folder gives the C one, and only an install without it
+ * there falls through to the next folder or to the assembler compiler.
+ */
+export function compilerCandidates(platform: Platform): string[] {
+	const separator = platform === 'win32' ? '\\' : '/';
+	const names = compilerNames(platform);
+	return compilerFolders(platform).flatMap((folder) =>
+		names.map((name) => `${folder}${separator}${name}`),
+	);
+}
+
+/**
  * The compiler to run.
  *
  * Each platform keeps it somewhere different -- macOS inside the application
  * bundle, Linux and Windows inside the folder PureBasic came in -- and any of
  * them may also be on the PATH.  The installed one wins, because it is the one
- * that matches the PureBasic being used.
+ * that matches the PureBasic being used; the PATH is only consulted when there
+ * is no install where it is looked for, and it is asked for the C backend
+ * first, the same way the install search is.
  */
 export function resolveCompiler(configured: string, platform: Platform = hostPlatform()): string {
 	const path = configured.trim();
@@ -114,46 +179,13 @@ export function resolveCompiler(configured: string, platform: Platform = hostPla
 	for (const candidate of compilerCandidates(platform)) {
 		if (existsSync(candidate)) return candidate;
 	}
-	return platform === 'win32' ? 'pbcompiler.exe' : 'pbcompiler';
-}
 
-/** Where a compiler is looked for before the PATH, best guess first. */
-export function compilerCandidates(platform: Platform): string[] {
-	const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
-	if (platform === 'darwin') {
-		return [
-			'/Applications/PureBasic.app/Contents/Resources/compilers/pbcompiler',
-			join(home, 'Applications/PureBasic.app/Contents/Resources/compilers/pbcompiler'),
-		];
+	const names = compilerNames(platform);
+	for (const name of names) {
+		const found = findOnPath(name);
+		if (found) return found;
 	}
-	if (platform === 'win32') {
-		/*
-		 * Two compilers, in the one folder: `pbcompiler.exe` generates assembly
-		 * and `pbcompilerc.exe` generates C.  The assembler one is tried first,
-		 * because it is what this list has always meant and because it is the
-		 * only one that accepts inline assembly -- moving to the C backend
-		 * unasked would fail a source that uses `EnableASM`.
-		 *
-		 * The C one is here because a Windows on arm64 install has no assembler
-		 * backend to offer (PureBasic supports it on x86 and x64 only) and so
-		 * comes with `pbcompilerc.exe` alone, which is also the compiler that
-		 * `purebasic.compiler.path` had to be pointed at by hand until now.
-		 */
-		return [
-			'C:\\Program Files\\PureBasic\\Compilers\\pbcompiler.exe',
-			'C:\\Program Files\\PureBasic\\Compilers\\pbcompilerc.exe',
-			'C:\\Program Files (x86)\\PureBasic\\Compilers\\pbcompiler.exe',
-			'C:\\Program Files (x86)\\PureBasic\\Compilers\\pbcompilerc.exe',
-		];
-	}
-	// a Linux install is a folder the reader unpacks, so the usual places first
-	return [
-		join(home, 'purebasic/compilers/pbcompiler'),
-		'/opt/purebasic/compilers/pbcompiler',
-		'/usr/local/purebasic/compilers/pbcompiler',
-		'/usr/share/purebasic/compilers/pbcompiler',
-		'/usr/lib/purebasic/compilers/pbcompiler',
-	];
+	return names[0]!;
 }
 
 /*
