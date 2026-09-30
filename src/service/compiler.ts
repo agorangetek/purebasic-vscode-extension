@@ -127,9 +127,23 @@ export function compilerCandidates(platform: Platform): string[] {
 		];
 	}
 	if (platform === 'win32') {
+		/*
+		 * Two compilers, in the one folder: `pbcompiler.exe` generates assembly
+		 * and `pbcompilerc.exe` generates C.  The assembler one is tried first,
+		 * because it is what this list has always meant and because it is the
+		 * only one that accepts inline assembly -- moving to the C backend
+		 * unasked would fail a source that uses `EnableASM`.
+		 *
+		 * The C one is here because a Windows on arm64 install has no assembler
+		 * backend to offer (PureBasic supports it on x86 and x64 only) and so
+		 * comes with `pbcompilerc.exe` alone, which is also the compiler that
+		 * `purebasic.compiler.path` had to be pointed at by hand until now.
+		 */
 		return [
 			'C:\\Program Files\\PureBasic\\Compilers\\pbcompiler.exe',
+			'C:\\Program Files\\PureBasic\\Compilers\\pbcompilerc.exe',
 			'C:\\Program Files (x86)\\PureBasic\\Compilers\\pbcompiler.exe',
+			'C:\\Program Files (x86)\\PureBasic\\Compilers\\pbcompilerc.exe',
 		];
 	}
 	// a Linux install is a folder the reader unpacks, so the usual places first

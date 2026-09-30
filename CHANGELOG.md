@@ -4,6 +4,21 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.13] - 2026-09-30
+
+### Fixed
+
+- **A Windows install that has only the C backend is found without pointing
+  `purebasic.compiler.path` at it.** PureBasic ships two compilers in the same
+  folder: `pbcompiler.exe`, which generates assembly, and `pbcompilerc.exe`,
+  which generates C. The search knew only the first name, so a machine carrying
+  only the second -- a Windows on arm64 install, since PureBasic supports the
+  assembler backend on x86 and x64 only -- had to be told where its compiler was
+  by hand. Both names are now searched, in both `Program Files` folders. The
+  assembler compiler is still tried first where both are present, because it is
+  the only one that accepts inline assembly, and moving to the C backend unasked
+  would fail a source that uses `EnableASM`.
+
 ## [1.0.12] - 2026-09-27
 
 ### Fixed
