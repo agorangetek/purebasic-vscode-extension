@@ -1,7 +1,8 @@
 /*
- * Hover text for built-in commands and for the user's own symbols.
+ * Hover text for built-in commands and constants and for the user's own
+ * symbols.
  */
-import { builtinMarkdown, lookupBuiltin } from './builtins.ts';
+import { builtinMarkdown, constantMarkdown, lookupBuiltin, lookupConstant } from './builtins.ts';
 import { wordAt } from './parser.ts';
 import type { PbDocument, PbHover, PbPosition, PbSymbol } from './types.ts';
 
@@ -34,6 +35,10 @@ export function getHover(
 	const name = word.replace(/^[*@?#]/, '');
 	const builtin = lookupBuiltin(name);
 	if (builtin) return { contents: builtinMarkdown(builtin), range };
+
+	// a `#Constant` the language or a library defines, not one of the file's own
+	const constant = word.startsWith('#') ? lookupConstant(name) : undefined;
+	if (constant) return { contents: constantMarkdown(constant), range };
 
 	const symbol = [...document.symbols, ...workspaceSymbols].find(
 		(s) => s.name.replace(/^[*@?#]/, '').toLowerCase() === name.toLowerCase(),

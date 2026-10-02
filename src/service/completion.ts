@@ -2,12 +2,20 @@
  * Completion item construction.  Editor-agnostic: returns plain objects that
  * the VS Code layer (src/extension.ts) converts to vscode.CompletionItem.
  */
-import { allBlocks, allBuiltins, builtinMarkdown, isCompletableName } from './builtins.ts';
+import {
+	allBlocks,
+	allBuiltins,
+	allConstants,
+	builtinMarkdown,
+	constantMarkdown,
+	isCompletableName,
+} from './builtins.ts';
 import { blockBody, blockContinuations, expectsName, isDeclarationPrefix } from './blocks.ts';
 import { baseNameOf, pathOfUri } from './includes.ts';
 import { memberContextAt, parameterNames, statementContextAt } from './parser.ts';
 import type {
 	PbBuiltin,
+	PbBuiltinConstant,
 	PbCompletionItem,
 	PbCompletionKind,
 	PbCompletionOptions,
@@ -181,6 +189,18 @@ export function builtinToCompletionItem(
 		insertText,
 		isSnippet,
 		sortText: rank + item.name.toLowerCase(),
+	};
+}
+
+export function builtinConstantToCompletionItem(constant: PbBuiltinConstant): PbCompletionItem {
+	return {
+		label: constant.name,
+		kind: 'constant',
+		detail: constant.doc ? 'PureBasic language constant' : 'PureBasic built-in constant',
+		documentation: constantMarkdown(constant),
+		insertText: constant.name,
+		isSnippet: false,
+		sortText: RANK.builtin + constant.name.toLowerCase(),
 	};
 }
 
@@ -459,6 +479,19 @@ export function buildCompletions(request: CompletionRequest): PbCompletionItem[]
 			? `${item.documentation}\n\n---\n\nFrom \`${file}\``
 			: `From \`${file}\``;
 		push(item);
+	}
+
+	/*
+	 * 3b. after a `#` come the language's own constants as well.  There are
+	 * some 1700 of them and none is written without the sigil, so they are not
+	 * offered as bare names the way a document's constants are; the document's
+	 * `#Constants` and enum members sort ahead of them, which keeps a file's
+	 * own names at the top of the list.
+	 */
+	if (sigil === '#' && options.builtins) {
+		for (const constant of allConstants()) {
+			push(builtinConstantToCompletionItem(constant));
+		}
 	}
 
 	// a fresh statement, with nothing on the line yet: where a block belongs.

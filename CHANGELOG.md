@@ -4,6 +4,36 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.16] - 2026-10-02
+
+### Fixed
+
+- **A built-in constant completes after its `#`.** `#` has offered the
+  document's own `#Constants` and its enumeration members since 1.0.11, and only
+  those, so a line that reaches for one of PureBasic's own -- the one that
+  prompted this, `Structure RingBuffer Align #PB_Structure_AlignC` -- gave an
+  empty list from `#PB` on. PureBasic ships some 1700 built-in constants and
+  neither of the two tables this extension is generated from knows one of them.
+  They now come from the manual's "Overview about PureBasic Constants", a page
+  that ships inside the installation, through `tools/gen-constants.mjs`, and are
+  offered after the `#` that is the only way to write one. A document's own
+  constants and enum members still sort ahead of them, so what the file defines
+  stays at the top of the list, and the built-ins are not offered as bare names:
+  there are too many of them, and the compiler refuses one written without its
+  `#`.
+- **The language's own constants complete with them.** The manual leaves these
+  off that page, and the compiler keeps them in a table nothing can read:
+  `#True` and `#False`, `#Null` and `#Null$`, `#Empty$`, `#PI` and `#E`, and the
+  character constants from `#CR$`, `#LF$` and `#CRLF$` to `#TAB$`, `#ESC$`,
+  `#DOUBLEQUOTE$` and the ASCII control codes. Each one was checked against
+  pbcompiler by using it where a constant is required; the spellings an older
+  manual names and a later compiler dropped -- `#DQ$`, `#EOL$` -- are not
+  offered.
+- **A built-in constant hovers.** The manual's constant page says which
+  commands use each one and nothing else, so that list, cut off before it grows
+  into a wall of text, is what the hover shows; the language constants carry
+  their own description instead.
+
 ## [1.0.15] - 2026-10-02
 
 ### Fixed

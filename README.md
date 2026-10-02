@@ -11,13 +11,15 @@ TextMate scopes, so your theme decides every colour — nothing is pinned.
   members, `Module::item`, `.type` suffixes, both string forms and `!` inline
   assembly.
 * **Code completion** for the 1888 library commands with their manual signature
-  and parameter list, every language keyword, and your own procedures,
+  and parameter list, every language keyword, all 1775 built-in constants behind
+  a `#` (`#PB_Structure_AlignC`, `#True`, `#LF$`), and your own procedures,
   structures, interfaces, modules, enumerations, macros, constants and
   `List`/`Map`/`Array` containers.
 * **Call snippets** — accepting a command inserts its parameters as placeholders
   you can tab through.
 * **Hover** showing a command's manual signature, its library, and its
-  documentation.
+  documentation, or a built-in constant with the commands the manual lists as
+  using it.
 * **Signature help** that follows the parameter you are on as you type.
 * **Outline** of the file's declarations.
 * **Format Text** restoring the manual's spelling of keywords and commands

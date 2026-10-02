@@ -1,15 +1,23 @@
 /*
- * Lookup helpers over the generated PureBasic data (src/data/pb-builtins.ts,
- * produced from the PureBasic IDE's command and keyword tables by
- * tools/gen-data.mjs).
+ * Lookup helpers over the generated PureBasic data (src/data/pb-builtins.ts and
+ * src/data/pb-constants.ts, produced from the PureBasic IDE's command and
+ * keyword tables by tools/gen-data.mjs and from the installed manual by
+ * tools/gen-constants.mjs).
  */
 import { PB_BUILTINS } from '../data/pb-builtins.ts';
-import type { PbBlock, PbBuiltin } from './types.ts';
+import { PB_CONSTANTS } from '../data/pb-constants.ts';
+import type { PbBlock, PbBuiltin, PbBuiltinConstant } from './types.ts';
 
 /** Case-insensitive lookup by name. */
 const byName = new Map<string, PbBuiltin>();
 for (const item of PB_BUILTINS.items) {
 	if (!byName.has(item.lower)) byName.set(item.lower, item);
+}
+
+/** Built-in constants by lower-cased name, with the `#` off. */
+const constantByName = new Map<string, PbBuiltinConstant>();
+for (const constant of PB_CONSTANTS.items) {
+	constantByName.set(constant.name.replace(/^#/, '').toLowerCase(), constant);
 }
 
 /*
@@ -39,6 +47,24 @@ export function lookupBuiltin(name: string): PbBuiltin | undefined {
 
 export function allBuiltins(): readonly PbBuiltin[] {
 	return overlay.length ? [...PB_BUILTINS.items, ...overlay] : PB_BUILTINS.items;
+}
+
+/** Every built-in constant, library and language alike. */
+export function allConstants(): readonly PbBuiltinConstant[] {
+	return PB_CONSTANTS.items;
+}
+
+/** A built-in constant by name, with or without the `#`. */
+export function lookupConstant(name: string): PbBuiltinConstant | undefined {
+	return constantByName.get(name.replace(/^#/, '').toLowerCase());
+}
+
+export function constantCount(): number {
+	return PB_CONSTANTS.count;
+}
+
+export function constantSource(): string {
+	return PB_CONSTANTS.source;
 }
 
 /**
@@ -137,6 +163,33 @@ export function builtinMarkdown(item: PbBuiltin): string {
 		parts.push(`PureBasic library command${item.library ? ` from the \`${item.library}\` library` : ''}.`);
 	}
 	parts.push(`*Category: ${item.category}*`);
+	return parts.join('\n\n');
+}
+
+/**
+ * Markdown documentation for a built-in constant.
+ *
+ * The manual's constant table has no description of its own -- it says which
+ * commands use the constant and nothing else -- so the list of those commands
+ * is what the hover shows, cut off before it grows into a wall of text.  The
+ * language constants below the table carry their own description instead.
+ */
+export function constantMarkdown(constant: PbBuiltinConstant): string {
+	const parts: string[] = [declarationBlock(constant.name)];
+
+	if (constant.doc) {
+		parts.push(constant.doc);
+	} else {
+		parts.push('PureBasic built-in constant.');
+	}
+
+	if (constant.commands.length > 0) {
+		const shown = constant.commands.slice(0, 12);
+		const rest = constant.commands.length - shown.length;
+		parts.push(
+			`Used by ${shown.map((name) => `\`${name}\``).join(', ')}${rest > 0 ? `, and ${rest} more` : ''}.`,
+		);
+	}
 	return parts.join('\n\n');
 }
 

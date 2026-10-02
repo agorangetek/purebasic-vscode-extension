@@ -13,6 +13,8 @@ import {
 	builtinCount,
 	builtinSource,
 	canonicalKeyword,
+	constantCount,
+	constantSource,
 	extraKeywords,
 	generatedKeywordCanonical,
 	setExtraKeywords,
@@ -1115,7 +1117,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
 			const stats = index.stats();
 			output.show(true);
 			output.appendLine(
-				`built-ins: ${builtinCount()} (${builtinSource()}); indexed: ${stats.files} files, ${stats.symbols} symbols`,
+				`built-ins: ${builtinCount()} (${builtinSource()}); constants: ${constantCount()} (${constantSource()}); ` +
+					`indexed: ${stats.files} files, ${stats.symbols} symbols`,
 			);
 		}),
 		vscode.commands.registerCommand('purebasic.diagnoseCompletion', () => {

@@ -103,6 +103,32 @@ export interface PbBuiltin {
 	signatures?: PbBuiltinSignature[];
 }
 
+/**
+ * A constant the language or a library defines, from the manual's overview of
+ * built-in constants (`tools/gen-constants.mjs`).  Unlike a `PbBuiltin` it is
+ * always written with its `#`, so the name carries one.
+ */
+export interface PbBuiltinConstant {
+	/** The name as it is written, `#` and all: `#PB_Structure_AlignC`. */
+	name: string;
+	/**
+	 * The commands the manual lists as using the constant.  The manual's table
+	 * has no description of its own, so this is what its hover has to show.
+	 */
+	commands: string[];
+	/**
+	 * What the constant is.  Only the language constants carry one; the
+	 * manual's table says who uses a constant and nothing more.
+	 */
+	doc?: string;
+}
+
+export interface PbConstantData {
+	source: string;
+	count: number;
+	items: PbBuiltinConstant[];
+}
+
 /** A folding block: what opens it and the terminator(s) that close it. */
 export interface PbBlock {
 	/** The word(s) that open the block, e.g. "Procedure", "ForEach". */

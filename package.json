@@ -2,7 +2,7 @@
 	"name": "purebasic",
 	"displayName": "PureBasic",
 	"description": "PureBasic language support for Visual Studio Code: code completion, hover, signature help and document outline.",
-	"version": "1.0.15",
+	"version": "1.0.16",
 	"publisher": "agorangetek",
 	"license": "MIT",
 	"engines": {
@@ -70,7 +70,7 @@
 				"purebasic.completion.builtins": {
 					"type": "boolean",
 					"default": true,
-					"description": "Offer built-in library commands (MessageRequester, AddElement, ...) in completion."
+					"description": "Offer built-in library commands (MessageRequester, AddElement, ...) and built-in constants (#PB_Structure_AlignC, #True, ...) in completion."
 				},
 				"purebasic.completion.snippets": {
 					"type": "boolean",
@@ -398,10 +398,12 @@
 	},
 	"scripts": {
 		"gen-data": "node tools/gen-data.mjs",
+		"gen-constants": "node tools/gen-constants.mjs",
 		"gen-grammar": "node tools/gen-grammar.mjs",
 		"gen-builtins-ts": "node tools/gen-builtins-ts.mjs",
 		"check:data": "node tools/gen-data.mjs --check",
-		"generate": "npm run gen-data && npm run gen-grammar",
+		"check:constants": "node tools/gen-constants.mjs --check",
+		"generate": "npm run gen-data && npm run gen-constants && npm run gen-grammar",
 		"build": "node tools/gen-grammar.mjs && node tools/gen-builtins-ts.mjs && node esbuild.mjs",
 		"watch": "node esbuild.mjs --watch",
 		"typecheck": "tsc --noEmit",
