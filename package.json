@@ -2,7 +2,7 @@
 	"name": "purebasic",
 	"displayName": "PureBasic",
 	"description": "PureBasic language support for Visual Studio Code: code completion, hover, signature help and document outline.",
-	"version": "1.0.14",
+	"version": "1.0.15",
 	"publisher": "agorangetek",
 	"license": "MIT",
 	"engines": {
@@ -141,7 +141,7 @@
 						"A shared library (`-dl`, `/DLL`): `.dylib` on macOS, `.so` on Linux, `.dll` on Windows."
 					],
 					"default": "windowed",
-					"description": "The format Compile writes. The IDE's three choices, under names that make sense on every platform."
+					"description": "The format Compile to Executable writes. The IDE's three choices, under names that make sense on every platform. Run and Debug build the ordinary application as the IDE's Compile/Run does, so a library is only ever written by Compile."
 				},
 				"purebasic.compiler.subsystem": {
 					"type": "string",

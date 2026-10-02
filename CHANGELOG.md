@@ -4,6 +4,23 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.15] - 2026-10-02
+
+### Fixed
+
+- **A source whose executable format is a shared library still runs from the
+  editor, in debug and out of it.** `purebasic.compiler.executableFormat` is a
+  choice about what Compile to Executable writes, and the IDE honours it only
+  there: its Compile/Run and Debug paths never ask the compiler for a library.
+  This extension was handing `-dl` (or `/DLL`) to a Run and a Debug as well, so
+  what came back was a `.dylib`, `.so` or `.dll` that the system refused to
+  start -- `cannot execute binary file` on macOS, with nothing after it. Run,
+  Run in a Terminal and Debug now read the setting the way the IDE reads it: a
+  source set to a library is built as the ordinary application -- the debugger
+  in it when the debugger is on -- so its top-level code and `Debug` output run
+  as they do in the IDE. Compile to Executable is untouched and still writes the
+  library, with the extension and filter the platform wants.
+
 ## [1.0.14] - 2026-09-30
 
 ### Changed

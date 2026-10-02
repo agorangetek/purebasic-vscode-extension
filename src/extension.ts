@@ -40,6 +40,7 @@ import {
 	placeBuiltFile,
 	resolveCompiler,
 	runCompiler,
+	runSettings,
 	stagedOutputFor,
 	hostPlatform,
 	launcherCommand,
@@ -770,7 +771,7 @@ async function runOrDebug(): Promise<void> {
 		// built here, before any session exists: a build that fails is the
 		// editor's business -- the line underlined, the compiler's log in the
 		// terminal -- and a session that failed to launch would say so in a box
-		const settings = compilerSettings();
+		const settings = runSettings(compilerSettings());
 		const platform = hostPlatform();
 		const target = debugOutputFor(document.uri.fsPath, platform);
 		const build = await buildFile(document, settings, platform, target);
@@ -824,7 +825,7 @@ function debuggingRequested(): boolean {
  * runs in the build terminal rather than not at all.
  */
 async function runInPanel(document: vscode.TextDocument): Promise<void> {
-	const settings = compilerSettings();
+	const settings = runSettings(compilerSettings());
 	const platform = hostPlatform();
 	const source = document.uri.fsPath;
 	const cwd = dirname(source);
@@ -858,7 +859,7 @@ async function runInPanel(document: vscode.TextDocument): Promise<void> {
  * but the command is here for when it is what is wanted.
  */
 async function runInTerminal(document: vscode.TextDocument): Promise<void> {
-	const settings = compilerSettings();
+	const settings = runSettings(compilerSettings());
 	const platform = hostPlatform();
 	const source = document.uri.fsPath;
 	const cwd = dirname(source);
@@ -1636,6 +1637,11 @@ async function buildForDebug(
 	settings: CompilerSettings,
 	target: string,
 ): Promise<{ ok: boolean; command: string; output: string }> {
+	// a session is a run, so the executable format is read the way a run reads
+	// it: a debug build of a source set to a library still has to be a program
+	// the OS will start, whichever way this session was configured
+	settings = runSettings(settings);
+
 	// a session started by the play button is started a moment after that button
 	// built the very same executable: building it again would only be slower
 	if (lastBuild && lastBuild.source === source && lastBuild.target === target && Date.now() - lastBuild.at < 15000) {

@@ -54,6 +54,21 @@ export interface CompilerSettings {
 }
 
 /**
+ * The settings a Run or a Debug builds with.
+ *
+ * `executableFormat` is a choice about what Compile to Executable writes, and
+ * the IDE honours it only there: its compile/run path asks the compiler for a
+ * program with the debugger in it and never for a library -- a `.dylib`, `.so`
+ * or `.dll` is not something the OS will start.  Running a source whose format
+ * is a library therefore builds the ordinary application, which is what makes
+ * the top-level code and `Debug` output run in the IDE; the format only comes
+ * back into it when the build is written somewhere.
+ */
+export function runSettings(settings: CompilerSettings): CompilerSettings {
+	return settings.executableFormat === 'library' ? { ...settings, executableFormat: 'windowed' } : settings;
+}
+
+/**
  * Where a Run builds its temporary executable.
  *
  * Named after the source and its directory, so two files called `test.pb` do not
