@@ -4,6 +4,22 @@ All notable changes to the "purebasic" extension will be documented in this file
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.17] - 2026-10-02
+
+### Fixed
+
+- **Completion no longer offers symbols from a file the open file does not
+  include.** The include graph was followed as one undirected walk, which
+  answers with the whole weakly connected component: two programs that each
+  include the same file -- `main1.pb -> common.pbi <- main2.pb` -- came out as a
+  single group, so editing `main1.pb` offered `main2.pb`'s procedures and
+  `main2.pb` offered `main1.pb`'s, neither of which the compiler would ever see
+  when building the other. The includer direction is now followed only to find
+  the builds the open file takes part in, and the include direction from each of
+  those, so a chain `A -> B -> C` still shows all three whichever of them is
+  open, and a shared file still sees every build that includes it, but two
+  separate mains that share one file stay separate.
+
 ## [1.0.16] - 2026-10-02
 
 ### Fixed

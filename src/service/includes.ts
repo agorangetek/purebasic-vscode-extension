@@ -7,10 +7,13 @@
  * included file lands in the same unit.  The editor works file by file instead,
  * so this graph is what decides which files may reference each other.
  *
- * Directions are followed both ways.  A file that is included by a main file is
- * part of that main file's program, so while it is being edited the symbols of
- * the whole group are offered: in a chain A -> B -> C, A, B and C all suggest
- * each other's symbols.
+ * Both ways, but not as one undirected walk.  A file that is included by a main
+ * file is part of that main file's program, so while it is being edited the
+ * symbols of that main file's whole unit are offered: in a chain A -> B -> C,
+ * A, B and C all suggest each other's symbols whichever of them is open.  Two
+ * separate mains that each include the same file are two programs, not one, so
+ * the include edges are never followed in both directions from one point -- see
+ * includeGroup.
  *
  * Verified against pbcompiler 6.41: a nested include resolves relative to the
  * file that writes the statement (not the root file), and an IncludePath is
@@ -132,10 +135,23 @@ export function uriForPath(pool: DocumentPool, path: string): string | undefined
 let cachedGroup: { key: string; group: Set<string> } | undefined;
 
 /**
- * Every file that shares a translation unit with `root`: what it includes, what
- * includes it, and so on through the chain in either direction.  Bounded by
- * `limit` so a pathological project cannot make a completion request walk the
- * whole disk.
+ * Every file that shares a translation unit with `root`.
+ *
+ * The unit is the one the compiler builds from a root file: from `root`,
+ * everything it includes, directly or through further includes.  A file that
+ * includes `root` belongs to the unit too -- that file is the root of a build
+ * `root` takes part in -- so the unit of every such file is added as well.
+ *
+ * What is deliberately not here is the same walk with the include edges
+ * followed in both directions.  That returns the whole weakly connected
+ * component, and two independent programs that happen to include one common
+ * file would then see each other's symbols: `main1 -> common <- main2` is two
+ * translation units, not one.  The includer direction is therefore followed
+ * only to find the builds `root` belongs to, and the include direction is
+ * followed from each of those.
+ *
+ * Bounded by `limit` so a pathological project cannot make a completion request
+ * walk the whole disk.
  */
 export function includeGroup(root: string, pool: DocumentPool, limit = 400): Set<string> {
 	const key =
@@ -145,14 +161,16 @@ export function includeGroup(root: string, pool: DocumentPool, limit = 400): Set
 	}
 
 	const searchPaths = includeSearchPaths(pool);
-	const neighbours = new Map<string, Set<string>>();
-	const link = (a: string, b: string) => {
-		let set = neighbours.get(a);
+	/** uri -> the files it includes, and the file -> the files that include it. */
+	const includesOf = new Map<string, Set<string>>();
+	const includersOf = new Map<string, Set<string>>();
+	const setOf = (map: Map<string, Set<string>>, owner: string): Set<string> => {
+		let set = map.get(owner);
 		if (!set) {
 			set = new Set<string>();
-			neighbours.set(a, set);
+			map.set(owner, set);
 		}
-		set.add(b);
+		return set;
 	};
 
 	for (const uri of pool.uris()) {
@@ -161,23 +179,44 @@ export function includeGroup(root: string, pool: DocumentPool, limit = 400): Set
 			for (const candidate of resolveIncludeTargets(pathOfUri(uri), target, searchPaths)) {
 				const found = uriForPath(pool, candidate);
 				if (found === undefined || found === uri) continue;
-				link(uri, found);
-				link(found, uri);
+				setOf(includesOf, uri).add(found);
+				setOf(includersOf, found).add(uri);
 				break;
 			}
 		}
 	}
 
-	const group = new Set<string>([root]);
-	const queue: string[] = [root];
-	while (queue.length > 0 && group.size < limit) {
-		const current = queue.shift()!;
-		for (const next of neighbours.get(current) ?? []) {
-			if (group.has(next)) continue;
-			group.add(next);
-			queue.push(next);
+	// the builds `root` takes part in: itself, and everything that reaches it by
+	// including, directly or through further includes
+	const seeds = new Set<string>([root]);
+	const back: string[] = [root];
+	while (back.length > 0 && seeds.size < limit) {
+		const current = back.shift()!;
+		for (const includer of includersOf.get(current) ?? []) {
+			if (seeds.has(includer)) continue;
+			seeds.add(includer);
+			back.push(includer);
 		}
 	}
+
+	// and everything each of those builds reaches by including
+	const group = new Set<string>();
+	for (const seed of seeds) {
+		if (group.size >= limit) break;
+		// an earlier seed already walked this one's includes
+		if (group.has(seed)) continue;
+		const queue: string[] = [seed];
+		group.add(seed);
+		while (queue.length > 0 && group.size < limit) {
+			const current = queue.shift()!;
+			for (const included of includesOf.get(current) ?? []) {
+				if (group.has(included)) continue;
+				group.add(included);
+				queue.push(included);
+			}
+		}
+	}
+
 	if (key !== undefined) cachedGroup = { key, group };
 	return group;
 }
